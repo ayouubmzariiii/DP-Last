@@ -53,7 +53,7 @@ INTEGRATION DANS L'ENVIRONNEMENT
         const response = await fetch(invoke_url, {
             method: 'POST',
             headers: {
-                "Authorization": "Bearer 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",
+                "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
                 "Content-Type": "application/json",
                 "Accept": "application/json"
             },
