@@ -1,69 +1,67 @@
-# DP Last - Automated Urbanism Document Generator
+# DP Last - Comprehensive Urbanism Automation Suite
 
-DP Last is a modern web application designed to streamline the creation of French urbanism documents, specifically **Déclaration Préalable (DP)** and **CERFA 13703*** forms. It leverages AI to automate complex descriptive tasks and features a brutalist, street-food inspired aesthetic.
+DP Last is a high-performance web platform designed to automate the complex process of filing **Déclarations Préalables (DP)** for architectural and renovation projects in France. By centralizing data entry, automating PDF mapping, and leveraging AI for descriptive notice generation, DP Last reduces the time required to prepare a compliant file from hours to minutes.
 
-## 🚀 Key Features
+## 🎯 Project Purpose
 
-- **AI-Powered DP4 Generation**: Uses the Mistral-14B model via NVIDIA's API to analyze project details and uploaded photos to generate professional architectural notices.
-- **Automated CERFA Mapping**: Automatically populates complex PDF forms based on user input, minimizing manual entry errors.
-- **Dynamic PDF Generation**: Generates clean, compliant architectural documents with custom branding and styling.
-- **Test Mode**: A dedicated toggle for developers and demonstrators to instantly populate the form with dummy data.
-- **Brutalist UI**: A high-impact, premium user interface designed for speed and clarity.
+The primary goal of DP Last is to lower the barrier to entry for urban planning compliance. Navigating the French administration's requirements (like the CERFA 13703* and the DP4 descriptive notice) is notoriously difficult for non-experts. This project provides a structured, multi-step workflow that guides the user through every legal requirement, ensuring that the final output is accurate, professional, and ready for submission to the town hall (Mairie).
+
+## 🗺️ The Application Flow
+
+The application is structured into 6 logical steps, each designed to collect and process specific data points required by the administration:
+
+### 1. Identité (Identity)
+The system collects legally binding information about the applicant. 
+- **Personal vs. Corporate**: Handles both individual citizens and legal entities (Sociétés).
+- **Automation**: Distinguishes between 'Demandeur' and 'Représentant' to ensure the CERFA is populated according to strict administrative rules.
+
+### 2. Coordonnées (Coordinates & Terrain)
+Collects specific details about the project site.
+- **Cadastral Integration**: Captures prefix, section, and parcel numbers essential for plot identification.
+- **Dynamic Previews**: Integrates map views to help users verify the exact location of their project.
+
+### 3. Travaux (Work Description & Surfaces)
+The core technical engine of the application.
+- **Project Scope**: Handles various work types (Rénovations, Facades, Toitures, etc.).
+- **Surface Tracking**: Automatically tracks "Surface Existante", "Surface Créée", and "Surface Supprimée" to calculate the project's tax implications and feasibility.
+- **Project Descriptions**: Collects initial descriptions that will later be tuned by AI.
+
+### 4. Pièces Jointes (Photos & Plans)
+A centralized file management system for visual proof.
+- **Slot-Based Uploads**: Users provide "Avant" (Before) photos of all facades (North, South, East, West).
+- **Vision Preparation**: These images are utilized by the AI Vision engine in the next step to understand the architectural context.
+
+### 5. Notice DP4 (AI Generation)
+Where the heavy lifting happens.
+- **Vision AI Analysis**: Using the Mistral-14B model (via NVIDIA NIM), the system "sees" the uploaded photos and the project data.
+- **Professional Drafting**: It automatically drafts the "Notice Descriptive" (DP4), explaining the initial state and how the project integrates into the urban environment using professional architectural vocabulary.
+
+### 6. Génération (Finalization)
+The final assembly line.
+- **Legal Engagement**: Captures the final "Engagement du Déclarant" (Signature details, date, and place).
+- **PDF Compilation**: The system maps all collected data onto the official CERFA 13703* PDF and generates the supplementary DP documents.
+
+## 🧱 Key Features
+
+- **Test Mode**: A developer-focused toggle in the header that instantly populates all steps with valid dummy data for rapid testing and demonstrations.
+- **Brutalist Design System**: A high-contrast, premium aesthetic that prioritizes clarity and speed.
+- **Universal .gitignore**: Optimized to exclude build artifacts (`.next`, `node_modules`) while preserving essential configuration templates.
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [Next.js](https://nextjs.org/) (App Router)
-- **Styling**: Tailwind CSS / Vanilla CSS
-- **AI Integration**: Mistral-14B (Vision & Text) via [NVIDIA NIM](https://www.nvidia.com/en-us/ai/)
-- **PDF Manipulation**: [pdf-lib](https://pdf-lib.js.org/)
-- **Icons & UI**: Lucide React / Custom Brutalist Components
+- **Next.js 14** (App Router)
+- **Tailwind CSS** & Vanilla CSS Custom Variables
+- **Mistral-14B Instruct** (via NVIDIA NIM)
+- **pdf-lib** for pixel-perfect administrative form mapping
+
+---
 
 ## 🏁 Getting Started
 
-### Prerequisites
+1. **Clone**: `git clone https://github.com/ayouubmzariiii/DP-Last.git`
+2. **Install**: `npm install`
+3. **Env**: Create `.env.local` with `NVIDIA_API_KEY`.
+4. **Dev**: `npm run dev`
 
-- Node.js 18.x or later
-- npm or yarn
-- An NVIDIA API Key (for DP4 AI generation)
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/ayouubmzariiii/DP-Last.git
-   cd DP-Last
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**:
-   Create a `.env.local` file in the root directory and add your API keys:
-   ```env
-   NVIDIA_API_KEY=your_nvidia_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
-   ```
-
-4. **Run the development server**:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## 📖 Usage
-
-1. **Information Identity**: Enter the applicant's details (Individual or Company).
-2. **Terrain & Address**: Specify where the work will take place.
-3. **Travaux**: Describe the project and specific surfaces (Existante, Créée, Supprimée).
-4. **Photos & Plans**: Upload project photos to power the AI vision analysis.
-5. **Génération**: Trigger the AI to write your DP4 notice and download the final signed PDFs.
-
-## 🧪 Test Mode
-
-For rapid testing, toggle **"Test Mode"** in the navigation bar. This will fill all form fields with valid dummy data, allowing you to jump straight to the generation step.
-
-## 📄 License
-
-Proprietary. All rights reserved.
+---
+Copyright © 2024 DP Last. All rights reserved.
