@@ -16,14 +16,53 @@ interface PhotoUploadProps {
     badge?: string
 }
 
+const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.readAsDataURL(file)
+        reader.onload = (event) => {
+            const img = new Image()
+            img.src = event.target?.result as string
+            img.onload = () => {
+                const canvas = document.createElement('canvas')
+                let width = img.width
+                let height = img.height
+
+                if (width > maxWidth) {
+                    height = (maxWidth / width) * height
+                    width = maxWidth
+                }
+
+                canvas.width = width
+                canvas.height = height
+                const ctx = canvas.getContext('2d')
+                if (!ctx) {
+                    resolve(event.target?.result as string)
+                    return
+                }
+                ctx.drawImage(img, 0, 0, width, height)
+                resolve(canvas.toDataURL('image/jpeg', quality))
+            }
+            img.onerror = () => resolve(event.target?.result as string)
+        }
+        reader.onerror = () => reject(new Error('Failed to read file'))
+    })
+}
+
 function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }: PhotoUploadProps) {
     const inputRef = useRef<HTMLInputElement>(null)
 
-    const handleFile = (file: File | null) => {
+    const handleFile = async (file: File | null) => {
         if (!file) return
-        const reader = new FileReader()
-        reader.onload = e => onChange(e.target?.result as string)
-        reader.readAsDataURL(file)
+        try {
+            const compressed = await compressImage(file)
+            onChange(compressed)
+        } catch (err) {
+            console.error('Compression failed', err)
+            const reader = new FileReader()
+            reader.onload = e => onChange(e.target?.result as string)
+            reader.readAsDataURL(file)
+        }
     }
 
     const handleDrop = (e: React.DragEvent) => {
