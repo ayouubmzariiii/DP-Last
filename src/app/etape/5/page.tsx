@@ -286,10 +286,13 @@ function Dp3Panel({ commune, surface, travaux, value, onChange }: {
                 onChange(data.imageUrl)
                 setMode('ai')
             } else {
-                alert('Génération IA non disponible pour le moment. Prompt affiché dans la console (F12).')
+                const text = await res.text()
+                console.error('DP3 AI API error:', text)
+                alert(text.includes('504 Gateway Timeout') ? 'Délai dépassé (504).' : 'Génération IA non disponible pour le moment.')
             }
-        } catch {
-            alert('Génération IA non disponible. Prompt affiché dans la console (F12).')
+        } catch (err: any) {
+            console.error('DP3 Generation Error:', err.message || err)
+            alert('Génération IA non disponible. Consultez la console (F12).')
         } finally {
             setAiLoading(false)
         }
@@ -447,6 +450,12 @@ CONTRAINTES STRICTES :
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, imageBase64 }),
             })
+
+            if (!res.ok) {
+                const text = await res.text()
+                throw new Error(text.includes('504 Gateway Timeout') ? 'Délai dépassé (504): La génération prend trop de temps.' : text.slice(0, 100))
+            }
+
             const data = await res.json()
             const imageUrl = data.imageBase64 || data.imageUrl
             if (imageUrl) {
@@ -454,9 +463,11 @@ CONTRAINTES STRICTES :
                 setAiGenerated(true)
             } else {
                 console.error('AI generation failed:', data.error)
+                alert('La génération a échoué: ' + (data.error || 'Erreur inconnue'))
             }
-        } catch (err) {
-            console.error('AI generation failed:', err)
+        } catch (err: any) {
+            console.error('AI generation failed:', err.message || err)
+            alert('Erreur: ' + (err.message || String(err)))
         } finally {
             setIsGeneratingAI(false)
         }
@@ -492,12 +503,22 @@ CONSTRAINTES STRICTES :
                     imageBase64: currentImage.startsWith('data:') ? currentImage : undefined,
                 }),
             })
+
+            if (!res.ok) {
+                const text = await res.text()
+                throw new Error(text.includes('504 Gateway Timeout') ? 'Délai dépassé (504): La génération prend trop de temps.' : text.slice(0, 100))
+            }
+
             const data = await res.json()
             const newImage = data.imageBase64 || data.imageUrl
             if (newImage) updatePhotos({ facade_apres_ai: newImage })
-            else console.error('Edit failed:', data.error)
-        } catch (err) {
-            console.error('AI edit failed:', err)
+            else {
+                console.error('Edit failed:', data.error)
+                alert('La modification a échoué: ' + (data.error || 'Erreur inconnue'))
+            }
+        } catch (err: any) {
+            console.error('AI edit failed:', err.message || err)
+            alert('Erreur: ' + (err.message || String(err)))
         } finally {
             setIsEditingAI(false)
         }
@@ -525,15 +546,23 @@ CONSTRAINTES STRICTES :
                     photos: photosPayload
                 }),
             })
+
+            if (!res.ok) {
+                const text = await res.text()
+                throw new Error(text.includes('504 Gateway Timeout') ? 'Délai dépassé (504).' : text.slice(0, 100))
+            }
+
             const data = await res.json()
             if (data.dp4) {
                 setDp4Notice(data.dp4)
                 updatePlans({ dp4_notice: data.dp4 })
             } else {
                 console.error('Failed to generate DP4:', data.error)
+                alert('La génération a échoué: ' + (data.error || 'Erreur inconnue'))
             }
-        } catch (err) {
-            console.error('DP4 generation failed:', err)
+        } catch (err: any) {
+            console.error('DP4 generation failed:', err.message || err)
+            alert('Erreur: ' + (err.message || String(err)))
         } finally {
             setIsGeneratingDP4(false)
         }
