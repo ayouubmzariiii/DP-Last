@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateDPDocument } from '@/lib/dpDocGenerator'
 import { DPFormData } from '@/lib/models'
 
+export const maxDuration = 60;
+
+// Need to allow large payloads for base64 images
+export const maxBodyLength = 50 * 1024 * 1024; // Used by some environments
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
     try {
         const data: DPFormData = await req.json()
