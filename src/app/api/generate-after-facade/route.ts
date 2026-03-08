@@ -3,6 +3,8 @@ import OpenAI, { toFile } from 'openai'
 import sharp from 'sharp'
 import { Readable } from 'stream'
 
+export const maxDuration = 60;
+
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 async function base64ToPngBuffer(imageBase64: string): Promise<Buffer> {
@@ -19,22 +21,9 @@ async function base64ToPngBuffer(imageBase64: string): Promise<Buffer> {
         rawBuffer = Buffer.from(imageBase64, 'base64')
     }
 
-    // Pre-pass: normalize any format (WebP, JPEG, AVIF…) to raw pixel data
-    // so sharp doesn't choke on unsupported input during resize
-    const normalized = await sharp(rawBuffer)
+    // Optimized: single pipeline for rotation, resize, and conversion
+    return sharp(rawBuffer)
         .rotate()          // auto-orient EXIF
-        .ensureAlpha()     // force RGBA so PNG encoder is happy
-        .raw()
-        .toBuffer({ resolveWithObject: true })
-
-    // gpt-image-1 edit: resize to 1536×1024 landscape, output PNG
-    return sharp(normalized.data, {
-        raw: {
-            width: normalized.info.width,
-            height: normalized.info.height,
-            channels: normalized.info.channels as 1 | 2 | 3 | 4,
-        }
-    })
         .resize(1536, 1024, { fit: 'cover', position: 'centre' })
         .png()
         .toBuffer()
@@ -55,11 +44,8 @@ export async function POST(req: NextRequest) {
             const stream = Readable.from(pngBuffer)
             const imageFile = await toFile(stream, 'facade.png', { type: 'image/png' })
 
-            console.log('--- CALLING OPENAI EDIT API ---')
-            console.log('Model: gpt-image-1')
-            console.log('Size: 1536x1024')
-            console.log('Prompt:', prompt)
-
+            console.log('--- CALLING AI EDIT API ---')
+            const startTime = Date.now()
             const response = await client.images.edit({
                 model: 'gpt-image-1',
                 image: imageFile,
@@ -69,8 +55,8 @@ export async function POST(req: NextRequest) {
                 input_fidelity: 'high',
                 n: 1,
             })
-
-            console.log('--- OPENAI RESPONSE RECEIVED ---')
+            const endTime = Date.now()
+            console.log(`--- AI RESPONSE RECEIVED (${endTime - startTime}ms) ---`)
 
             const b64 = response.data?.[0]?.b64_json
             if (b64) return NextResponse.json({ imageBase64: `data:image/png;base64,${b64}` })
