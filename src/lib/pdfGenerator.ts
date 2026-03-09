@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, PageSizes } from 'pdf-lib'
 import { DPFormData } from './models'
+import path from 'path'
 
 // ─── French transliteration (no accented chars in PDF StandardFonts) ─────────
 function s(text: string): string {
@@ -28,30 +29,36 @@ function s(text: string): string {
 
 /**
  * Generates the Cerfa 13703* PDF by loading the base PDF and filling all fields.
- * Falls back gracefully if the base PDF is not found.
+ * Reads cerfa.pdf directly from the filesystem (server) or via fetch (browser).
  */
 export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
     const { demandeur, terrain, travaux } = data
 
     try {
-        // Load the base Cerfa PDF
-        const baseUrl = typeof window !== 'undefined'
-            ? '/cerfa.pdf'
-            : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cerfa.pdf`
+        let pdfBytes: ArrayBuffer
 
-        let pdfDoc: PDFDocument
-        let usingBaseForm = false
-
-        try {
-            const response = await fetch(baseUrl)
-            if (!response.ok) throw new Error(`HTTP ${response.status}`)
-            const pdfBytes = await response.arrayBuffer()
-            pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
-            usingBaseForm = true
-        } catch {
-            console.warn('[CERFA] Base PDF not found, using fallback generator')
-            return generateFallbackCerfa(data)
+        if (typeof window === 'undefined') {
+            // ── Server-side: read directly from filesystem ────────────────
+            const fs = await import('fs/promises')
+            const filePath = path.join(process.cwd(), 'public', 'cerfa.pdf')
+            try {
+                const buf = await fs.readFile(filePath)
+                pdfBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
+            } catch (e) {
+                console.error('[CERFA] cerfa.pdf not found at', filePath, e)
+                return generateFallbackCerfa(data)
+            }
+        } else {
+            // ── Client-side: fetch from server ────────────────────────────
+            const response = await fetch('/cerfa.pdf')
+            if (!response.ok) {
+                console.warn('[CERFA] Base PDF fetch failed:', response.status)
+                return generateFallbackCerfa(data)
+            }
+            pdfBytes = await response.arrayBuffer()
         }
+
+        const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
 
         const form = pdfDoc.getForm()
 
@@ -291,13 +298,11 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         checkBox('dp8_1_checkbox', false)
         checkBox('dp11_checkbox', !!ph.facade_apres_ai) // Using 'après' AI for DP11 simulation
 
-        // Log which fields were actually set for debugging
-        console.log('[CERFA] Fields set. Using base form:', usingBaseForm)
-        console.log('[CERFA] demandeur.date_naissance:', demandeur.date_naissance)
+        // Log key fields for debugging
+        console.log('[CERFA] Fields set. demandeur.date_naissance:', demandeur.date_naissance)
         console.log('[CERFA] demandeur.lieu_naissance:', demandeur.lieu_naissance)
 
-        // Make fields read-only instead of flattening to avoid pdf-lib 'Unexpected N type' errors on custom checkboxes
-        // Make fields read-only instead of flattening to avoid pdf-lib 'Unexpected N type' errors on custom checkboxes
+        // Make fields read-only to avoid pdf-lib 'Unexpected N type' errors on custom checkboxes
         const fields = form.getFields()
         fields.forEach(field => {
             try {

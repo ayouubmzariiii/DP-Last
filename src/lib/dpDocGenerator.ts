@@ -529,62 +529,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         if (vectorData && vectorData.cadastre && vectorData.cadastre.features && maxMapH > 80) {
             // ── Professional architectural plan rendering ──────────────────
 
-            const bboxParts = vectorData.bboxStr.split(',').map(Number)
-            const minX = bboxParts[0], minY = bboxParts[1], maxX = bboxParts[2], maxY = bboxParts[3]
-            const mapSrcW = maxX - minX
-            const mapSrcH = maxY - minY
-
-            const scale = Math.min(cW / mapSrcW, maxMapH / mapSrcH)
-            const drawW = mapSrcW * scale
-            const drawH = mapSrcH * scale
-            const startX = M + (cW - drawW) / 2
-            const startY = y - drawH
-
-            // Map EPSG:3857 → PDF units
-            const mc = (gx: number, gy: number) => ({
-                x: startX + (gx - minX) * scale,
-                y: startY + (gy - minY) * scale,
-            })
-
-            const toSvgPath = (rings: number[][][]) => {
-                let path = ''
-                for (const ring of rings) {
-                    if (!ring || ring.length < 3) continue
-                    for (let i = 0; i < ring.length; i++) {
-                        const p = mc(ring[i][0], ring[i][1])
-                        path += (i === 0 ? `M ${p.x.toFixed(2)} ${p.y.toFixed(2)} ` : `L ${p.x.toFixed(2)} ${p.y.toFixed(2)} `)
-                    }
-                    path += 'Z '
-                }
-                return path.trim()
-            }
-
-            const getCoordArrays = (feat: any) => {
-                const t = feat.geometry?.type
-                if (t === 'Polygon') return feat.geometry.coordinates
-                if (t === 'MultiPolygon') return feat.geometry.coordinates.flat(1)
-                return []
-            }
-
-            // 1. Grey road background  
-            box(page, startX, startY, drawW, drawH, rgb(0.88, 0.88, 0.88), C.dark, 0.8)
-
-            // 2. Draw cadastral parcels (white interior fills + grey boundary lines)
-            const featuresC = vectorData.cadastre.features || []
-            for (const feat of featuresC) {
-                const rings = getCoordArrays(feat)
-                const path = toSvgPath(rings)
-                if (!path) continue
-                try {
-                    page.drawSvgPath(path, {
-                        color: rgb(0.97, 0.97, 0.95),     // off-white parcel interior
-                        borderColor: rgb(0.6, 0.6, 0.6),  // grey boundary
-                        borderWidth: 0.5,
-                    })
-                } catch { /* ignore bad paths */ }
-            }
-
-            // 3. Compute centre point (Web Mercator)
+            // Step 1: find target parcel (closest centroid to geocoded centre)
             let cx3857 = 0, cy3857 = 0, hasCenter = false
             if (coords) {
                 const R = 6378137
@@ -593,7 +538,14 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 hasCenter = true
             }
 
-            // 4. Find the target parcel (closest to center)
+            const featuresC = vectorData.cadastre.features || []
+            const getCoordArrays = (feat: any) => {
+                const t = feat.geometry?.type
+                if (t === 'Polygon') return feat.geometry.coordinates
+                if (t === 'MultiPolygon') return feat.geometry.coordinates.flat(1)
+                return []
+            }
+
             let targetParcel: any = null
             let minDist = Infinity
             if (hasCenter) {
@@ -609,66 +561,155 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 }
             }
 
-            // 5. Highlight target parcel with blue boundary + lighter fill
+            // Step 2: compute view bbox zoomed to target parcel + 20m padding
+            const PADDING = 20
+            let vMinX: number, vMinY: number, vMaxX: number, vMaxY: number
+
+            if (targetParcel) {
+                const ring = getCoordArrays(targetParcel)[0] as number[][]
+                let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
+                for (const c of ring) {
+                    if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
+                    if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
+                }
+                vMinX = bMinX - PADDING; vMinY = bMinY - PADDING
+                vMaxX = bMaxX + PADDING; vMaxY = bMaxY + PADDING
+            } else {
+                // Fallback to full bbox
+                const bboxParts = vectorData.bboxStr.split(',').map(Number)
+                vMinX = bboxParts[0]; vMinY = bboxParts[1]; vMaxX = bboxParts[2]; vMaxY = bboxParts[3]
+            }
+
+            const mapSrcW = vMaxX - vMinX
+            const mapSrcH = vMaxY - vMinY
+            const scale = Math.min(cW / mapSrcW, maxMapH / mapSrcH)
+            const drawW = mapSrcW * scale
+            const drawH = mapSrcH * scale
+            const startX = M + (cW - drawW) / 2
+            const startY = y - drawH
+
+            // Map EPSG:3857 → PDF units
+            const mc = (gx: number, gy: number) => ({
+                x: startX + (gx - vMinX) * scale,
+                y: startY + (gy - vMinY) * scale,
+            })
+
+            const toSvgPath = (rings: number[][][]) => {
+                let path = ''
+                for (const ring of rings) {
+                    if (!ring || ring.length < 3) continue
+                    for (let i = 0; i < ring.length; i++) {
+                        const p = mc(ring[i][0], ring[i][1])
+                        path += (i === 0 ? `M ${p.x.toFixed(2)} ${p.y.toFixed(2)} ` : `L ${p.x.toFixed(2)} ${p.y.toFixed(2)} `)
+                    }
+                    path += 'Z '
+                }
+                return path.trim()
+            }
+
+            // 1. Grey road background
+            box(page, startX, startY, drawW, drawH, rgb(0.88, 0.88, 0.88), C.dark, 0.8)
+
+            // 2. Draw all cadastral parcels
+            for (const feat of featuresC) {
+                const rings = getCoordArrays(feat)
+                const path = toSvgPath(rings)
+                if (!path) continue
+                try {
+                    page.drawSvgPath(path, {
+                        color: rgb(0.97, 0.97, 0.95),
+                        borderColor: rgb(0.6, 0.6, 0.6),
+                        borderWidth: 0.5,
+                    })
+                } catch { /* ignore bad paths */ }
+            }
+
+            // 3. Highlight target parcel
             if (targetParcel) {
                 const rings = getCoordArrays(targetParcel)
                 const path = toSvgPath(rings)
                 if (path) {
                     try {
-                        // Green garden zone (full fill first)
                         page.drawSvgPath(path, {
-                            color: rgb(0.82, 0.93, 0.78),   // green garden
-                            borderColor: rgb(0, 0.3, 0.8),  // blue boundary
+                            color: rgb(0.82, 0.93, 0.78),
+                            borderColor: rgb(0, 0.3, 0.8),
                             borderWidth: 1.8,
                         })
                     } catch { /* ignore */ }
                 }
             }
 
-            // 6. Draw BD TOPO buildings (dark grey fill simulating roof top view)
+            // 4. Compute target parcel bbox for building containment check
+            let tpMinX = -Infinity, tpMinY = -Infinity, tpMaxX = Infinity, tpMaxY = Infinity
+            if (targetParcel) {
+                const ring = getCoordArrays(targetParcel)[0] as number[][]
+                tpMinX = Infinity; tpMinY = Infinity; tpMaxX = -Infinity; tpMaxY = -Infinity
+                for (const c of ring) {
+                    if (c[0] < tpMinX) tpMinX = c[0]; if (c[0] > tpMaxX) tpMaxX = c[0]
+                    if (c[1] < tpMinY) tpMinY = c[1]; if (c[1] > tpMaxY) tpMaxY = c[1]
+                }
+            }
+
+            // 5. Draw BD TOPO buildings
             const featuresB = vectorData.bati?.features || []
             for (const feat of featuresB) {
                 const rings = getCoordArrays(feat)
                 const path = toSvgPath(rings)
                 if (!path) continue
                 try {
-                    // Outer shadow effect (slightly offset, darker)
-                    const shadow = toSvgPath(rings)
-                    page.drawSvgPath(shadow, {
-                        color: rgb(0.5, 0.5, 0.5),    // grey shadow base
-                        borderColor: rgb(0.3, 0.3, 0.3),
-                        borderWidth: 0,
-                    })
                     page.drawSvgPath(path, {
-                        color: rgb(0.65, 0.65, 0.65),  // mid-grey roof fill
+                        color: rgb(0.65, 0.65, 0.65),
                         borderColor: rgb(0.25, 0.25, 0.25),
                         borderWidth: 0.7,
                     })
                 } catch { /* ignore */ }
             }
 
-            // 7. Architectural dimension labels for target parcel sides
+            // 6. Dimension labels — only for buildings inside target parcel + only 2 longest parcel sides
+            // Buildings inside parcel — width × depth
+            for (const feat of featuresB) {
+                const rings = getCoordArrays(feat)
+                if (!rings || !rings[0]) continue
+                const ring = rings[0] as number[][]
+                let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
+                for (const c of ring) {
+                    if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
+                    if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
+                }
+                const bCx = (bMinX + bMaxX) / 2, bCy = (bMinY + bMaxY) / 2
+                if (bCx < tpMinX || bCx > tpMaxX || bCy < tpMinY || bCy > tpMaxY) continue
+                const wM = bMaxX - bMinX, hM = bMaxY - bMinY
+                if (wM < 1 && hM < 1) continue
+                // Width — below building
+                const bl = mc(bMinX, bMinY), br = mc(bMaxX, bMinY)
+                const tr = mc(bMaxX, bMaxY)
+                if (wM >= 1) dimLabel(page, font, bl.x, bl.y - 9, br.x, br.y - 9, `${wM.toFixed(1)} m`)
+                if (hM >= 1) dimLabel(page, font, br.x + 9, br.y, tr.x + 9, tr.y, `${hM.toFixed(1)} m`)
+            }
+
+            // Parcel: 2 longest sides only (blue)
             if (targetParcel) {
                 const rings = getCoordArrays(targetParcel)
                 if (rings && rings[0] && rings[0].length >= 4) {
                     const ring = rings[0] as number[][]
-                    for (let i = 0; i < Math.min(ring.length - 1, 6); i++) {
+                    const sides: { i: number; distM: number }[] = []
+                    for (let i = 0; i < ring.length - 1; i++) {
+                        const dx = ring[i + 1][0] - ring[i][0], dy = ring[i + 1][1] - ring[i][1]
+                        const distM = Math.sqrt(dx * dx + dy * dy)
+                        if (distM >= 3) sides.push({ i, distM })
+                    }
+                    sides.sort((a, b) => b.distM - a.distM)
+                    for (const { i, distM } of sides.slice(0, 2)) {
                         const p1 = mc(ring[i][0], ring[i][1])
                         const p2 = mc(ring[i + 1][0], ring[i + 1][1])
-                        const dx = ring[i + 1][0] - ring[i][0]
-                        const dy = ring[i + 1][1] - ring[i][1]
-                        const dist = Math.sqrt(dx * dx + dy * dy)
-                        if (dist < 2) continue
-                        const label = `${(dist).toFixed(1)} m`
-                        // Offset 12 PDF units outside the parcel
-                        const perpX = -(dy / dist) * 12
-                        const perpY = (dx / dist) * 12
-                        dimLabel(page, font, p1.x + perpX, p1.y + perpY, p2.x + perpX, p2.y + perpY, label)
+                        const perpX = -(ring[i + 1][1] - ring[i][1]) / distM * 12
+                        const perpY = (ring[i + 1][0] - ring[i][0]) / distM * 12
+                        dimLabel(page, font, p1.x + perpX, p1.y + perpY, p2.x + perpX, p2.y + perpY, `${distM.toFixed(1)} m`)
                     }
                 }
             }
 
-            // 8. Target crosshair + compass rose
+            // 7. Target crosshair + compass rose
             if (hasCenter) {
                 const cPx = mc(cx3857, cy3857)
                 target(page, cPx.x, cPx.y, 12)
