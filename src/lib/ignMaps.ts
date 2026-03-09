@@ -53,3 +53,22 @@ export function getIGNMapUrl(type: 'DP1' | 'DP2', coords: MapCoords): string {
         return `${baseUrl}&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS,CADASTRALPARCELS.PARCELS&FORMAT=image/png&BBOX=${bbox}&ts=${timestamp}`;
     }
 }
+
+export async function getVectorMapData(coords: MapCoords, radiusMeters: number) {
+    const bboxStr = getBBox3857(coords.lat, coords.lon, radiusMeters);
+    const baseUrl = 'https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&OUTPUTFORMAT=application/json&srsName=EPSG:3857';
+
+    const urlCadastre = `${baseUrl}&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle&BBOX=${bboxStr},EPSG:3857`;
+    const urlBati = `${baseUrl}&TYPENAMES=BDTOPO_V3:batiment&BBOX=${bboxStr},EPSG:3857`;
+
+    try {
+        const [resCad, resBati] = await Promise.all([
+            fetch(urlCadastre, { headers: { 'User-Agent': 'DP-Travaux-Generator/1.0' } }).then(r => r.json()),
+            fetch(urlBati, { headers: { 'User-Agent': 'DP-Travaux-Generator/1.0' } }).then(r => r.json())
+        ]);
+        return { cadastre: resCad, bati: resBati, bboxStr };
+    } catch (e) {
+        console.error('WFS Vector error:', e);
+        return null;
+    }
+}

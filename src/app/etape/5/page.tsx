@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
-import { generateAIAfterImage } from '@/lib/aiImageGenerator'
+import { generateAIAfterImage, generateAICroquis } from '@/lib/aiImageGenerator'
 
 const MAX_IMG_SIZE = 1.5 * 1024 * 1024 // 1.5MB to save bandwidth for Nemotron
+
 
 function MapCard({
     title, code, address, commune, color = 'blue'
@@ -82,6 +83,287 @@ function MapCard({
     )
 }
 
+/** DP2 vector plan card — fetches BD TOPO & Cadastre GeoJSON and renders as SVG */
+function Dp2VectorCard({ address, commune, formData }: { address: string; commune: string; formData: any }) {
+    const [geoData, setGeoData] = useState<{ cadastre: any; bati: any; center: number[] } | null>(null)
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState(false)
+
+    useEffect(() => {
+        if (!commune && !address) return
+        setLoading(true)
+        setError(false)
+
+        const q = encodeURIComponent(`${address} ${commune} France`)
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, {
+            headers: { 'User-Agent': 'DP-Travaux-Generator/1.0' }
+        })
+            .then(r => r.json())
+            .then(async (nominatim) => {
+                if (!nominatim || !nominatim[0]) throw new Error('Geocoding failed')
+                const lat = parseFloat(nominatim[0].lat)
+                const lon = parseFloat(nominatim[0].lon)
+
+                const R = 6378137
+                const cx = R * lon * Math.PI / 180
+                const cy = R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2))
+                const half = 80 // 160m wide bbox — enough to get the target parcel + neighbors
+
+                const bboxStr = [cx - half, cy - half, cx + half, cy + half].map(v => v.toFixed(2)).join(',')
+                const base = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&OUTPUTFORMAT=application/json&srsName=EPSG:3857`
+
+                const [resCad, resBati] = await Promise.all([
+                    fetch(`${base}&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle&BBOX=${bboxStr},EPSG:3857`).then(r => r.json()).catch(() => null),
+                    fetch(`${base}&TYPENAMES=BDTOPO_V3:batiment&BBOX=${bboxStr},EPSG:3857`).then(r => r.json()).catch(() => null)
+                ])
+
+                setGeoData({ cadastre: resCad, bati: resBati, center: [cx, cy] })
+            })
+            .catch(err => {
+                console.error('DP2 vector load error:', err)
+                setError(true)
+            })
+            .finally(() => setLoading(false))
+    }, [address, commune])
+
+    const renderMap = () => {
+        if (!geoData || !geoData.cadastre) return null
+        const [cx, cy] = geoData.center
+        const VW = 640, VH = 360
+
+        const getCoords = (feat: any) => {
+            const t = feat.geometry?.type
+            if (t === 'Polygon') return feat.geometry.coordinates
+            if (t === 'MultiPolygon') return feat.geometry.coordinates.flat(1)
+            return []
+        }
+
+        const fC = geoData.cadastre?.features || []
+
+        // 1. Find target parcel
+        let targetIdx = -1
+        let minDist = Infinity
+        for (let i = 0; i < fC.length; i++) {
+            const rings = getCoords(fC[i])
+            if (!rings || !rings[0]) continue
+            const ring = rings[0] as number[][]
+            let fx = 0, fy = 0
+            for (const c of ring) { fx += c[0]; fy += c[1] }
+            fx /= ring.length; fy /= ring.length
+            const dist = Math.sqrt((fx - cx) ** 2 + (fy - cy) ** 2)
+            if (dist < minDist) { minDist = dist; targetIdx = i }
+        }
+
+        // 2. Compute view bbox from target parcel bounds + 20m padding
+        let viewMinX = cx - 60, viewMaxX = cx + 60, viewMinY = cy - 60, viewMaxY = cy + 60
+        if (targetIdx >= 0) {
+            const ring = getCoords(fC[targetIdx])[0] as number[][]
+            if (ring) {
+                const pad = 20
+                let pMinX = Infinity, pMinY = Infinity, pMaxX = -Infinity, pMaxY = -Infinity
+                for (const c of ring) {
+                    if (c[0] < pMinX) pMinX = c[0]
+                    if (c[1] < pMinY) pMinY = c[1]
+                    if (c[0] > pMaxX) pMaxX = c[0]
+                    if (c[1] > pMaxY) pMaxY = c[1]
+                }
+                viewMinX = pMinX - pad; viewMaxX = pMaxX + pad
+                viewMinY = pMinY - pad; viewMaxY = pMaxY + pad
+            }
+        }
+
+        const srcW = viewMaxX - viewMinX, srcH = viewMaxY - viewMinY
+        const scale = Math.min(VW / srcW, VH / srcH) * 0.96
+        const offX = (VW - srcW * scale) / 2, offY = (VH - srcH * scale) / 2
+
+        const toSvg = (gx: number, gy: number) => ({
+            x: (gx - viewMinX) * scale + offX,
+            y: VH - ((gy - viewMinY) * scale + offY)
+        })
+
+        const toPath = (rings: number[][][]) => {
+            if (!rings) return ''
+            let d = ''
+            for (const ring of rings) {
+                if (!ring || ring.length < 3) continue
+                for (let i = 0; i < ring.length; i++) {
+                    const p = toSvg(ring[i][0], ring[i][1])
+                    d += (i === 0 ? `M ${p.x.toFixed(1)} ${p.y.toFixed(1)}` : ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+                }
+                d += ' Z'
+            }
+            return d
+        }
+
+        // ── Building bbox dimensions — width × depth per building ──────────────
+        const fB = geoData.bati?.features || []
+        const bldDimLines: JSX.Element[] = []
+        fB.forEach((feat: any, bi: number) => {
+            const rings = getCoords(feat)
+            if (!rings || !rings[0]) return
+            const ring = rings[0] as number[][]
+            // Compute axis-aligned bounding box of the building in metres (Web Mercator)
+            let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
+            for (const c of ring) {
+                if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
+                if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
+            }
+            const wM = bMaxX - bMinX  // width in metres (Web Mercator ≈ metres at mid-lat)
+            const hM = bMaxY - bMinY  // depth in metres
+            if (wM < 1 && hM < 1) return  // skip tiny blobs
+
+            // Project bbox corners to SVG
+            const tl = toSvg(bMinX, bMaxY)
+            const tr = toSvg(bMaxX, bMaxY)
+            const bl = toSvg(bMinX, bMinY)
+            const br = toSvg(bMaxX, bMinY)
+
+            const svgW = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2)
+            const svgH = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2)
+            if (svgW < 8 && svgH < 8) return  // too small to label
+
+            // Width dimension — below the building
+            const wlabel = `${wM.toFixed(1)} m`
+            const wmx = (bl.x + br.x) / 2, wmy = (bl.y + br.y) / 2 + 9
+            if (svgW >= 8) bldDimLines.push(
+                <g key={`w${bi}`}>
+                    <line x1={bl.x} y1={bl.y + 8} x2={br.x} y2={br.y + 8} stroke="#222" strokeWidth={0.9} />
+                    <line x1={bl.x} y1={bl.y + 4} x2={bl.x} y2={bl.y + 12} stroke="#222" strokeWidth={0.9} />
+                    <line x1={br.x} y1={br.y + 4} x2={br.x} y2={br.y + 12} stroke="#222" strokeWidth={0.9} />
+                    <rect x={wmx - 14} y={wmy - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
+                    <text x={wmx} y={wmy + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#111">{wlabel}</text>
+                </g>
+            )
+
+            // Depth dimension — right side of the building
+            const hlabel = `${hM.toFixed(1)} m`
+            const hmx = (tr.x + br.x) / 2 + 9, hmy = (tr.y + br.y) / 2
+            if (svgH >= 8) bldDimLines.push(
+                <g key={`h${bi}`}>
+                    <line x1={tr.x + 8} y1={tr.y} x2={br.x + 8} y2={br.y} stroke="#222" strokeWidth={0.9} />
+                    <line x1={tr.x + 4} y1={tr.y} x2={tr.x + 12} y2={tr.y} stroke="#222" strokeWidth={0.9} />
+                    <line x1={br.x + 4} y1={br.y} x2={br.x + 12} y2={br.y} stroke="#222" strokeWidth={0.9} />
+                    <rect x={hmx - 14} y={hmy - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
+                    <text x={hmx} y={hmy + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#111">{hlabel}</text>
+                </g>
+            )
+        })
+
+        // ── Parcel boundary: only longest 2 sides ────────────────────────────────
+        const parcelDimLines: JSX.Element[] = []
+        if (targetIdx >= 0) {
+            const ring = (getCoords(fC[targetIdx])[0] || []) as number[][]
+            const sides: { i: number; distM: number }[] = []
+            for (let i = 0; i < ring.length - 1; i++) {
+                const dx = ring[i + 1][0] - ring[i][0], dy = ring[i + 1][1] - ring[i][1]
+                const distM = Math.sqrt(dx * dx + dy * dy)
+                if (distM >= 3) sides.push({ i, distM })
+            }
+            // Keep only the 2 longest sides
+            sides.sort((a, b) => b.distM - a.distM)
+            const topSides = sides.slice(0, 2)
+            for (const { i, distM } of topSides) {
+                const p1 = toSvg(ring[i][0], ring[i][1])
+                const p2 = toSvg(ring[i + 1][0], ring[i + 1][1])
+                const svgLen = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
+                if (svgLen < 8) continue
+                const off = 12
+                const perpX = -(p2.y - p1.y) / svgLen * off, perpY = (p2.x - p1.x) / svgLen * off
+                const ox1 = p1.x + perpX, oy1 = p1.y + perpY
+                const ox2 = p2.x + perpX, oy2 = p2.y + perpY
+                const mx = (ox1 + ox2) / 2, my = (oy1 + oy2) / 2
+                const label = `${distM.toFixed(1)} m`
+                parcelDimLines.push(
+                    <g key={`p${i}`}>
+                        <line x1={p1.x} y1={p1.y} x2={ox1} y2={oy1} stroke="#0044cc" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
+                        <line x1={p2.x} y1={p2.y} x2={ox2} y2={oy2} stroke="#0044cc" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
+                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#0044cc" strokeWidth={1} />
+                        <rect x={mx - 14} y={my - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
+                        <text x={mx} y={my + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#0033cc">{label}</text>
+                    </g>
+                )
+            }
+        }
+
+
+
+        return (
+            <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: '100%', background: '#e0e0e0' }}>
+                {/* Cadastral parcels */}
+                {fC.map((feat: any, i: number) => {
+                    const d = toPath(getCoords(feat))
+                    if (!d) return null
+                    const isTarget = i === targetIdx
+                    return <path key={i} d={d} fill={isTarget ? '#d0ebb8' : '#f5f5f2'} stroke={isTarget ? '#0055cc' : '#aaa'} strokeWidth={isTarget ? 2 : 0.8} />
+                })}
+                {/* BD TOPO Buildings */}
+                {(geoData.bati?.features || []).map((feat: any, i: number) => {
+                    const d = toPath(getCoords(feat))
+                    if (!d) return null
+                    return <path key={`b${i}`} d={d} fill="#9e9e9e" stroke="#333" strokeWidth={0.8} />
+                })}
+                {/* Building bbox dimension lines */}
+                {bldDimLines}
+                {/* Parcel 2 longest sides */}
+                {parcelDimLines}
+                {/* Target crosshair */}
+                {(() => { const c = toSvg(cx, cy); return (<g><circle cx={c.x} cy={c.y} r={7} fill="none" stroke="#444" strokeWidth={0.9} /><circle cx={c.x} cy={c.y} r={2.5} fill="#444" /><line x1={c.x - 12} y1={c.y} x2={c.x + 12} y2={c.y} stroke="#444" strokeWidth={0.8} /><line x1={c.x} y1={c.y - 12} x2={c.x} y2={c.y + 12} stroke="#444" strokeWidth={0.8} /></g>) })()}
+
+                {/* Compass rose */}
+                {[0, 45, 90, 135, 180, 225, 270, 315].map(a => {
+                    const rad = a * Math.PI / 180
+                    const r = a % 90 === 0 ? 16 : 10
+                    return <line key={a} x1={28} y1={VH - 28} x2={28 + Math.cos(rad) * r} y2={VH - 28 + Math.sin(rad) * r} stroke="#333" strokeWidth={a % 90 === 0 ? 1.4 : 0.8} />
+                })}
+                <circle cx={28} cy={VH - 28} r={2.5} fill="#333" />
+                <text x={28} y={VH - 50} textAnchor="middle" fontSize={8} fontWeight="bold" fill="#111">N</text>
+                {/* Legend */}
+                <rect x={8} y={VH - 60} width={130} height={54} fill="white" stroke="#bbb" strokeWidth={0.7} rx={2} />
+                <rect x={14} y={VH - 52} width={9} height={7} fill="#d0ebb8" stroke="#0055cc" strokeWidth={1.2} />
+                <text x={26} y={VH - 47} fontSize={7} fill="#333">Parcelle concernée</text>
+                <rect x={14} y={VH - 42} width={9} height={7} fill="#f5f5f2" stroke="#aaa" strokeWidth={0.7} />
+                <text x={26} y={VH - 37} fontSize={7} fill="#333">Autres parcelles</text>
+                <rect x={14} y={VH - 32} width={9} height={7} fill="#9e9e9e" stroke="#333" strokeWidth={0.8} />
+                <text x={26} y={VH - 27} fontSize={7} fill="#333">Bâtiments BD TOPO</text>
+                <rect x={14} y={VH - 22} width={9} height={7} fill="#e0e0e0" stroke="#aaa" strokeWidth={0.5} />
+                <text x={26} y={VH - 17} fontSize={7} fill="#333">Voiries</text>
+                <text x={VW - 4} y={VH - 3} textAnchor="end" fontSize={5.5} fill="#888">BD TOPO® — Cadastre</text>
+            </svg>
+        )
+    }
+
+    return (
+        <div className="dp-card overflow-hidden">
+            <div className="flex items-center gap-3 mb-4 px-4 pt-4">
+                <span className="w-10 h-10 font-bold text-sm rounded-xl flex items-center justify-center"
+                    style={{ background: 'rgba(34,197,94,0.2)', color: '#4ade80' }}>DP2</span>
+                <h3 className="font-semibold text-white">Plan de masse des constructions</h3>
+                <span className="ml-auto text-[10px] px-2 py-1 rounded-md bg-white/5 text-slate-400 border border-white/10 uppercase tracking-widest">BD TOPO</span>
+            </div>
+
+            <div className="relative aspect-video bg-[#e0e0e0] flex items-center justify-center overflow-hidden">
+                {loading ? (
+                    <div className="text-center">
+                        <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        <p className="text-xs" style={{ color: '#666' }}>Chargement BD TOPO...</p>
+                    </div>
+                ) : geoData ? (
+                    renderMap()
+                ) : (
+                    <div className="text-center p-6 grayscale opacity-40">
+                        <div className="text-4xl mb-2">🗺️</div>
+                        <p className="text-xs text-slate-400 max-w-[200px] leading-relaxed">
+                            {error ? 'Erreur de chargement BD TOPO' : "Renseignez l'adresse pour générer le plan"}
+                        </p>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+
+
 function downloadImage(dataUrl: string, filename = 'apres-travaux-ia.png') {
     const a = document.createElement('a')
     a.href = dataUrl
@@ -90,13 +372,14 @@ function downloadImage(dataUrl: string, filename = 'apres-travaux-ia.png') {
 }
 
 function FacadeCard({
-    label, before, after, isLoading, badge, onGenerateOrEdit, isGenerating, onRemove, canGenerate
+    label, before, after, isLoading, badge, onGenerateOrEdit, isGenerating, onRemove, canGenerate, hideBefore
 }: {
     label: string; before: string | null; after: string | null
     isLoading: boolean; badge: string
     onGenerateOrEdit: (instruction: string) => void; isGenerating: boolean
     onRemove?: () => void
     canGenerate?: boolean
+    hideBefore?: boolean
 }) {
     const [prompt, setPrompt] = useState('')
     const [showEditPanel, setShowEditPanel] = useState(false)
@@ -116,20 +399,22 @@ function FacadeCard({
             </div>
 
             {/* Images Grid */}
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Photo Avant</p>
-                    <div className="rounded-xl overflow-hidden bg-slate-100 aspect-[3/2] flex items-center justify-center border border-slate-200/5">
-                        {before ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={before} alt="Avant" className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="text-slate-300 text-sm">Pas de photo</span>
-                        )}
+            <div className={`grid gap-4 ${hideBefore ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-2'}`}>
+                {!hideBefore && (
+                    <div>
+                        <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Photo Avant</p>
+                        <div className="rounded-xl overflow-hidden bg-slate-100 aspect-[3/2] flex items-center justify-center border border-slate-200/5">
+                            {before ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={before} alt="Avant" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-slate-300 text-sm">Pas de photo</span>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
                 <div>
-                    <p className="text-xs font-semibold text-violet-500 mb-2 uppercase tracking-wide">Simulation Après</p>
+                    <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${hideBefore ? 'text-blue-500' : 'text-violet-500'}`}>{hideBefore ? 'Croquis Architectural' : 'Simulation Après'}</p>
                     {isGenerating ? (
                         <div className="rounded-xl overflow-hidden aspect-[3/2] flex flex-col items-center justify-center relative shadow-inner" style={{ background: 'rgba(139,92,246,0.04)', border: '1px dashed rgba(139,92,246,0.2)' }}>
                             <div className="text-center" style={{ color: '#a78bfa' }}>
@@ -256,7 +541,7 @@ function FacadeCard({
     )
 }
 
-const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.7): Promise<string> => {
+const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader()
         reader.readAsDataURL(file)
@@ -284,153 +569,37 @@ const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.
     })
 }
 
-function Dp3Panel({ commune, surface, travaux, value, onChange }: {
-    commune: string; surface: string; travaux: string; value: string | null; onChange: (v: string | null) => void
-}) {
-    const [mode, setMode] = useState<'default' | 'upload' | 'ai'>('default')
-    const [aiLoading, setAiLoading] = useState(false)
-    const inputRef = useRef<HTMLInputElement>(null)
-
-    const handleFile = async (file: File | null) => {
-        if (!file) return
-        try {
-            const compressed = await compressImage(file)
-            onChange(compressed)
-            setMode('upload')
-        } catch (err) {
-            console.error('Compression failed:', err)
-            const reader = new FileReader()
-            reader.onload = e => {
-                onChange(e.target?.result as string)
-                setMode('upload')
+const compressDataURL = (dataUrl: string, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image()
+        img.src = dataUrl
+        img.onload = () => {
+            const canvas = document.createElement('canvas')
+            let width = img.width
+            let height = img.height
+            if (width > maxWidth) {
+                height = (maxWidth / width) * height
+                width = maxWidth
             }
-            reader.readAsDataURL(file)
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            if (!ctx) return resolve(dataUrl)
+            ctx.drawImage(img, 0, 0, width, height)
+            resolve(canvas.toDataURL('image/jpeg', quality))
         }
-    }
-
-    const handleGenerateAI = async () => {
-        setAiLoading(true)
-        const prompt = `Technical architectural cross-section drawing for a French residential building in ${commune || 'France'}, plain-pied R+0 (single story). Works: ${travaux === 'isolation' ? 'exterior thermal insulation (ITE)' : travaux === 'menuiseries' ? 'window and door replacement' : 'photovoltaic panels'}. Terrain surface: ${surface || 'unknown'} m2. Show: thick brown ground line labeled "Terrain Naturel (TN)", house cross-section with walls and pitched roof, vertical dimension arrows labeled "Hauteur sabliere approx 3.00m" and "Hauteur faitage approx 5.20m", foundation depth ~0.50m below ground. Title block at bottom: "DP3 - Plan de coupe". Clean white background, black technical drawing lines, blue dimension arrows, French labels. Architectural blueprint style.`
-        console.log('\n🤖 PROMPT IA DP3:\n', prompt)
-        try {
-            const res = await fetch('/api/generate-dp3', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
-            })
-            if (res.ok) {
-                const data = await res.json()
-                onChange(data.imageUrl)
-                setMode('ai')
-            } else {
-                const text = await res.text()
-                console.error('DP3 AI API error:', text)
-                alert(text.includes('504 Gateway Timeout') ? 'Délai dépassé (504).' : 'Génération IA non disponible pour le moment.')
-            }
-        } catch (err: any) {
-            console.error('DP3 Generation Error:', err.message || err)
-            alert('Génération IA non disponible. Consultez la console (F12).')
-        } finally {
-            setAiLoading(false)
-        }
-    }
-
-    const preview = value || '/dp3-plan-coupe.png'
-
-    return (
-        <div className="mt-4 space-y-4">
-            {/* Mode tabs */}
-            <div className="flex gap-2">
-                <button onClick={() => { setMode('default'); onChange(null) }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-medium transition-all"
-                    style={mode === 'default'
-                        ? { background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.4)' }
-                        : { background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    📐 Schéma par défaut
-                </button>
-                <button onClick={() => { setMode('upload'); inputRef.current?.click() }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-medium transition-all"
-                    style={mode === 'upload'
-                        ? { background: 'rgba(59,130,246,0.2)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.4)' }
-                        : { background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    📤 Uploader mon plan
-                </button>
-                <button onClick={() => setMode('ai')}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-medium transition-all"
-                    style={mode === 'ai'
-                        ? { background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.4)' }
-                        : { background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    ✨ Générer par IA
-                </button>
-            </div>
-
-            {/* Hidden file input */}
-            <input ref={inputRef} type="file" accept="image/*,.pdf" className="hidden"
-                onChange={e => handleFile(e.target.files?.[0] || null)} />
-
-            {/* Upload hint */}
-            {mode === 'upload' && !value && (
-                <div className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all"
-                    style={{ borderColor: 'rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.05)' }}
-                    onClick={() => inputRef.current?.click()}
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]) }}>
-                    <div className="text-3xl mb-2">📂</div>
-                    <p className="text-sm font-medium" style={{ color: '#60a5fa' }}>Cliquez ou glissez votre plan de coupe</p>
-                    <p className="text-xs mt-1" style={{ color: '#475569' }}>JPG, PNG – Dessin à la main ou plan numérique accepté</p>
-                </div>
-            )}
-
-            {/* AI quality warning */}
-            {mode === 'ai' && (
-                <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                    <div className="flex items-start gap-3">
-                        <span className="text-xl">⚠️</span>
-                        <div>
-                            <p className="text-sm font-semibold" style={{ color: '#c4b5fd' }}>Avertissement qualité</p>
-                            <p className="text-xs mt-1 leading-relaxed" style={{ color: '#8b7cf6' }}>
-                                L'image générée par IA est une <strong>illustration indicative</strong>. Elle ne remplace pas un plan établi par un architecte ou un géomètre.
-                                Les mairies acceptent généralement un schéma indicatif pour les travaux simples, mais il est recommandé de vérifier avec votre mairie.
-                            </p>
-                        </div>
-                    </div>
-                    <button onClick={handleGenerateAI} disabled={aiLoading}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
-                        style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.4)', opacity: aiLoading ? 0.7 : 1 }}>
-                        {aiLoading ? (
-                            <><div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" /> Génération en cours...</>
-                        ) : (
-                            <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Générer le plan de coupe avec l'IA</>
-                        )}
-                    </button>
-                </div>
-            )}
-
-            {/* Preview */}
-            <div className="relative rounded-xl overflow-hidden bg-white" style={{ aspectRatio: '4/3' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={preview} alt="Plan de coupe" className="w-full h-full object-contain" />
-                {mode === 'default' && (
-                    <div className="absolute top-2 left-2 px-2 py-1 bg-amber-500/80 text-white text-[10px] rounded font-medium">
-                        Illustration par défaut – personnalisez avec upload ou IA
-                    </div>
-                )}
-                {value && (
-                    <button onClick={() => { onChange(null); setMode('default') }}
-                        className="absolute top-2 right-2 w-7 h-7 bg-red-500/80 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors">
-                        ✕
-                    </button>
-                )}
-            </div>
-        </div>
-    )
+        img.onerror = () => resolve(dataUrl)
+    })
 }
+
 
 export default function Etape5() {
     const router = useRouter()
     const { formData, updatePhotos, updatePlans } = useDPContext()
     const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+    const [isGeneratingCroquis, setIsGeneratingCroquis] = useState(false)
     const [isEditingAI, setIsEditingAI] = useState(false)
+    const [isEditingCroquis, setIsEditingCroquis] = useState(false)
     const [aiGenerated, setAiGenerated] = useState(false)
     const [aiInstruction, setAiInstruction] = useState(formData.terrain.description_projet || '')
     const [dp4Notice, setDp4Notice] = useState(formData.plans.dp4_notice || '')
@@ -451,6 +620,28 @@ export default function Etape5() {
         updatePlans({ dp4_notice: notice })
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.travaux.type])
+
+    const handleGenerateAICroquis = async () => {
+        // Use the generated simulation (DP 6) as the base
+        const dp6Image = formData.photos.facade_apres_ai
+        if (!dp6Image) return
+
+        setIsGeneratingCroquis(true)
+        try {
+            const imageUrl = await generateAICroquis(formData, dp6Image)
+            if (imageUrl) {
+                const compressedUrl = imageUrl.startsWith('data:image')
+                    ? await compressDataURL(imageUrl)
+                    : imageUrl;
+                updatePhotos({ facade_croquis_ai: compressedUrl })
+            }
+        } catch (err: any) {
+            console.error('Croquis generation failed:', err.message || err)
+            alert('Erreur: ' + (err.message || String(err)))
+        } finally {
+            setIsGeneratingCroquis(false)
+        }
+    }
 
     const handleGenerateAIFirst = async () => {
         if (!aiInstruction.trim()) return
@@ -496,7 +687,10 @@ CONTRAINTES STRICTES :
             const data = await res.json()
             const imageUrl = data.imageBase64 || data.imageUrl
             if (imageUrl) {
-                updatePhotos({ facade_apres_ai: imageUrl })
+                const compressedUrl = imageUrl.startsWith('data:image')
+                    ? await compressDataURL(imageUrl)
+                    : imageUrl;
+                updatePhotos({ facade_apres_ai: compressedUrl })
                 setAiGenerated(true)
             } else {
                 console.error('AI generation failed:', data.error)
@@ -507,6 +701,28 @@ CONTRAINTES STRICTES :
             alert('Erreur: ' + (err.message || String(err)))
         } finally {
             setIsGeneratingAI(false)
+        }
+    }
+
+    const handleEditCroquis = async (instruction: string) => {
+        // Still use the DP 6 image as base when editing, but pass the instruction (though our backend currently ignores it and uses the hardcoded prompt, this is fine for now as it just replaces it)
+        const dp6Image = formData.photos.facade_apres_ai
+        if (!dp6Image) return
+
+        setIsEditingCroquis(true)
+        try {
+            const imageUrl = await generateAICroquis(formData, dp6Image)
+            if (imageUrl) {
+                const compressedUrl = imageUrl.startsWith('data:image')
+                    ? await compressDataURL(imageUrl)
+                    : imageUrl;
+                updatePhotos({ facade_croquis_ai: compressedUrl })
+            }
+        } catch (err: any) {
+            console.error('Croquis edit failed:', err.message || err)
+            alert('Erreur: ' + (err.message || String(err)))
+        } finally {
+            setIsEditingCroquis(false)
         }
     }
 
@@ -548,8 +764,12 @@ CONSTRAINTES STRICTES :
 
             const data = await res.json()
             const newImage = data.imageBase64 || data.imageUrl
-            if (newImage) updatePhotos({ facade_apres_ai: newImage })
-            else {
+            if (newImage) {
+                const compressedUrl = newImage.startsWith('data:image')
+                    ? await compressDataURL(newImage)
+                    : newImage;
+                updatePhotos({ facade_apres_ai: compressedUrl })
+            } else {
                 console.error('Edit failed:', data.error)
                 alert('La modification a échoué: ' + (data.error || 'Erreur inconnue'))
             }
@@ -623,40 +843,14 @@ CONSTRAINTES STRICTES :
                         color="blue"
                     />
 
-                    {/* DP2 - Plan de masse */}
-                    <MapCard
-                        title="Plan de masse (vue cadastre)"
-                        code="DP2"
+                    {/* DP2 - Plan de masse - BD TOPO Vector */}
+                    <Dp2VectorCard
                         address={address}
                         commune={commune}
-                        color="green"
+                        formData={formData}
                     />
 
-                    {/* DP3 - Plan de coupe */}
-                    <div className="dp-card">
-                        <div className="flex items-center gap-3 mb-1">
-                            <span className="w-10 h-10 font-bold text-sm rounded-xl flex items-center justify-center"
-                                style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }}>DP3</span>
-                            <div>
-                                <h3 className="font-semibold text-white">Plan de coupe du terrain et de la construction</h3>
-                                <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
-                                    Pièce obligatoire — coupe verticale montrant le bâtiment et le terrain naturel
-                                </p>
-                            </div>
-                            <span className="ml-auto text-[10px] px-2 py-1 rounded-md bg-white/5 text-slate-400 border border-white/10 uppercase tracking-widest">
-                                {formData.plans.dp3_coupe ? 'Personnalisé' : 'Schéma par défaut'}
-                            </span>
-                        </div>
 
-                        {/* Mode selector */}
-                        <Dp3Panel
-                            commune={commune}
-                            surface={formData.terrain.surface_terrain || ''}
-                            travaux={formData.travaux.type}
-                            value={formData.plans.dp3_coupe}
-                            onChange={v => updatePlans({ dp3_coupe: v })}
-                        />
-                    </div>
 
 
                     {/* DP4 - Notice descriptive */}
@@ -689,8 +883,8 @@ CONSTRAINTES STRICTES :
                     {/* DP5 - Façades Avant/Après */}
                     <div className="dp-card">
                         <div className="flex items-center gap-3 mb-6">
-                            <span className="w-10 h-10 bg-violet-100 text-violet-700 font-bold text-sm rounded-xl flex items-center justify-center">DP5</span>
-                            <h3 className="font-semibold text-slate-100">Plans des façades – Avant / Après</h3>
+                            <span className="px-3 min-w-[2.5rem] h-10 bg-violet-100 text-violet-700 font-bold text-sm rounded-xl flex items-center justify-center whitespace-nowrap">DP5 & DP6</span>
+                            <h3 className="font-semibold text-slate-100">Plans des façades & Simulations</h3>
                         </div>
 
                         <div className="space-y-6">
@@ -715,17 +909,17 @@ CONSTRAINTES STRICTES :
                                         style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white', boxShadow: '0 4px 15px rgba(139,92,246,0.3)' }}
                                     >
                                         {(isGeneratingAI && !formData.photos.facade_apres_ai) ? (
-                                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Génération en cours...</>
+                                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Génération DP6...</>
                                         ) : (
-                                            <><div className="text-base">✨</div> Générer la simulation</>
+                                            <><div className="text-base">✨</div> {formData.photos.facade_apres_ai ? 'Regénérer DP6' : 'Générer DP6 (Simulation)'}</>
                                         )}
                                     </button>
                                 </div>
                             </div>
 
                             <FacadeCard
-                                label="Façade principale"
-                                badge="DP5-A"
+                                label="Insertion paysagère (Simulation)"
+                                badge="DP6"
                                 before={formData.photos.facade_avant}
                                 after={formData.photos.facade_apres_ai}
                                 isLoading={isGeneratingAI}
@@ -740,23 +934,44 @@ CONSTRAINTES STRICTES :
                                 onRemove={() => updatePhotos({ facade_apres_ai: null })}
                                 canGenerate={!!aiInstruction.trim()}
                             />
-                            {formData.photos.facade_arriere && (
-                                <FacadeCard
-                                    label="Façade arrière"
-                                    badge="DP5-B"
-                                    before={formData.photos.facade_arriere}
-                                    after={formData.photos.facade_apres_ai}
-                                    isLoading={isGeneratingAI}
-                                    onGenerateOrEdit={(editInstruction) => {
-                                        if (!formData.photos.facade_apres_ai) {
-                                            handleGenerateAIFirst()
-                                        } else {
-                                            handleEditAI(editInstruction)
-                                        }
-                                    }}
-                                    isGenerating={isGeneratingAI || isEditingAI}
-                                    onRemove={() => updatePhotos({ facade_apres_ai: null })}
-                                />
+
+                            {/* Show DP 5 generation ONLY after DP 6 is ready */}
+                            {formData.photos.facade_apres_ai && (
+                                <div className="mt-8 pt-6 border-t border-slate-800">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-200">Étape suivante : Croquis Architectural</h4>
+                                            <p className="text-xs text-slate-400 mt-1">Convertissez la simulation ci-dessus en dessin technique pour le formulaire de mairie.</p>
+                                        </div>
+                                        <button
+                                            onClick={handleGenerateAICroquis}
+                                            disabled={isGeneratingCroquis || isEditingCroquis}
+                                            className="px-5 py-2 rounded-xl text-sm font-bold inline-flex items-center gap-2 transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed"
+                                            style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}
+                                        >
+                                            {isGeneratingCroquis ? (
+                                                <><div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> Génération...</>
+                                            ) : (
+                                                <><div className="text-base">📐</div> Générer DP5</>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {formData.photos.facade_croquis_ai && (
+                                        <FacadeCard
+                                            label="Croquis Architectural"
+                                            badge="DP5"
+                                            before={null} // We don't need the before image here
+                                            after={formData.photos.facade_croquis_ai}
+                                            isLoading={isGeneratingCroquis}
+                                            onGenerateOrEdit={handleEditCroquis}
+                                            isGenerating={isGeneratingCroquis || isEditingCroquis}
+                                            onRemove={() => updatePhotos({ facade_croquis_ai: null })}
+                                            canGenerate={true}
+                                            hideBefore={true}
+                                        />
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>

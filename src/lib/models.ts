@@ -107,13 +107,13 @@ export interface PhotosUploadees {
     dp7_vue_proche: string | null
     dp8_vue_lointaine: string | null
     // Apres travaux simulées (via IA)
-    facade_apres_ai: string | null    // placeholder ou image IA
+    facade_apres_ai: string | null    // photorealistic simulation (DP6)
+    facade_croquis_ai: string | null  // architectural drawing (DP5)
 }
 
 export interface PlansSauvegardes {
     dp1_carte_situation: string | null    // URL carte statique
     dp2_plan_masse: string | null         // URL carte statique zoom+
-    dp3_coupe: string | null             // image plan de coupe (IA ou upload)
     dp4_notice: string | null            // texte généré
 }
 
@@ -314,13 +314,13 @@ export const defaultPhotos: PhotosUploadees = {
     facade_arriere: null,
     dp7_vue_proche: '/test-avant1.jpg',  // DP7 : vue proche (avant 1)
     dp8_vue_lointaine: '/test-avant2.jpg', // DP8 : vue lointaine (avant 2)
-    facade_apres_ai: null, // Simulation IA après travaux
+    facade_apres_ai: null, // Simulation IA après travaux (DP6)
+    facade_croquis_ai: null, // Croquis IA après travaux (DP5)
 }
 
 export const defaultPlans: PlansSauvegardes = {
     dp1_carte_situation: '/test-avant1.jpg',
     dp2_plan_masse: '/test-avant2.jpg',
-    dp3_coupe: null,
     dp4_notice: null,
 }
 
@@ -334,7 +334,7 @@ export const defaultCerfaData: CerfaData = {
     surfaces: { existante: '', creee: '', supprimee: '' },
     special: { case_1: false, case_2: false, case_3: false, case_4: false, case_5: false, case_6: false, case_7: false, detail: '' },
     engagement: { lieu: '', date: '', signature: false },
-    pieces_jointes: { dp1: false, dp2: false, dp3: false }
+    pieces_jointes: { dp1: false, dp2: false }
 }
 
 export const defaultFormData: DPFormData = {
@@ -405,8 +405,8 @@ export const emptyTravaux: Travaux = {
     description_projet: '', surfaces: { existante: '', creee: '', supprimee: '' }
 }
 
-export const emptyPhotos: PhotosUploadees = { facade_avant: null, facade_droite: null, facade_gauche: null, facade_arriere: null, dp7_vue_proche: null, dp8_vue_lointaine: null, facade_apres_ai: null }
-export const emptyPlans: PlansSauvegardes = { dp1_carte_situation: null, dp2_plan_masse: null, dp3_coupe: null, dp4_notice: null }
+export const emptyPhotos: PhotosUploadees = { facade_avant: null, facade_droite: null, facade_gauche: null, facade_arriere: null, dp7_vue_proche: null, dp8_vue_lointaine: null, facade_apres_ai: null, facade_croquis_ai: null }
+export const emptyPlans: PlansSauvegardes = { dp1_carte_situation: null, dp2_plan_masse: null, dp4_notice: null }
 
 export const emptyCerfaData: CerfaData = {
     declarant_physique: { nom: '', prenom: '', date_naissance: '', commune: '', departement: '', pays: '' },
@@ -418,7 +418,7 @@ export const emptyCerfaData: CerfaData = {
     surfaces: { existante: '', creee: '', supprimee: '' },
     special: { case_1: false, case_2: false, case_3: false, case_4: false, case_5: false, case_6: false, case_7: false, detail: '' },
     engagement: { lieu: '', date: '', signature: false },
-    pieces_jointes: { dp1: false, dp2: false, dp3: false }
+    pieces_jointes: { dp1: false, dp2: false }
 }
 
 export const emptyFormData: DPFormData = {

@@ -187,10 +187,9 @@ export default function Etape6() {
                             {[
                                 { key: 'dp1_carte_situation', label: 'DP1 Situation', type: 'plan' },
                                 { key: 'dp2_plan_masse', label: 'DP2 Masse', type: 'plan' },
-                                { key: 'dp3_coupe', label: 'DP3 Coupe', type: 'plan' },
                                 { key: 'dp4_notice', label: 'DP4 Notice', type: 'plan' },
-                                { key: 'facade_avant', label: 'DP5 Façades (Avant)', type: 'photo' },
-                                { key: 'facade_apres_ai', label: 'DP5 Façades (Après)', type: 'photo' },
+                                { key: 'facade_croquis_ai', label: 'DP5 Croquis', type: 'photo' },
+                                { key: 'facade_apres_ai', label: 'DP6 Simulation', type: 'photo' },
                                 { key: 'dp7_vue_proche', label: 'DP7 Vue proche', type: 'photo' },
                                 { key: 'dp8_vue_lointaine', label: 'DP8 Vue lointaine', type: 'photo' },
                             ].map(item => {

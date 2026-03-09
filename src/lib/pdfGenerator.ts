@@ -281,7 +281,7 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         const ph = data.photos
         checkBox('dp1_checkbox', !!p.dp1_carte_situation)
         checkBox('dp2_checkbox', !!p.dp2_plan_masse)
-        checkBox('dp3_checkbox', !!p.dp3_coupe)
+        checkBox('dp3_checkbox', false)
         checkBox('dp4_checkbox', !!p.dp4_notice)
         // DP5 = Plans des façades (Existant = facade_avant, Projet = facade_apres_ai)
         checkBox('dp5_checkbox', !!(ph.facade_avant || ph.facade_arriere || ph.facade_droite || ph.facade_gauche || ph.facade_apres_ai))
@@ -493,7 +493,6 @@ async function generateFallbackCerfa(data: DPFormData): Promise<Uint8Array> {
     const pieces = [
         'DP1 - Plan de situation du terrain',
         'DP2 - Plan de masse des constructions',
-        'DP3 - Plan de coupe du terrain et de la construction',
         'DP4 - Notice descriptive du projet de travaux',
         'DP5 - Plans des facades (avant et apres travaux)',
         'DP7 - Photographie de la construction (vue rapprochee)',

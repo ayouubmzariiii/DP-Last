@@ -16,7 +16,7 @@ interface PhotoUploadProps {
     badge?: string
 }
 
-const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.7): Promise<string> => {
+const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader()
         reader.readAsDataURL(file)

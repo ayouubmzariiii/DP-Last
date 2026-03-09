@@ -1,28 +1,27 @@
-﻿import { PDFDocument, StandardFonts, rgb, PageSizes, PDFFont, PDFPage } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, PageSizes, PDFFont, PDFPage } from 'pdf-lib'
 import { DPFormData } from './models'
 import * as fs from 'fs'
 import * as path from 'path'
-import { geocodeAddress, getIGNMapUrl } from './ignMaps'
+import { geocodeAddress, getIGNMapUrl, getVectorMapData } from './ignMaps'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
     black: rgb(0, 0, 0),
-    nearBlack: rgb(0.08, 0.08, 0.08),
-    dark: rgb(0.20, 0.20, 0.20),
-    mid: rgb(0.45, 0.45, 0.45),
-    light: rgb(0.70, 0.70, 0.70),
+    nearBlack: rgb(0.1, 0.1, 0.1),
+    dark: rgb(0.25, 0.25, 0.25),
+    mid: rgb(0.5, 0.5, 0.5),
+    light: rgb(0.75, 0.75, 0.75),
     pale: rgb(0.88, 0.88, 0.88),
-    offWhite: rgb(0.95, 0.95, 0.95),
+    offWhite: rgb(0.96, 0.96, 0.96),
     white: rgb(1, 1, 1),
-    accent: rgb(0.08, 0.08, 0.08),   // same as nearBlack — accent bar colour
+    blue: rgb(0, 0.4, 1), // Blue for section titles
+    red: rgb(0.9, 0.1, 0.1), // Used in the logo
 }
 
-const MARGIN = 36   // outer page margin (pt)
-const M_INNER = 28   // inner content margin for banner pages
-const FOOT_H = 46   // footer zone height
-const ROW_PAD = 3    // vertical padding inside a data row (each side)
-const SEC_H = 18   // section-header strip height
-const BAR_W = 4    // left accent bar width
+const MARGIN = 25   // Outer physical margin (was 45)
+const M_INNER = 55  // Margin inside the frame
+const FOOT_H = 80   // Footer zone height
+const FRAME_PAD = 25 // Distance from frame to content
 
 // ─── Complete French transliteration (no ??? ever) ───────────────────────────
 function san(text: string): string {
@@ -55,91 +54,149 @@ function wrapText(text: string, maxCols: number): string[] {
     return lines.length ? lines : ['']
 }
 
-// ─── Low-level drawing helpers ────────────────────────────────────────────────
+// ─── Helpers: Fonts & Colors ──────────────────────────────────────────────────
 function tx(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont, color = C.nearBlack) {
     const safe = san(text)
     if (!safe.trim()) return
     try { page.drawText(safe, { x, y, size, font, color }) } catch { /* ignore */ }
 }
 
-function ln(page: PDFPage, x1: number, y1: number, x2: number, y2: number, w = 0.4, color = C.pale) {
+function txCentered(page: PDFPage, text: string, xCentersOn: number, y: number, size: number, font: PDFFont, color = C.nearBlack) {
+    const safe = san(text)
+    if (!safe.trim()) return
+    const textWidth = font.widthOfTextAtSize(safe, size)
+    tx(page, safe, xCentersOn - textWidth / 2, y, size, font, color)
+}
+
+function ln(page: PDFPage, x1: number, y1: number, x2: number, y2: number, w = 1, color = C.black) {
     page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: w, color })
 }
 
 function box(page: PDFPage, x: number, y: number, w: number, h: number,
-    fill: ReturnType<typeof rgb>, border?: ReturnType<typeof rgb>, bw = 0.5) {
-    page.drawRectangle({
-        x, y, width: w, height: h, color: fill,
-        ...(border ? { borderColor: border, borderWidth: bw } : {})
-    })
+    fill: ReturnType<typeof rgb> | undefined, border?: ReturnType<typeof rgb>, bw = 1) {
+    const opts: any = { x, y, width: w, height: h }
+    if (fill) opts.color = fill
+    if (border) { opts.borderColor = border; opts.borderWidth = bw }
+    page.drawRectangle(opts)
 }
 
-// ─── Page-level layout blocks ─────────────────────────────────────────────────
+// ─── Design Language Elements ─────────────────────────────────────────────────
 
-/** Full-width header banner. Returns the y cursor just below the banner. */
-function drawBanner(page: PDFPage, font: PDFFont, bold: PDFFont,
-    code: string, title: string, subtitle: string): number {
+/** Draws the global 1px black frame around the page payload */
+function drawFrame(page: PDFPage) {
     const { width, height } = page.getSize()
-    const banH = 56
-
-    // Main black strip
-    box(page, 0, height - banH, width, banH, C.nearBlack)
-    // Code pill
-    box(page, MARGIN, height - banH + 12, 36, 30, C.accent)
-    tx(page, code, MARGIN + 6, height - banH + 22, 10, bold, C.white)
-    // Title + subtitle
-    tx(page, san(title), MARGIN + 46, height - banH + 34, 13, bold, C.white)
-    tx(page, san(subtitle).substring(0, 90), MARGIN + 46, height - banH + 18, 7.5, font, C.pale)
-    // Thin divider below banner
-    ln(page, 0, height - banH - 0.5, width, height - banH - 0.5, 0.6, C.pale)
-
-    return height - banH - 16
+    box(page, MARGIN, MARGIN, width - MARGIN * 2, height - MARGIN * 2, undefined, C.black, 1)
 }
 
-/** Page footer. */
-function drawFooter(page: PDFPage, font: PDFFont, n: number, total: number, ref: string) {
+/** Header for all DP pages containing the disclaimer */
+function drawDesignHeader(page: PDFPage, fontOblique: PDFFont): number {
+    const { width, height } = page.getSize()
+    const disclaimer = "Les presents plans sont exclusivement destines a l'instruction administrative dans le cadre d'un dossier de declaration prealable. Ils ne peuvent etre utilises pour toute autre fin, ni pour l'execution des travaux."
+    const startY = height - MARGIN - 16
+    // Single line with reduced font size to fit across the page
+    tx(page, disclaimer, MARGIN + FRAME_PAD, startY, 7.8, fontOblique, C.mid)
+    return startY - 40 // Increased padding (was -18)
+}
+
+/** Professional heading: Black, Bold, Underlined, with wrapping */
+function drawTitleProfessional(page: PDFPage, bold: PDFFont, label: string, x: number, y: number, size: number = 18): number {
+    const safe = san(label)
+    const lines = wrapText(safe, 80)
+    let curY = y
+    for (const line of lines) {
+        tx(page, line, x, curY, size, bold, C.black)
+        const textWidth = bold.widthOfTextAtSize(line, size)
+        ln(page, x, curY - 4, x + textWidth, curY - 4, 1.5, C.black)
+        curY -= size + 8
+    }
+    return curY
+}
+
+/** 5-Column Custom Footer specific to the Professional design style */
+function drawDesignFooter(page: PDFPage, font: PDFFont, bold: PDFFont, data: DPFormData, dpNum: string, dpTitle: string, scale = 'Sans') {
     const { width } = page.getSize()
-    ln(page, MARGIN, FOOT_H - 6, width - MARGIN, FOOT_H - 6, 0.5, C.pale)
-    tx(page, 'REPUBLIQUE FRANCAISE  |  Demande Prealable de Travaux  |  Cerfa n13703*',
-        MARGIN, FOOT_H - 18, 6.5, font, C.light)
-    tx(page, san(`Ref. : ${ref}`), MARGIN, FOOT_H - 30, 6, font, C.light)
-    tx(page, `${n} / ${total}`, width - MARGIN - 22, FOOT_H - 18, 8, font, C.mid)
-}
+    const fw = width - MARGIN * 2
+    const yFoot = MARGIN // bottom of the frame
+    const hFoot = FOOT_H
 
-/** Section header strip. Returns new y below the strip. */
-function sec(page: PDFPage, bold: PDFFont, label: string,
-    x: number, y: number, w: number): number {
-    box(page, x, y - SEC_H, w, SEC_H, C.offWhite)
-    box(page, x, y - SEC_H, BAR_W, SEC_H, C.accent)
-    tx(page, san(label).toUpperCase(), x + BAR_W + 7, y - SEC_H + 5, 7.5, bold, C.nearBlack)
-    return y - SEC_H - 4
-}
+    // Separator line (Main Footer Top)
+    ln(page, MARGIN, yFoot + hFoot, width - MARGIN, yFoot + hFoot, 1.5, C.black)
 
-/** Key-value row. Height adapts to wrapped value text. Returns new y. */
-function row(page: PDFPage, font: PDFFont, bold: PDFFont,
-    label: string, value: string, x: number, y: number, w: number, shade: boolean): number {
-    const valueLines = wrapText(value || '–', 60)
-    const lineH = 10   // px per text line
-    const rowH = Math.max(16, valueLines.length * lineH + ROW_PAD * 2)
+    let curX = MARGIN
 
-    if (shade) box(page, x, y - rowH, w, rowH, C.offWhite)
-    // Label
-    tx(page, san(label), x + BAR_W + 5, y - ROW_PAD - 8, 7.5, bold, C.dark)
-    // Value (multi-line)
-    valueLines.forEach((l, i) => {
-        tx(page, l, x + 160, y - ROW_PAD - 8 - i * lineH, 7.5, font, C.nearBlack)
-    })
-    ln(page, x, y - rowH, x + w, y - rowH, 0.25, C.pale)
-    return y - rowH
+    // ── Col 1: Maitre d'ouvrage ─────────────────────────────────────
+    const w1 = fw * 0.18
+    ln(page, curX + w1, yFoot, curX + w1, yFoot + hFoot, 1.5, C.black)
+    ln(page, curX, yFoot + hFoot / 2, curX + w1, yFoot + hFoot / 2, 1, C.black)
+
+    // Vertically centered labels and values
+    txCentered(page, "Maitre d'ouvrage", curX + w1 / 2, yFoot + hFoot * 0.75 - 5, 9, bold, C.black)
+    const maitre = san(`${data.demandeur.prenom || ''} ${data.demandeur.nom || ''}`.trim())
+    txCentered(page, maitre.substring(0, 30).toUpperCase(), curX + w1 / 2, yFoot + hFoot * 0.25 - 5, 11, font, C.nearBlack)
+
+    // ── Col 2: Projet / Adresse ─────────────────────────────────────
+    curX += w1
+    const w2 = fw * 0.40
+    ln(page, curX + w2, yFoot, curX + w2, yFoot + hFoot, 1.5, C.black)
+    ln(page, curX, yFoot + hFoot / 2, curX + w2, yFoot + hFoot / 2, 1, C.black)
+
+    txCentered(page, natureLabel(data), curX + w2 / 2, yFoot + hFoot * 0.75 - 5, 9, font, C.nearBlack)
+
+    const addr = data.terrain.meme_adresse ? data.demandeur.adresse : data.terrain.adresse
+    const com = data.terrain.meme_adresse ? data.demandeur.commune : data.terrain.commune
+    const cp = data.terrain.meme_adresse ? data.demandeur.code_postal : data.terrain.code_postal
+    const fullAddr = san(`${addr || ''}, ${cp || ''} ${com || ''}`)
+    const addrLines = wrapText(fullAddr, 50)
+
+    // Center address lines vertically within the bottom half
+    const lineH = 10
+    let ay = yFoot + (hFoot / 2 + addrLines.length * lineH) / 2 - lineH
+    for (let i = 0; i < Math.min(addrLines.length, 3); i++) {
+        txCentered(page, addrLines[i], curX + w2 / 2, ay, 9, font, C.mid)
+        ay -= lineH
+    }
+
+    // ── Col 3: DP Page Number ───────────────────────────────────────
+    curX += w2
+    const w3 = fw * 0.12
+    ln(page, curX + w3, yFoot, curX + w3, yFoot + hFoot, 1.5, C.black)
+    // Perfectly centered vertically
+    txCentered(page, dpNum, curX + w3 / 2, yFoot + (hFoot - 28) / 2, 28, bold, C.black)
+
+    // ── Col 4: Titre ───────────────────────────────────────────────
+    curX += w3
+    const w4 = fw * 0.18
+    ln(page, curX + w4, yFoot, curX + w4, yFoot + hFoot, 1.5, C.black)
+    const titleLines = wrapText(dpTitle.toUpperCase(), 25)
+    // Perfectly centered vertically
+    const tLineH = 12
+    let ty = yFoot + (hFoot + titleLines.length * tLineH) / 2 - tLineH
+    for (const line of titleLines) {
+        txCentered(page, line, curX + w4 / 2, ty, 11, font, C.black)
+        ty -= tLineH
+    }
+
+    // ── Col 5: Scale & Date ─────────────────────────────────────────
+    curX += w4
+    const w5 = fw - w1 - w2 - w3 - w4
+    ln(page, curX, yFoot + hFoot / 2, curX + w5, yFoot + hFoot / 2, 1, C.black)
+    ln(page, curX + w5 / 2, yFoot, curX + w5 / 2, yFoot + hFoot, 1, C.black)
+
+    // Headers (Top Row) - Vertically centered in top half
+    txCentered(page, 'Echelle :', curX + w5 / 4, yFoot + hFoot * 0.75 - 4, 9, font, C.nearBlack)
+    txCentered(page, 'Date :', curX + (w5 * 3) / 4, yFoot + hFoot * 0.75 - 4, 9, font, C.nearBlack)
+
+    // Values (Bottom Row) - Vertically centered in bottom half
+    txCentered(page, scale, curX + w5 / 4, yFoot + hFoot * 0.25 - 5, 10, font, C.mid)
+    const dateStr = new Date().toLocaleDateString('fr-FR')
+    txCentered(page, dateStr, curX + (w5 * 3) / 4, yFoot + hFoot * 0.25 - 5, 10, font, C.mid)
 }
 
 /** Placeholder box for missing image. */
 function placeholder(page: PDFPage, font: PDFFont,
     x: number, y: number, w: number, h: number, label: string) {
-    box(page, x, y - h, w, h, C.offWhite, C.pale, 0.5)
-    for (let i = 0; i < w; i += 20) ln(page, x + i, y, x + i + h, y - h, 0.25, C.pale)
-    tx(page, san(label), x + 8, y - h / 2 + 4, 8, font, C.light)
-    tx(page, '[ Non fourni ]', x + 8, y - h / 2 - 8, 7, font, C.light)
+    box(page, x, y - h, w, h, C.offWhite, C.pale, 1)
+    txCentered(page, san(label), x + w / 2, y - h / 2, 9, font, C.mid)
 }
 
 /** Red crosshair target. */
@@ -158,6 +215,55 @@ function north(page: PDFPage, bold: PDFFont, x: number, y: number) {
     page.drawLine({ start: { x: x - 4, y: y - 4 }, end: { x, y: y + 8 }, thickness: 1.2, color: C.nearBlack })
     page.drawLine({ start: { x: x + 4, y: y - 4 }, end: { x, y: y + 8 }, thickness: 1.2, color: C.nearBlack })
 }
+
+/** Professional 8-point compass rose */
+function compassRose(page: PDFPage, bold: PDFFont, cx: number, cy: number, r = 22) {
+    const toRad = (d: number) => d * Math.PI / 180
+    for (let i = 0; i < 8; i++) {
+        const a = toRad(i * 45)
+        const isMajor = i % 2 === 0
+        const len = isMajor ? r : r * 0.6
+        ln(page, cx, cy, cx + Math.cos(a) * len, cy + Math.sin(a) * len, isMajor ? 1.5 : 0.8, C.dark)
+    }
+    // N arrow head
+    page.drawLine({ start: { x: cx - 3, y: cy + r * 0.5 }, end: { x: cx, y: cy + r + 4 }, thickness: 1.5, color: C.nearBlack })
+    page.drawLine({ start: { x: cx + 3, y: cy + r * 0.5 }, end: { x: cx, y: cy + r + 4 }, thickness: 1.5, color: C.nearBlack })
+    page.drawCircle({ x: cx, y: cy, size: 3, color: C.dark })
+    // Cardinal labels
+    const cardinals = [{ a: 90, l: 'N' }, { a: 0, l: 'E' }, { a: 270, l: 'S' }, { a: 180, l: 'O' }]
+    for (const { a, l } of cardinals) {
+        const rad = toRad(a)
+        const lx = cx + Math.cos(rad) * (r + 9)
+        const ly = cy + Math.sin(rad) * (r + 9)
+        const w = bold.widthOfTextAtSize(l, 7)
+        tx(page, l, lx - w / 2, ly - 3, 7, bold, C.nearBlack)
+    }
+}
+
+/** Draw an architectural dimension arrow (blue) — with arrowheads and extension lines */
+function dimLabel(page: PDFPage, font: PDFFont, x1: number, y1: number, x2: number, y2: number, label: string) {
+    const blue = rgb(0, 0.27, 0.78)
+    const dx = x2 - x1, dy = y2 - y1
+    const len = Math.sqrt(dx * dx + dy * dy)
+    if (len < 5) return
+    const ux = dx / len, uy = dy / len  // unit along line
+    const aLen = 5                       // arrowhead half-length
+    // Main dimension line
+    ln(page, x1, y1, x2, y2, 0.8, blue)
+    // Open arrowhead at p1: two ticks pointing inward
+    const perpLen = 2.5
+    ln(page, x1, y1, x1 + ux * aLen - uy * perpLen, y1 + uy * aLen + ux * perpLen, 0.9, blue)
+    ln(page, x1, y1, x1 + ux * aLen + uy * perpLen, y1 + uy * aLen - ux * perpLen, 0.9, blue)
+    // Open arrowhead at p2
+    ln(page, x2, y2, x2 - ux * aLen - uy * perpLen, y2 - uy * aLen + ux * perpLen, 0.9, blue)
+    ln(page, x2, y2, x2 - ux * aLen + uy * perpLen, y2 - uy * aLen - ux * perpLen, 0.9, blue)
+    // Label centred on the line with white background
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+    const tw = font.widthOfTextAtSize(label, 7)
+    page.drawRectangle({ x: mx - tw / 2 - 2, y: my - 1, width: tw + 4, height: 10, color: rgb(1, 1, 1) })
+    tx(page, label, mx - tw / 2, my + 1.5, 7, font, blue)
+}
+
 
 // ─── Image utilities ──────────────────────────────────────────────────────────
 async function loadImg(src: string | null): Promise<{ bytes: Uint8Array; isPng: boolean } | null> {
@@ -237,6 +343,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
     const { demandeur: d, terrain: t, travaux: tr, photos, plans } = data
     const doc = await PDFDocument.create()
     const font = await doc.embedFont(StandardFonts.Helvetica)
+    const fontOblique = await doc.embedFont(StandardFonts.HelveticaOblique)
     const bold = await doc.embedFont(StandardFonts.HelveticaBold)
 
     // ── Derived strings ────────────────────────────────────────────────────
@@ -253,101 +360,121 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
     const coords = await geocodeAddress(addr || '', com || '')
 
     const pages: PDFPage[] = []
-    const addPage = (): PDFPage => { const p = doc.addPage(PageSizes.A4); pages.push(p); return p }
-    const PW = PageSizes.A4[0]   // ≈ 595 pt
-    const PH = PageSizes.A4[1]   // ≈ 842 pt
+    const addPage = (): PDFPage => { const p = doc.addPage([1190.55, 841.89]); pages.push(p); return p }
+    const PW = 1190.55
+    const PH = 841.89
     const CW = PW - MARGIN * 2   // content width on standard pages
 
     // ══════════════════════ PAGE 0 – COVER ════════════════════════════════
     {
         const page = addPage()
         const M = MARGIN
+        const halfW = (PW - M * 2) / 2
+        let y = PH - MARGIN
 
-        // ── Top black header ────────────────────────────────────────────
-        const topH = 130
-        box(page, 0, PH - topH, PW, topH, C.nearBlack)
+        drawFrame(page)
 
-        tx(page, 'REPUBLIQUE FRANCAISE', M, PH - 24, 8.5, font, C.pale)
-        tx(page, 'Liberte  -  Egalite  -  Fraternite', M, PH - 37, 7, font, C.light)
+        // Title Box (Centered Top)
+        const titleW = 450
+        const titleH = 70
+        box(page, (PW - titleW) / 2, y - titleH - 20, titleW, titleH, undefined, C.black, 1.5)
+        txCentered(page, "DECLARATION PREALABLE", PW / 2, y - titleH - 20 + 28, 24, bold, C.black)
 
-        tx(page, 'DEMANDE PREALABLE DE TRAVAUX', M, PH - 66, 20, bold, C.white)
-        tx(page, 'Formulaire Cerfa n13703*', M, PH - 88, 9, font, C.pale)
-        tx(page, san(`Date : ${dateStr}  |  Ref. dossier : ${refStr}`), M, PH - 105, 7.5, font, C.light)
+        // --- Agency / Logo Area (Professional & Minimalist) ---
+        const logoX = PW - MARGIN - 320
+        const logoY = y - 80
+        tx(page, "BUREAU D'ETUDES", logoX, logoY, 28, font, C.black)
+        tx(page, "CONCEPTION & URBANISME", logoX, logoY - 35, 18, font, C.mid)
+        ln(page, logoX, logoY - 50, PW - MARGIN - 20, logoY - 50, 1, C.black)
 
-        // Right accent bar
-        box(page, PW - 8, 0, 8, PH, C.nearBlack)
+        y -= 180
 
-        let y = PH - topH - 24
+        // Type Label (Black instead of blue)
+        const typeLabel = natureLabel(data)
+        const labelW = bold.widthOfTextAtSize(san(typeLabel), 26)
+        tx(page, san(typeLabel), M + FRAME_PAD, y, 26, font, C.black)
+        ln(page, M + FRAME_PAD, y - 6, M + FRAME_PAD + labelW, y - 6, 2, C.black)
+        y -= 45
 
-        // ── Summary card ────────────────────────────────────────────────
-        const cardH = 80
-        box(page, M, y - cardH, CW, cardH, C.offWhite, C.pale, 0.5)
-        box(page, M, y - cardH, BAR_W, cardH, C.accent)
+        // Content area layout
+        const contentW = PW - M * 2
+        const rightTableW = 400
+        const leftSideW = contentW - rightTableW - 20
+        const imgW = leftSideW
+        const maxImgH = 460
+        const coverImgSrc = photos.facade_apres_ai || photos.facade_avant || '/placeholder.png'
+        const coverImg = await embed(doc, coverImgSrc)
 
-        tx(page, 'IDENTIFICATION DU DOSSIER', M + BAR_W + 8, y - 16, 8, bold, C.nearBlack)
-        tx(page, san(`Demandeur : ${nomFull}`), M + BAR_W + 8, y - 32, 8.5, font, C.dark)
-        tx(page, san(`Adresse des travaux : ${addrTrav}`), M + BAR_W + 8, y - 46, 8, font, C.dark)
-        tx(page, san(`Nature : ${natureLabel(data)}`), M + BAR_W + 8, y - 60, 8, font, C.dark)
-        tx(page, san(`Reference : ${refStr}  –  ${dateStr}`), M + BAR_W + 8, y - 74, 7.5, font, C.mid)
-        y -= cardH + 20
+        if (coverImg) {
+            drawImage(page, coverImg, M, y, imgW, maxImgH)
+        } else {
+            placeholder(page, font, M, y, imgW, maxImgH, "Image du projet")
+        }
 
-        // ── Section 1 : Identite ─────────────────────────────────────────
-        y = sec(page, bold, '1. Identite du demandeur', M, y, CW)
-        const rows1: [string, string][] = [
-            ['Civilite', d.civilite || ''],
-            ['Nom', d.nom || ''],
-            ['Prenom', d.prenom || ''],
-            ['Telephone', d.telephone || ''],
-            ['Email', d.email || ''],
-            ['Adresse', addrDem],
-        ]
-        rows1.forEach(([l, v], i) => { y = row(page, font, bold, l, v, M, y, CW, i % 2 === 0) })
+        // Right Side: Stacked Tables (Info Box then Revision Table)
+        const infoX = PW - M - rightTableW
+        const infoW = rightTableW
+        const infoH = 260
+        const boxY = y - infoH
+        box(page, infoX, boxY, infoW, infoH, undefined, C.black, 1)
 
-        y -= 14
-        if (y < FOOT_H + 80) y = FOOT_H + 80   // safety clamp before next section
+        // Grid lines - FIXED COORDINATES
+        ln(page, infoX + 100, boxY, infoX + 100, boxY + infoH, 1, C.black) // Vertical divider
+        ln(page, infoX, boxY + infoH - 60, infoX + infoW, boxY + infoH - 60, 1, C.black) // Row 1 divider
+        ln(page, infoX, boxY + infoH - 140, infoX + infoW, boxY + infoH - 140, 1, C.black) // Row 2 divider
 
-        // ── Section 2 : Terrain ──────────────────────────────────────────
-        y = sec(page, bold, '2. Adresse des travaux & references cadastrales', M, y, CW)
-        const rows2: [string, string][] = [
-            ['Adresse des travaux', addrTrav],
-            ['Section cadastrale', t.section_cadastrale || ''],
-            ['Numero de parcelle', t.numero_parcelle || ''],
-            ['Surface du terrain', t.surface_terrain ? `${t.surface_terrain} m2` : ''],
-            ['Surface plancher projetee', t.surface_plancher ? `${t.surface_plancher} m2` : ''],
-        ]
-        rows2.forEach(([l, v], i) => { y = row(page, font, bold, l, v, M, y, CW, i % 2 === 0) })
+        // Row 1: NOM
+        tx(page, "NOM", infoX + 15, boxY + infoH - 35, 10, font, C.mid)
+        tx(page, san(nomFull).toUpperCase(), infoX + 115, boxY + infoH - 35, 13, bold, C.black)
 
-        y -= 14
-        y = sec(page, bold, '3. Nature des travaux', M, y, CW)
-        y = row(page, font, bold, 'Type de travaux', natureLabel(data), M, y, CW, false)
+        // Row 2: ADRESSE
+        tx(page, "ADRESSE", infoX + 15, boxY + infoH - 95, 10, font, C.mid)
+        textBlock(page, addrTrav, infoX + 115, boxY + infoH - 95, 12, font, 35, 16, C.black)
 
-        y -= 14
-        y = sec(page, bold, '4. Pieces constituant le dossier', M, y, CW)
-        const pieces = [
-            'DP1 — Plan de situation du terrain',
-            'DP2 — Plan de masse des constructions',
-            'DP3 — Plan de coupe du terrain et de la construction',
-            'DP4 — Notice descriptive du projet',
-            'DP5 — Plans des facades : etat existant et apres travaux',
-            'DP7 — Photographie : vue rapprochee de la construction',
-            'DP8 — Photographie : vue eloignee de la construction',
-        ]
-        pieces.forEach((p, i) => {
-            const rH = 15
-            box(page, M, y - rH, CW, rH, i % 2 === 0 ? C.offWhite : C.white)
-            box(page, M, y - rH, BAR_W, rH, C.light)
-            tx(page, san(p), M + BAR_W + 7, y - rH + 4, 7.5, font, C.dark)
-            page.drawCircle({ x: PW - M - 10, y: y - rH / 2, size: 3.5, borderColor: C.light, borderWidth: 0.8 })
-            page.drawCircle({ x: PW - M - 10, y: y - rH / 2, size: 2, color: C.dark })
-            y -= rH
-        })
+        // Row 3: TERRAIN
+        tx(page, "TERRAIN", infoX + 15, boxY + 60, 10, font, C.mid)
+        let tyGrid = boxY + 100
+        tx(page, "SECTION :", infoX + 115, tyGrid, 10, font, C.mid); tx(page, san(t.section_cadastrale || '-'), infoX + 185, tyGrid, 12, bold, C.black)
+        tyGrid -= 25
+        tx(page, "NUMERO :", infoX + 115, tyGrid, 10, font, C.mid); tx(page, san(t.numero_parcelle || '-'), infoX + 185, tyGrid, 12, bold, C.black)
+        tyGrid -= 25
+        tx(page, "SUPERFICIE :", infoX + 115, tyGrid, 10, font, C.mid);
+        const surfVal = t.surface_terrain ? `${t.surface_terrain.toString().replace(/m2/i, '').trim()} m2` : '-'
+        tx(page, surfVal, infoX + 185, tyGrid, 12, bold, C.black)
 
-        // ── Signature block ──────────────────────────────────────────────
-        const sigY = Math.max(y - 8, FOOT_H + 48) // protect from footer
-        const sigW = CW / 2 - 8
-        box(page, M, sigY - 44, sigW, 44, C.offWhite, C.pale, 0.4)
-        tx(page, 'SIGNATURE DU DEMANDEUR', M + 8, sigY - 12, 7, bold, C.dark)
-        tx(page, san(`A ……………………  le ${dateStr}`), M + 8, sigY - 28, 7, font, C.mid)
+        // ── Revision Table (Stacked below Info Box) ─────────────────────
+        const tY = boxY - 140 // Positioned immediately below the info box with a small gap
+        const tableW = rightTableW
+        const tableX = infoX
+        const rowH = 25
+        const numRows = 5
+        const col1W = 100
+        const col2W = 240
+        const col3W = 60
+
+        // Table Outline
+        box(page, tableX, tY, tableW, rowH * numRows, undefined, C.black, 1)
+
+        // Vertical lines
+        ln(page, tableX + col1W, tY, tableX + col1W, tY + rowH * numRows, 1, C.black)
+        ln(page, tableX + col1W + col2W, tY, tableX + col1W + col2W, tY + rowH * numRows, 1, C.black)
+
+        // Horizontal lines
+        for (let i = 1; i < numRows; i++) {
+            ln(page, tableX, tY + i * rowH, tableX + tableW, tY + i * rowH, 1, C.black)
+        }
+
+        // Headers (Top row)
+        const hy = tY + rowH * (numRows - 1) + 8
+        txCentered(page, "DATES", tableX + col1W / 2, hy, 10, font, C.black)
+        txCentered(page, "MODIFICATIONS", tableX + col1W + col2W / 2, hy, 10, font, C.black)
+        txCentered(page, "INDICES", tableX + col1W + col2W + col3W / 2, hy, 10, font, C.black)
+
+        // First project line
+        const ry = tY + rowH * (numRows - 2) + 8
+        txCentered(page, dateStr, tableX + col1W / 2, ry, 10, font, C.black)
+        txCentered(page, "Creation du dossier de declaration prealable", tableX + col1W + col2W / 2, ry, 10, font, C.black)
+        txCentered(page, "A", tableX + col1W + col2W + col3W / 2, ry, 10, font, C.black)
     }
 
     // ══════════════════════ PAGE 1 – DP1 Plan de situation ════════════════
@@ -355,16 +482,16 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         const page = addPage()
         const M = M_INNER
         const cW = PW - M * 2
-        let y = drawBanner(page, font, bold, 'DP1', 'Plan de situation du terrain', addrTrav)
 
-        y = sec(page, bold, 'Localisation dans la commune', M, y - 2, cW)
-        y = row(page, font, bold, 'Commune', san(com || ''), M, y, cW, false)
-        y = row(page, font, bold, 'Adresse projet', addrTrav, M, y, cW, true)
+        drawFrame(page)
+        let y = drawDesignHeader(page, fontOblique)
+
+        y = drawTitleProfessional(page, bold, 'Plan de situation du terrain', M, y)
         y -= 10
 
         const mapUrl = coords ? getIGNMapUrl('DP1', coords) : null
         const mapImg = await embed(doc, mapUrl)
-        const maxMapH = y - FOOT_H - 36
+        const maxMapH = Math.min(y - FOOT_H - 25, 480)
 
         if (mapImg && maxMapH > 80) {
             const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
@@ -372,12 +499,11 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
             north(page, bold, M + cW - 26, y - 20)
             y = newY - 10
         } else {
-            placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Carte IGN non disponible — verifiez la connexion ou l\'adresse saisie')
+            placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Carte IGN non disponible')
             y -= Math.max(80, maxMapH) + 10
         }
 
-        box(page, M, y - 22, cW, 24, C.offWhite, C.pale, 0.4)
-        tx(page, 'Source : IGN Geoplateforme / Plan IGN v2  |  Echelle approx. 1:10 000  |  Croix rouge = emplacement du projet', M + 7, y - 14, 6.5, font, C.mid)
+        drawDesignFooter(page, font, bold, data, 'DP 1', 'Plan de situation du terrain', '1:10 000')
     }
 
     // ══════════════════════ PAGE 2 – DP2 Plan de masse ═══════════════════
@@ -385,101 +511,215 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         const page = addPage()
         const M = M_INNER
         const cW = PW - M * 2
-        let y = drawBanner(page, font, bold, 'DP2', 'Plan de masse des constructions', addrTrav)
 
-        y = sec(page, bold, 'Implantation et references cadastrales', M, y - 2, cW)
-        y = row(page, font, bold, 'Section cadastrale', t.section_cadastrale || '', M, y, cW, false)
-        y = row(page, font, bold, 'Numero de parcelle', t.numero_parcelle || '', M, y, cW, true)
-        y = row(page, font, bold, 'Surface du terrain', t.surface_terrain ? `${t.surface_terrain} m2` : '', M, y, cW, false)
+        drawFrame(page)
+        let y = drawDesignHeader(page, fontOblique)
+
+        y = drawTitleProfessional(page, bold, 'Plan de masse des constructions', M, y)
         y -= 10
 
-        const mapUrl = coords ? getIGNMapUrl('DP2', coords) : null
-        const mapImg = await embed(doc, mapUrl)
-        const maxMapH = y - FOOT_H - 36
+        const maxMapH = Math.min(y - FOOT_H - 25, 480)
 
-        if (mapImg && maxMapH > 80) {
-            const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
-            target(page, M + cW / 2, (y + newY) / 2, 18)
-            north(page, bold, M + cW - 26, y - 20)
-            y = newY - 10
-        } else {
-            placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Plan de masse IGN non disponible')
-            y -= Math.max(80, maxMapH) + 10
+        // Try to fetch WFS Vector Data for DP2
+        let vectorData = null
+        if (coords) {
+            vectorData = await getVectorMapData(coords, 80) // 80m radius — tight zoom on parcel
         }
 
-        box(page, M, y - 22, cW, 24, C.offWhite, C.pale, 0.4)
-        tx(page, 'Source : IGN Geoplateforme / Orthophoto + Cadastre  |  Echelle approx. 1:1 000  |  Croix rouge = parcelle projet', M + 7, y - 14, 6.5, font, C.mid)
+        if (vectorData && vectorData.cadastre && vectorData.cadastre.features && maxMapH > 80) {
+            // ── Professional architectural plan rendering ──────────────────
+
+            const bboxParts = vectorData.bboxStr.split(',').map(Number)
+            const minX = bboxParts[0], minY = bboxParts[1], maxX = bboxParts[2], maxY = bboxParts[3]
+            const mapSrcW = maxX - minX
+            const mapSrcH = maxY - minY
+
+            const scale = Math.min(cW / mapSrcW, maxMapH / mapSrcH)
+            const drawW = mapSrcW * scale
+            const drawH = mapSrcH * scale
+            const startX = M + (cW - drawW) / 2
+            const startY = y - drawH
+
+            // Map EPSG:3857 → PDF units
+            const mc = (gx: number, gy: number) => ({
+                x: startX + (gx - minX) * scale,
+                y: startY + (gy - minY) * scale,
+            })
+
+            const toSvgPath = (rings: number[][][]) => {
+                let path = ''
+                for (const ring of rings) {
+                    if (!ring || ring.length < 3) continue
+                    for (let i = 0; i < ring.length; i++) {
+                        const p = mc(ring[i][0], ring[i][1])
+                        path += (i === 0 ? `M ${p.x.toFixed(2)} ${p.y.toFixed(2)} ` : `L ${p.x.toFixed(2)} ${p.y.toFixed(2)} `)
+                    }
+                    path += 'Z '
+                }
+                return path.trim()
+            }
+
+            const getCoordArrays = (feat: any) => {
+                const t = feat.geometry?.type
+                if (t === 'Polygon') return feat.geometry.coordinates
+                if (t === 'MultiPolygon') return feat.geometry.coordinates.flat(1)
+                return []
+            }
+
+            // 1. Grey road background  
+            box(page, startX, startY, drawW, drawH, rgb(0.88, 0.88, 0.88), C.dark, 0.8)
+
+            // 2. Draw cadastral parcels (white interior fills + grey boundary lines)
+            const featuresC = vectorData.cadastre.features || []
+            for (const feat of featuresC) {
+                const rings = getCoordArrays(feat)
+                const path = toSvgPath(rings)
+                if (!path) continue
+                try {
+                    page.drawSvgPath(path, {
+                        color: rgb(0.97, 0.97, 0.95),     // off-white parcel interior
+                        borderColor: rgb(0.6, 0.6, 0.6),  // grey boundary
+                        borderWidth: 0.5,
+                    })
+                } catch { /* ignore bad paths */ }
+            }
+
+            // 3. Compute centre point (Web Mercator)
+            let cx3857 = 0, cy3857 = 0, hasCenter = false
+            if (coords) {
+                const R = 6378137
+                cx3857 = R * coords.lon * Math.PI / 180
+                cy3857 = R * Math.log(Math.tan(Math.PI / 4 + (coords.lat * Math.PI / 180) / 2))
+                hasCenter = true
+            }
+
+            // 4. Find the target parcel (closest to center)
+            let targetParcel: any = null
+            let minDist = Infinity
+            if (hasCenter) {
+                for (const feat of featuresC) {
+                    const rings = getCoordArrays(feat)
+                    if (!rings || !rings[0] || rings[0].length < 3) continue
+                    const ring = rings[0] as number[][]
+                    let cx = 0, cy = 0
+                    for (const c of ring) { cx += c[0]; cy += c[1] }
+                    cx /= ring.length; cy /= ring.length
+                    const dist = Math.sqrt((cx - cx3857) ** 2 + (cy - cy3857) ** 2)
+                    if (dist < minDist) { minDist = dist; targetParcel = feat }
+                }
+            }
+
+            // 5. Highlight target parcel with blue boundary + lighter fill
+            if (targetParcel) {
+                const rings = getCoordArrays(targetParcel)
+                const path = toSvgPath(rings)
+                if (path) {
+                    try {
+                        // Green garden zone (full fill first)
+                        page.drawSvgPath(path, {
+                            color: rgb(0.82, 0.93, 0.78),   // green garden
+                            borderColor: rgb(0, 0.3, 0.8),  // blue boundary
+                            borderWidth: 1.8,
+                        })
+                    } catch { /* ignore */ }
+                }
+            }
+
+            // 6. Draw BD TOPO buildings (dark grey fill simulating roof top view)
+            const featuresB = vectorData.bati?.features || []
+            for (const feat of featuresB) {
+                const rings = getCoordArrays(feat)
+                const path = toSvgPath(rings)
+                if (!path) continue
+                try {
+                    // Outer shadow effect (slightly offset, darker)
+                    const shadow = toSvgPath(rings)
+                    page.drawSvgPath(shadow, {
+                        color: rgb(0.5, 0.5, 0.5),    // grey shadow base
+                        borderColor: rgb(0.3, 0.3, 0.3),
+                        borderWidth: 0,
+                    })
+                    page.drawSvgPath(path, {
+                        color: rgb(0.65, 0.65, 0.65),  // mid-grey roof fill
+                        borderColor: rgb(0.25, 0.25, 0.25),
+                        borderWidth: 0.7,
+                    })
+                } catch { /* ignore */ }
+            }
+
+            // 7. Architectural dimension labels for target parcel sides
+            if (targetParcel) {
+                const rings = getCoordArrays(targetParcel)
+                if (rings && rings[0] && rings[0].length >= 4) {
+                    const ring = rings[0] as number[][]
+                    for (let i = 0; i < Math.min(ring.length - 1, 6); i++) {
+                        const p1 = mc(ring[i][0], ring[i][1])
+                        const p2 = mc(ring[i + 1][0], ring[i + 1][1])
+                        const dx = ring[i + 1][0] - ring[i][0]
+                        const dy = ring[i + 1][1] - ring[i][1]
+                        const dist = Math.sqrt(dx * dx + dy * dy)
+                        if (dist < 2) continue
+                        const label = `${(dist).toFixed(1)} m`
+                        // Offset 12 PDF units outside the parcel
+                        const perpX = -(dy / dist) * 12
+                        const perpY = (dx / dist) * 12
+                        dimLabel(page, font, p1.x + perpX, p1.y + perpY, p2.x + perpX, p2.y + perpY, label)
+                    }
+                }
+            }
+
+            // 8. Target crosshair + compass rose
+            if (hasCenter) {
+                const cPx = mc(cx3857, cy3857)
+                target(page, cPx.x, cPx.y, 12)
+            }
+
+            // Compass rose – top-left corner of drawing
+            compassRose(page, bold, startX + 34, startY + drawH - 36, 22)
+
+            // 9. Legend box – lower left
+            const legX = startX + 8, legY = startY + 8
+            box(page, legX, legY, 140, 62, rgb(1, 1, 1), C.mid, 0.8)
+            page.drawRectangle({ x: legX + 6, y: legY + 46, width: 12, height: 10, color: rgb(0.97, 0.97, 0.95), borderColor: rgb(0, 0.3, 0.8), borderWidth: 1.5 })
+            tx(page, 'Parcelle concernee', legX + 22, legY + 48, 7, font, C.nearBlack)
+            page.drawRectangle({ x: legX + 6, y: legY + 32, width: 12, height: 10, color: rgb(0.82, 0.93, 0.78), borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 0.5 })
+            tx(page, 'Espaces verts', legX + 22, legY + 34, 7, font, C.nearBlack)
+            page.drawRectangle({ x: legX + 6, y: legY + 18, width: 12, height: 10, color: rgb(0.65, 0.65, 0.65), borderColor: rgb(0.25, 0.25, 0.25), borderWidth: 0.7 })
+            tx(page, 'Batiments (BD TOPO)', legX + 22, legY + 20, 7, font, C.nearBlack)
+            page.drawRectangle({ x: legX + 6, y: legY + 4, width: 12, height: 10, color: rgb(0.88, 0.88, 0.88), borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 0.5 })
+            tx(page, 'Voiries / autres parcelles', legX + 22, legY + 6, 7, font, C.nearBlack)
+
+            y = startY - 14
+        } else {
+            // Fallback to IGN WMS image if WFS fails
+            const mapUrl = coords ? getIGNMapUrl('DP2', coords) : null
+            const mapImg = await embed(doc, mapUrl)
+            if (mapImg && maxMapH > 80) {
+                const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
+                target(page, M + cW / 2, (y + newY) / 2, 18)
+                north(page, bold, M + cW - 26, y - 20)
+                y = newY - 10
+            } else {
+                placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Plan de masse IGN non disponible')
+                y -= Math.max(80, maxMapH) + 10
+            }
+        }
+
+        drawDesignFooter(page, font, bold, data, 'DP 2', 'Plan de masse des constructions', '1:1 000')
     }
 
-    // ══════════════════════ PAGE 3 – DP3 Plan de coupe ═══════════════════
-    {
-        const page = addPage()
-        const M = M_INNER
-        const cW = PW - M * 2
-        let y = drawBanner(page, font, bold, 'DP3', 'Plan de coupe du terrain et de la construction', addrTrav)
 
-        y = sec(page, bold, 'Coupe verticale transversale — terrain naturel et construction', M, y - 2, cW)
-        y -= 8
-
-        const coupeImg = plans.dp3_coupe
-            ? await embed(doc, plans.dp3_coupe)
-            : await embed(doc, '/dp3-plan-coupe.png')
-
-        const maxCoupeH = Math.min(y - FOOT_H - 80, 320)
-
-        if (coupeImg && maxCoupeH > 60) {
-            const newY = drawImage(page, coupeImg, M, y, cW, maxCoupeH)
-            y = newY - 14
-        } else {
-            // Schematic fallback — house silhouette
-            const gY = y - 200
-            const cx = PW / 2
-            ln(page, M, gY, PW - M, gY, 2, C.dark)
-            tx(page, 'TNT — Terrain Naturel', M, gY - 14, 7.5, font, C.mid)
-
-            box(page, cx - 80, gY, 160, 75, C.offWhite, C.dark, 1)
-            page.drawLine({ start: { x: cx - 90, y: gY + 75 }, end: { x: cx, y: gY + 120 }, thickness: 1.5, color: C.nearBlack })
-            page.drawLine({ start: { x: cx + 90, y: gY + 75 }, end: { x: cx, y: gY + 120 }, thickness: 1.5, color: C.nearBlack })
-            // Dimension lines
-            ln(page, cx + 94, gY, cx + 94, gY + 75, 0.6, C.mid)
-            ln(page, cx + 90, gY, cx + 98, gY, 0.6, C.mid)
-            ln(page, cx + 90, gY + 75, cx + 98, gY + 75, 0.6, C.mid)
-            tx(page, '~3,00 m', cx + 97, gY + 35, 7, font, C.mid)
-            ln(page, cx + 94, gY + 75, cx + 94, gY + 120, 0.6, C.mid)
-            tx(page, '~5,20 m (faitage)', cx + 97, gY + 95, 7, font, C.mid)
-            // Foundation
-            box(page, cx - 84, gY - 26, 168, 26, C.pale, C.light, 0.5)
-            tx(page, 'Fondations', cx - 28, gY - 16, 7, font, C.mid)
-
-            y = gY - 40
-        }
-
-        y = sec(page, bold, 'Caracteristiques indicatives de la construction', M, y - 6, cW)
-        const specs: [string, string][] = [
-            ['Type de construction', 'Maison individuelle'],
-            ['Hauteur a la sabliere', '≈ 3,00 m'],
-            ['Hauteur au faitage', '≈ 5,20 m'],
-            ['Profondeur fondations', '≈ 0,50 m sous terrain naturel'],
-            ['Surface emprise au sol', t.surface_terrain ? `≈ ${Math.round(parseInt(t.surface_terrain || '0') * 0.15)} m2` : 'A completer'],
-        ]
-        specs.forEach(([l, v], i) => { y = row(page, font, bold, l, v, M, y, cW, i % 2 === 0) })
-
-        if (y > FOOT_H + 30) {
-            y -= 10
-            box(page, M, y - 24, cW, 26, C.offWhite, C.pale, 0.4)
-            box(page, M, y - 24, BAR_W, 26, C.accent)
-            tx(page, 'N.B. : Cotes indicatives. Un geometre-expert doit etablir les cotes definitives.', M + BAR_W + 7, y - 14, 7, font, C.dark)
-        }
-    }
 
     // ══════════════════════ PAGE 4 – DP4 Notice descriptive ══════════════
     {
         const page = addPage()
         const M = M_INNER
         const cW = PW - M * 2
-        let y = drawBanner(page, font, bold, 'DP4', 'Notice descriptive du projet de travaux', addrTrav)
 
-        y = sec(page, bold, 'Description detaillee des travaux envisages', M, y - 2, cW)
+        drawFrame(page)
+        let y = drawDesignHeader(page, fontOblique)
+
+        y = drawTitleProfessional(page, bold, 'Notice descriptive du projet de travaux', M, y)
         y -= 10
 
         const noticeRaw = plans.dp4_notice || [
@@ -509,61 +749,96 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 isHeading = true
             }
 
-            if (isHeading && !trimmed) {
-                continue
-            }
+            if (isHeading && !trimmed) continue
 
             if (isHeading) {
-                if (y < FOOT_H + 40) {
+                if (y < FOOT_H + 70) {
+                    drawDesignFooter(pdPage, font, bold, data, 'DP 4', 'Notice descriptive du projet', 'Sans')
                     pdPage = addPage()
-                    y = PH - MARGIN - 20
+                    drawFrame(pdPage)
+                    y = drawDesignHeader(pdPage, fontOblique)
                 }
 
-                // Add some breathing room before the section
-                y -= 4
-
-                // The box starts at y - 16, height is 18
-                box(pdPage, M, y - 16, cW, 18, C.offWhite)
-                box(pdPage, M, y - 16, BAR_W, 18, C.accent)
-                tx(pdPage, trimmed, M + BAR_W + 7, y - 12, 8, bold, C.nearBlack)
-                y -= 24
+                y -= 8
+                y = drawTitleProfessional(pdPage, bold, trimmed, M, y, 14)
+                y -= 8
             } else {
-                const wrapped = wrapText(trimmed, 88)
+                const wrapped = wrapText(trimmed, 110)
                 for (const l of wrapped) {
-                    if (y < FOOT_H + 16) {
+                    if (y < FOOT_H + 30) {
+                        drawDesignFooter(pdPage, font, bold, data, 'DP 4', 'Notice descriptive du projet', 'Sans')
                         pdPage = addPage()
-                        y = PH - MARGIN - 20
+                        drawFrame(pdPage)
+                        y = drawDesignHeader(pdPage, fontOblique)
                     }
-                    tx(pdPage, l, M + 6, y, 8, font, C.dark)
-                    y -= 12
+                    tx(pdPage, l, M, y, 12, font, C.nearBlack)
+                    y -= 18
                 }
-                y -= 4
+                y -= 10
             }
         }
+        drawDesignFooter(pdPage, font, bold, data, 'DP 4', 'Notice descriptive du projet', 'Sans')
     }
 
-    // ══════════════════════ PAGE 5 – DP5 Facades ════════════════════════
+    // ══════════════════════ PAGE 5 – DP5 Croquis Architectural ══════════
     {
         const page = addPage()
         const M = M_INNER
         const cW = PW - M * 2
-        let y = drawBanner(page, font, bold, 'DP5', 'Plans des facades — Etat existant et apres travaux', addrTrav)
 
-        y = sec(page, bold, 'Comparaison avant / apres travaux', M, y - 2, cW)
+        drawFrame(page)
+        let y = drawDesignHeader(page, fontOblique)
+
+        y = drawTitleProfessional(page, bold, 'Plans des facades : Etat projeté', M, y)
+        y -= 10
+
+        const croquisImg = await embed(doc, photos.facade_croquis_ai)
+        const maxImgH = Math.min(y - FOOT_H - 120, 500)
+
+        if (croquisImg) {
+            y = drawImage(page, croquisImg, M, y, cW, maxImgH)
+            y -= 14
+        } else {
+            placeholder(page, font, M, y, cW, 200, 'Croquis architectural non genere')
+            y -= 210
+        }
+
+        ln(page, M, y, PW - M, y, 1, C.black)
+        y -= 20
+
+        // Note technique block (Dynamic height)
+        const note = "Ce document presente les modifications architecturales projetees sous forme de dessin technique (elevation). " +
+            "Il permet d'apprecier l'aspect architectural, les proportions et les materiaux mis en oeuvre (couleurs, textures)."
+        const noteLines = wrapText(note, 110)
+        const noteH = 35 + noteLines.length * 16 + 10
+        y -= noteH
+        box(page, M, y, cW, noteH, C.offWhite, C.black, 1.5)
+        tx(page, 'NOTE TECHNIQUE DP 5', M + 14, y + noteH - 24, 12, bold, C.black)
+        textBlock(page, note, M + 14, y + noteH - 44, 11, font, 110, 16, C.nearBlack)
+        y -= 10 // buffer
+
+        drawDesignFooter(page, font, bold, data, 'DP 5', 'Plans des facades : croquis architectural', 'Sans')
+    }
+
+    // ══════════════════════ PAGE 6 – DP6 Insertion Paysagere ══════════════
+    {
+        const page = addPage()
+        const M = M_INNER
+        const cW = PW - M * 2
+
+        drawFrame(page)
+        let y = drawDesignHeader(page, fontOblique)
+
+        y = drawTitleProfessional(page, bold, 'Insertion paysagere : Comparaison visuelle', M, y)
         y -= 10
 
         const colW = (cW - 12) / 2
-        const maxImgH = Math.min(y - FOOT_H - 60, 280)
+        const maxImgH = Math.min(y - FOOT_H - 50, 420)
 
-        // Column headers
-        const drawColHeader = (page: PDFPage, x: number, w: number, label: string) => {
-            box(page, x, y - 18, w, 18, C.offWhite)
-            box(page, x, y - 18, BAR_W, 18, C.accent)
-            tx(page, label, x + BAR_W + 6, y - 12, 7.5, bold, C.dark)
-        }
-        drawColHeader(page, M, colW, 'ETAT EXISTANT (avant travaux)')
-        drawColHeader(page, M + colW + 12, colW, 'APRES TRAVAUX (simulation IA)')
-        y -= 24
+        // Column headers - Unfied style
+        drawTitleProfessional(page, bold, 'Etat existant (Avant)', M, y, 14)
+        drawTitleProfessional(page, bold, 'Apres travaux (Simulation)', M + colW + 12, y, 14)
+        y -= 10
 
         const avImg = await embed(doc, photos.facade_avant)
         const apImg = await embed(doc, photos.facade_apres_ai)
@@ -572,7 +847,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         if (avImg) {
             const dims = avImg.scaleToFit(colW, maxImgH)
             const xOff = M + (colW - dims.width) / 2
-            box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.pale, 0.5)
+            box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
             page.drawImage(avImg, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
         } else {
             placeholder(page, font, M, y, colW, maxImgH, 'Photo facade avant')
@@ -582,95 +857,76 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         if (apImg) {
             const dims = apImg.scaleToFit(colW, maxImgH)
             const xOff = M + colW + 12 + (colW - dims.width) / 2
-            box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.pale, 0.5)
+            box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
             page.drawImage(apImg, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
         } else {
             placeholder(page, font, M + colW + 12, y, colW, maxImgH, 'Simulation IA non generee')
         }
 
-        y -= maxImgH + 14
-        ln(page, M, y, PW - M, y, 0.4, C.pale)
-        y -= 10
+        y -= maxImgH + 20
+        ln(page, M, y, PW - M, y, 1, C.black)
+        // Note technique block (Dynamic height)
+        const note6 = "Le document DP6 est une insertion graphique permettant d'apprecier l'integration du projet dans son environnement. Cette simulation photorealiste montre le futur aspect de la construction apres realisation des travaux decrits dans la notice (DP4) et le croquis (DP5)."
+        const n6Lines = wrapText(note6, 110)
+        const n6H = 35 + n6Lines.length * 16 + 10
+        y -= n6H
+        box(page, M, y, cW, n6H, C.offWhite, C.black, 1.5)
+        tx(page, 'NOTE TECHNIQUE DP 6', M + 14, y + n6H - 24, 12, bold, C.black)
+        textBlock(page, note6, M + 14, y + n6H - 44, 11, font, 110, 16, C.nearBlack)
 
-        // Nature label
-        box(page, M, y - 18, cW, 20, C.offWhite)
-        tx(page, san(`Nature des travaux : ${natureLabel(data)}`), M + 8, y - 12, 8, bold, C.dark)
-        y -= 26
-
-        // Extra facades
-        const extras = [
-            { src: photos.facade_gauche, label: 'Facade laterale gauche' },
-            { src: photos.facade_droite, label: 'Facade laterale droite' },
-            { src: photos.facade_arriere, label: 'Facade arriere' },
-        ].filter(e => !!e.src)
-
-        if (extras.length > 0 && y > FOOT_H + 80) {
-            y = sec(page, bold, 'Facades complementaires', M, y - 4, cW)
-            y -= 6
-            const eH = Math.min(140, y - FOOT_H - 20)
-            const eColW = (cW - (extras.length - 1) * 10) / Math.min(extras.length, 3)
-            for (let i = 0; i < extras.length && i < 3; i++) {
-                const ex = M + i * (eColW + 10)
-                const img = await embed(doc, extras[i].src)
-                if (img) {
-                    const newY = drawImage(page, img, ex, y, eColW, eH)
-                    tx(page, san(extras[i].label), ex, newY - 10, 7, font, C.mid)
-                } else {
-                    placeholder(page, font, ex, y, eColW, eH, san(extras[i].label))
-                }
-            }
-        }
+        drawDesignFooter(page, font, bold, data, 'DP 6', 'Insertion paysagere : simulation apres travaux', 'Sans')
     }
 
-    // ══════════════════════ PAGE 6 – DP7 Vue proche ══════════════════════
-    await addPhotoPage(doc, font, bold, 'DP7',
-        'Photographie de la construction — Vue rapprochee',
+    // ══════════════════════ PAGE 7 – DP7 Vue proche ══════════════════════
+    await addPhotoPage(doc, font, fontOblique, bold, 'DP 7',
+        'Photographie de la construction : Vue rapprochee',
         photos.dp7_vue_proche,
         'Vue rapprochee depuis la voie publique permettant d\'identifier clairement la construction et la facade concernee par les travaux.',
-        addrTrav, addPage)
+        data, addPage)
 
-    // ══════════════════════ PAGE 7 – DP8 Vue lointaine ═══════════════════
-    await addPhotoPage(doc, font, bold, 'DP8',
-        'Photographie de la construction — Vue eloignee',
+    // ══════════════════════ PAGE 8 – DP8 Vue lointaine ═══════════════════
+    await addPhotoPage(doc, font, fontOblique, bold, 'DP 8',
+        'Photographie de la construction : Vue eloignee',
         photos.dp8_vue_lointaine,
         'Vue d\'ensemble permettant de situer la construction dans son environnement immediat (rue, quartier, paysage bati et non bati).',
-        addrTrav, addPage)
-
-    // ── Footers ───────────────────────────────────────────────────────────
-    pages.forEach((p, i) => drawFooter(p, font, i + 1, pages.length, refStr))
+        data, addPage)
 
     return await doc.save()
 }
 
 // ─── Photo page helper ────────────────────────────────────────────────────────
 async function addPhotoPage(
-    doc: PDFDocument, font: PDFFont, bold: PDFFont,
-    code: string, title: string, photo: string | null, description: string,
-    addrTrav: string, addPage: () => PDFPage
+    doc: PDFDocument, font: PDFFont, fontOblique: PDFFont, bold: PDFFont,
+    dpNum: string, title: string, photo: string | null, description: string,
+    data: DPFormData, addPage: () => PDFPage
 ) {
     const page = addPage()
     const M = M_INNER
-    const cW = PageSizes.A4[0] - M * 2
-    let y = drawBanner(page, font, bold, code, title, san(addrTrav))
+    const cW = PageSizes.A3[0] - M * 2
 
-    y = sec(page, bold, 'Photographie de la construction', M, y - 2, cW)
-    y -= 6
+    drawFrame(page)
+    let y = drawDesignHeader(page, fontOblique)
+
+    y = drawTitleProfessional(page, bold, title, M, y)
+    y -= 16
 
     // Description box
-    const descW = wrapText(san(description), 90)
-    const descBoxH = Math.max(24, descW.length * 12 + 12)
-    box(page, M, y - descBoxH, cW, descBoxH, C.offWhite, C.pale, 0.4)
-    descW.forEach((l, i) => tx(page, l, M + 7, y - 14 - i * 12, 7.5, font, C.dark))
-    y -= descBoxH + 10
+    const descW = wrapText(san(description), 110)
+    const descBoxH = Math.max(40, descW.length * 20 + 20)
+    box(page, M, y - descBoxH, cW, descBoxH, C.offWhite, C.black, 1.5)
+    descW.forEach((l, i) => tx(page, l, M + 14, y - 28 - i * 20, 12, font, C.dark))
+    y -= descBoxH + 16
 
     const img = await embed(doc, photo)
-    const maxH = y - FOOT_H - 16
+    const maxH = y - FOOT_H - 40
     if (img && maxH > 60) {
         const dims = img.scaleToFit(cW, maxH)
         const xOff = M + (cW - dims.width) / 2
-        box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.pale, 0.6)
+        box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
         page.drawImage(img, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
     } else {
         placeholder(page, font, M, y, cW, Math.max(60, maxH), 'Aucune photographie fournie pour ce document')
     }
+
+    drawDesignFooter(page, font, bold, data, dpNum, title, 'Sans')
 }
