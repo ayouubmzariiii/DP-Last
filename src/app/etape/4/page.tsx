@@ -1,12 +1,10 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import { consoleLogAfterPrompt } from '@/lib/aiPromptBuilder'
-import StreetViewFetcher from '@/components/StreetViewFetcher'
-import { geocodeAddress } from '@/lib/ignMaps'
 
 interface PhotoUploadProps {
     label: string
@@ -128,24 +126,6 @@ export default function Etape4() {
     const router = useRouter()
     const { formData, updatePhotos } = useDPContext()
     const p = formData.photos
-    const terrain = formData.terrain
-
-    // Geocode the terrain address once for Panoramax
-    const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
-    useEffect(() => {
-        const addr = terrain.meme_adresse
-            ? `${formData.demandeur.adresse}, ${formData.demandeur.code_postal} ${formData.demandeur.commune}`
-            : `${terrain.adresse}, ${terrain.code_postal} ${terrain.commune}`
-        if (!addr.trim()) return
-        geocodeAddress(addr, terrain.commune || formData.demandeur.commune).then(c => {
-            if (c) setCoords(c)
-        })
-    }, [terrain.adresse, terrain.commune, terrain.code_postal, terrain.meme_adresse,
-    formData.demandeur.adresse, formData.demandeur.commune, formData.demandeur.code_postal, formData.demandeur])
-
-    const fullAddress = terrain.meme_adresse
-        ? `${formData.demandeur.adresse}, ${formData.demandeur.code_postal} ${formData.demandeur.commune}`
-        : `${terrain.adresse}, ${terrain.code_postal} ${terrain.commune}`
 
     const photosCount = Object.values(p).filter(Boolean).length
 
@@ -179,42 +159,24 @@ export default function Etape4() {
                     <div className="dp-card">
                         <h3 className="dp-section-title">Vues extérieures obligatoires</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <PhotoUpload
-                                    label="Vue proche de la maison"
-                                    sublabel="Photo prise depuis la voie publique, montrant clairement la façade concernée par les travaux"
-                                    icon="📷"
-                                    badge="DP7"
-                                    value={p.dp7_vue_proche}
-                                    onChange={v => updatePhotos({ dp7_vue_proche: v })}
-                                    required
-                                />
-                                <StreetViewFetcher
-                                    address={fullAddress}
-                                    lat={coords?.lat}
-                                    lon={coords?.lon}
-                                    onCapture={url => updatePhotos({ dp7_vue_proche: url })}
-                                    label="DP7 – Vue proche"
-                                />
-                            </div>
-                            <div>
-                                <PhotoUpload
-                                    label="Vue lointaine / environnement"
-                                    sublabel="Photo montrant la maison dans son environnement (depuis la rue, un peu plus loin)"
-                                    icon="🌄"
-                                    badge="DP8"
-                                    value={p.dp8_vue_lointaine}
-                                    onChange={v => updatePhotos({ dp8_vue_lointaine: v })}
-                                    required
-                                />
-                                <StreetViewFetcher
-                                    address={fullAddress}
-                                    lat={coords?.lat}
-                                    lon={coords?.lon}
-                                    onCapture={url => updatePhotos({ dp8_vue_lointaine: url })}
-                                    label="DP8 – Vue lointaine"
-                                />
-                            </div>
+                            <PhotoUpload
+                                label="Vue proche de la maison"
+                                sublabel="Photo prise depuis la voie publique, montrant clairement la façade concernée par les travaux"
+                                icon="📷"
+                                badge="DP7"
+                                value={p.dp7_vue_proche}
+                                onChange={v => updatePhotos({ dp7_vue_proche: v })}
+                                required
+                            />
+                            <PhotoUpload
+                                label="Vue lointaine / environnement"
+                                sublabel="Photo montrant la maison dans son environnement (depuis la rue, un peu plus loin)"
+                                icon="🌄"
+                                badge="DP8"
+                                value={p.dp8_vue_lointaine}
+                                onChange={v => updatePhotos({ dp8_vue_lointaine: v })}
+                                required
+                            />
                         </div>
                     </div>
 
