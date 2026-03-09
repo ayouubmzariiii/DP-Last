@@ -195,22 +195,41 @@ function Dp2VectorCard({ address, commune, formData }: { address: string; commun
             return d
         }
 
-        // ── Building bbox dimensions — width × depth per building ──────────────
+        // ── Building bbox dimensions — only buildings ON the target parcel ────
         const fB = geoData.bati?.features || []
+
+        // Compute target parcel bounding box in world coords for containment check
+        let tpMinX = Infinity, tpMinY = Infinity, tpMaxX = -Infinity, tpMaxY = -Infinity
+        if (targetIdx >= 0) {
+            const tpRing = (getCoords(fC[targetIdx])[0] || []) as number[][]
+            for (const c of tpRing) {
+                if (c[0] < tpMinX) tpMinX = c[0]; if (c[0] > tpMaxX) tpMaxX = c[0]
+                if (c[1] < tpMinY) tpMinY = c[1]; if (c[1] > tpMaxY) tpMaxY = c[1]
+            }
+        }
+
         const bldDimLines: JSX.Element[] = []
         fB.forEach((feat: any, bi: number) => {
             const rings = getCoords(feat)
             if (!rings || !rings[0]) return
             const ring = rings[0] as number[][]
-            // Compute axis-aligned bounding box of the building in metres (Web Mercator)
+
+            // Compute building bbox
             let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
             for (const c of ring) {
                 if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
                 if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
             }
-            const wM = bMaxX - bMinX  // width in metres (Web Mercator ≈ metres at mid-lat)
-            const hM = bMaxY - bMinY  // depth in metres
-            if (wM < 1 && hM < 1) return  // skip tiny blobs
+
+            // Skip buildings whose centroid is outside the target parcel bbox
+            if (targetIdx >= 0) {
+                const bCx = (bMinX + bMaxX) / 2, bCy = (bMinY + bMaxY) / 2
+                if (bCx < tpMinX || bCx > tpMaxX || bCy < tpMinY || bCy > tpMaxY) return
+            }
+
+            const wM = bMaxX - bMinX
+            const hM = bMaxY - bMinY
+            if (wM < 1 && hM < 1) return
 
             // Project bbox corners to SVG
             const tl = toSvg(bMinX, bMaxY)
@@ -220,7 +239,7 @@ function Dp2VectorCard({ address, commune, formData }: { address: string; commun
 
             const svgW = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2)
             const svgH = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2)
-            if (svgW < 8 && svgH < 8) return  // too small to label
+            if (svgW < 8 && svgH < 8) return
 
             // Width dimension — below the building
             const wlabel = `${wM.toFixed(1)} m`
@@ -285,7 +304,26 @@ function Dp2VectorCard({ address, commune, formData }: { address: string; commun
             }
         }
 
+        // ── Overview card: form dimension annotations ──────────────────────────
+        const terrain = formData?.terrain || {}
+        const travaux = formData?.travaux || {}
+        const anns: string[] = []
+        if (terrain.surface_terrain) anns.push(`Terrain: ${terrain.surface_terrain} m²`)
+        if (terrain.surface_plancher) anns.push(`Plancher: ${terrain.surface_plancher} m²`)
+        if (travaux.surfaces?.creee) anns.push(`Surface créée: ${travaux.surfaces.creee} m²`)
+        if (travaux.surfaces?.existante) anns.push(`Existante: ${travaux.surfaces.existante} m²`)
+        if (travaux.menuiseries?.largeur && travaux.menuiseries?.hauteur)
+            anns.push(`Menuiseries: ${travaux.menuiseries.largeur}×${travaux.menuiseries.hauteur} cm`)
+        if (travaux.isolation?.epaisseur_isolant)
+            anns.push(`Isolant: e=${travaux.isolation.epaisseur_isolant} cm`)
+        if (travaux.photovoltaique?.surface_totale)
+            anns.push(`PV: ${travaux.photovoltaique.surface_totale} m² (${travaux.photovoltaique.nombre_panneaux} pan.)`)
 
+        const annLineH = 13
+        const annBoxW = 145
+        const annBoxH = anns.length > 0 ? anns.length * annLineH + 22 : 0
+        const annBoxX = VW - annBoxW - 6
+        const annBoxY = VH - annBoxH - 70  // bottom-right, above legend
 
         return (
             <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: '100%', background: '#e0e0e0' }}>
@@ -308,6 +346,20 @@ function Dp2VectorCard({ address, commune, formData }: { address: string; commun
                 {parcelDimLines}
                 {/* Target crosshair */}
                 {(() => { const c = toSvg(cx, cy); return (<g><circle cx={c.x} cy={c.y} r={7} fill="none" stroke="#444" strokeWidth={0.9} /><circle cx={c.x} cy={c.y} r={2.5} fill="#444" /><line x1={c.x - 12} y1={c.y} x2={c.x + 12} y2={c.y} stroke="#444" strokeWidth={0.8} /><line x1={c.x} y1={c.y - 12} x2={c.x} y2={c.y + 12} stroke="#444" strokeWidth={0.8} /></g>) })()}
+
+                {/* DIMENSIONS DU PROJET overview card — top right */}
+                {anns.length > 0 && (
+                    <g>
+                        <rect x={annBoxX - 1} y={annBoxY - 1} width={annBoxW + 2} height={annBoxH + 2} fill="rgba(0,0,0,0.15)" rx={4} />
+                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={annBoxH} fill="#f0f4ff" stroke="#0044cc" strokeWidth={0.9} rx={3} />
+                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={15} fill="#0044cc" rx={3} />
+                        <rect x={annBoxX} y={annBoxY + 10} width={annBoxW} height={5} fill="#0044cc" />
+                        <text x={annBoxX + annBoxW / 2} y={annBoxY + 10.5} textAnchor="middle" fontSize={7.5} fontWeight="bold" fill="white">DIMENSIONS DU PROJET</text>
+                        {anns.map((ann, i) => (
+                            <text key={i} x={annBoxX + 8} y={annBoxY + 28 + i * annLineH} fontSize={7.5} fill="#0033aa">• {ann}</text>
+                        ))}
+                    </g>
+                )}
 
                 {/* Compass rose */}
                 {[0, 45, 90, 135, 180, 225, 270, 315].map(a => {
@@ -673,28 +725,59 @@ CONTRAINTES STRICTES :
             console.log(prompt)
             console.groupEnd()
 
-            const res = await fetch('/api/generate-after-facade', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, imageBase64 }),
-            })
+            // -- Call OpenAI directly from browser via token endpoint --
+            const tokenRes = await fetch('/api/image-token', { cache: 'no-store' })
+            if (!tokenRes.ok) {
+                const te = await tokenRes.json().catch(() => ({}))
+                throw new Error((te as any).error || `Token error ${tokenRes.status}`)
+            }
+            const { key } = await tokenRes.json()
 
-            if (!res.ok) {
-                const text = await res.text()
-                throw new Error(text.includes('504 Gateway Timeout') ? 'Délai dépassé (504): La génération prend trop de temps.' : text.slice(0, 100))
+            let imageUrl: string | undefined
+
+            if (imageBase64 && imageBase64.startsWith('data:')) {
+                // Resize via canvas
+                const resized = await new Promise<string>((resolve, reject) => {
+                    const img = new Image(); img.onload = () => {
+                        const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024
+                        const ctx = canvas.getContext('2d')!
+                        const scale = Math.max(1536 / img.width, 1024 / img.height)
+                        const w = img.width * scale, h = img.height * scale
+                        ctx.drawImage(img, (1536 - w) / 2, (1024 - h) / 2, w, h)
+                        resolve(canvas.toDataURL('image/png'))
+                    }; img.onerror = reject; img.src = imageBase64!
+                })
+                const b64 = resized.split(',')[1]
+                const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                const blob = new Blob([bytes], { type: 'image/png' })
+                const form = new FormData()
+                form.append('model', 'gpt-image-1'); form.append('prompt', prompt); form.append('n', '1')
+                form.append('size', '1536x1024'); form.append('image', blob, 'facade.png')
+                const aiRes = await fetch('https://api.openai.com/v1/images/edits', {
+                    method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
+                })
+                if (!aiRes.ok) { const e = await aiRes.json().catch(() => ({})); throw new Error((e as any).error?.message || `OpenAI ${aiRes.status}`) }
+                const aiData = await aiRes.json()
+                const item = aiData.data?.[0]
+                imageUrl = item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url
+            } else {
+                const aiRes = await fetch('https://api.openai.com/v1/images/generations', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size: '1536x1024' }),
+                })
+                if (!aiRes.ok) { const e = await aiRes.json().catch(() => ({})); throw new Error((e as any).error?.message || `OpenAI ${aiRes.status}`) }
+                const aiData = await aiRes.json()
+                const item = aiData.data?.[0]
+                imageUrl = item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url
             }
 
-            const data = await res.json()
-            const imageUrl = data.imageBase64 || data.imageUrl
             if (imageUrl) {
-                const compressedUrl = imageUrl.startsWith('data:image')
-                    ? await compressDataURL(imageUrl)
-                    : imageUrl;
+                const compressedUrl = imageUrl.startsWith('data:image') ? await compressDataURL(imageUrl) : imageUrl
                 updatePhotos({ facade_apres_ai: compressedUrl })
                 setAiGenerated(true)
             } else {
-                console.error('AI generation failed:', data.error)
-                alert('La génération a échoué: ' + (data.error || 'Erreur inconnue'))
+                alert('La génération a échoué: aucune image retournée')
             }
         } catch (err: any) {
             console.error('AI generation failed:', err.message || err)
@@ -748,30 +831,45 @@ CONSTRAINTES STRICTES :
             console.log(prompt)
             console.groupEnd()
 
-            const res = await fetch('/api/generate-after-facade', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt,
-                    imageBase64: currentImage.startsWith('data:') ? currentImage : undefined,
-                }),
-            })
+            // -- Call OpenAI directly from browser via token endpoint --
+            const tokenRes = await fetch('/api/image-token', { cache: 'no-store' })
+            if (!tokenRes.ok) { const te = await tokenRes.json().catch(() => ({})); throw new Error((te as any).error || `Token error ${tokenRes.status}`) }
+            const { key } = await tokenRes.json()
 
-            if (!res.ok) {
-                const text = await res.text()
-                throw new Error(text.includes('504 Gateway Timeout') ? 'Délai dépassé (504): La génération prend trop de temps.' : text.slice(0, 100))
+            const currentImageB64 = currentImage.startsWith('data:') ? currentImage : undefined
+            let newImage: string | undefined
+
+            if (currentImageB64) {
+                const resized = await new Promise<string>((resolve, reject) => {
+                    const img = new Image(); img.onload = () => {
+                        const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024
+                        const ctx = canvas.getContext('2d')!
+                        const scale = Math.max(1536 / img.width, 1024 / img.height)
+                        const w = img.width * scale, h = img.height * scale
+                        ctx.drawImage(img, (1536 - w) / 2, (1024 - h) / 2, w, h)
+                        resolve(canvas.toDataURL('image/png'))
+                    }; img.onerror = reject; img.src = currentImageB64
+                })
+                const b64 = resized.split(',')[1]
+                const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                const blob = new Blob([bytes], { type: 'image/png' })
+                const form = new FormData()
+                form.append('model', 'gpt-image-1'); form.append('prompt', prompt); form.append('n', '1')
+                form.append('size', '1536x1024'); form.append('image', blob, 'facade.png')
+                const aiRes = await fetch('https://api.openai.com/v1/images/edits', {
+                    method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
+                })
+                if (!aiRes.ok) { const e = await aiRes.json().catch(() => ({})); throw new Error((e as any).error?.message || `OpenAI ${aiRes.status}`) }
+                const aiData = await aiRes.json()
+                const item = aiData.data?.[0]
+                newImage = item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url
             }
 
-            const data = await res.json()
-            const newImage = data.imageBase64 || data.imageUrl
             if (newImage) {
-                const compressedUrl = newImage.startsWith('data:image')
-                    ? await compressDataURL(newImage)
-                    : newImage;
+                const compressedUrl = newImage.startsWith('data:image') ? await compressDataURL(newImage) : newImage
                 updatePhotos({ facade_apres_ai: compressedUrl })
             } else {
-                console.error('Edit failed:', data.error)
-                alert('La modification a échoué: ' + (data.error || 'Erreur inconnue'))
+                alert('La modification a échoué: aucune image retournée')
             }
         } catch (err: any) {
             console.error('AI edit failed:', err.message || err)

@@ -1,6 +1,8 @@
 /**
  * AI Image Generation – "Après Travaux" Facade Simulation
- * Model: gpt-image-1 (OpenAI), landscape 1536×1024, via /api/generate-after-facade
+ * Model: gpt-image-1 (OpenAI), landscape 1536×1024
+ * Calls OpenAI directly from the browser (no server timeout issues).
+ * The API key is vended per-request from /api/image-token after rate-limit checks.
  */
 import { DPFormData } from './models'
 
@@ -11,12 +13,6 @@ const MAT_EN: Record<string, string> = {
     bois: 'solid wood with natural grain',
     mixte: 'wood-aluminium composite',
 }
-const ELEM_EN: Record<string, string> = {
-    fenetre: 'double-glazed windows',
-    porte: 'entrance door',
-    volet: 'exterior shutters',
-    baie_vitree: 'large sliding glazed doors (baie vitrée)',
-}
 const FINITION_EN: Record<string, string> = {
     enduit: 'smooth exterior render / mineral plaster coating',
     bardage_bois: 'horizontal wood cladding boards (bardage bois)',
@@ -24,7 +20,7 @@ const FINITION_EN: Record<string, string> = {
     bardage_composite: 'composite HPL fiber-cement cladding panels',
 }
 
-// ── Prompt builder ────────────────────────────────────────────────────────────
+// ── Prompt builders ───────────────────────────────────────────────────────────
 export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: string): string {
     const { travaux } = data
 
@@ -37,17 +33,14 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
             rawDescription = travaux.menuiseries.description || `Remplacement de menuiseries (${travaux.menuiseries.nombre || 1} ${travaux.menuiseries.type || 'fenêtre'}) en ${travaux.menuiseries.materiau || 'pvc'} ${travaux.menuiseries.couleur || ''}`
         }
         else if (travaux.type === 'isolation' && travaux.isolation) {
-            // Note: Isolation in Step 3 does NOT have a description textarea right now, we use a default based on fields
             rawDescription = `Isolation thermique par l'extérieur. Finition demandée : ${travaux.isolation.type_finition || 'enduit'} ${travaux.isolation.couleur ? 'couleur ' + travaux.isolation.couleur : ''}. Façades concernées : ${travaux.isolation.facades_concernees?.join(', ') || 'Toutes les façades'}.`
         }
         else if (travaux.type === 'photovoltaique' && travaux.photovoltaique) {
-            // PV in Step 3 also doesn't have a description textarea, fallback to fields
             rawDescription = `Installation de ${travaux.photovoltaique.nombre_panneaux || '10'} panneaux photovoltaïques sur la toiture. Orientation : ${travaux.photovoltaique.orientation || 'Sud'}.`
         }
     }
 
-    // ── Assemble final prompt ─────────────────────────────────────────────────
-    const prompt = `You are an expert architectural visualization AI. Your task is to generate a realistic "after" simulation of a house based on the requested modifications.
+    return `You are an expert architectural visualization AI. Your task is to generate a realistic "after" simulation of a house based on the requested modifications.
 
 REQUESTED CHANGES:
 "${rawDescription}"
@@ -57,8 +50,6 @@ CONSTRAINTS (strictly enforced):
 - The existing walls (unless modified by the request), roof structure, garden, driveway, surroundings, lighting, sky, and camera angle MUST remain 100% unchanged.
 - Only apply the specific replacements or additions clearly mentioned in the requested changes. Do not invent new structures or alter the architectural style of unmentioned elements.
 - Provide a photorealistic architectural result without any text, borders, or artificial artifacts.`
-
-    return prompt
 }
 
 export function buildAICroquisPrompt(data: DPFormData, customInstruction?: string): string {
@@ -75,7 +66,7 @@ export function buildAICroquisPrompt(data: DPFormData, customInstruction?: strin
         }
     }
 
-    const prompt = `You are an expert architectural illustrator. Create a professional 2D ARCHITECTURAL ELEVATION DRAWING (Facade) for a French residential building based on the provided image.
+    return `You are an expert architectural illustrator. Create a professional 2D ARCHITECTURAL ELEVATION DRAWING (Facade) for a French residential building based on the provided image.
 
 The provided image is a photorealistic simulation of the building AFTER works. Your task is to accurately convert this image into a formal architectural CAD drawing.
 
@@ -88,88 +79,123 @@ VISUAL STYLE (MANDATORY):
 - Details: Include subtle material textures like fine grid for roof tiles.
 - Content: DO NOT add or remove any architectural features from the provided image. Exactly replicate the structure shown in the image.
 - Professionalism: No text, no people, no trees, no artifacts. Just the building facade on a white background.`
-
-    return prompt
 }
 
-// ── SSE helper — reads text/event-stream and resolves with the final image ─
-async function callImageAPI(payload: { prompt: string; imageBase64?: string }): Promise<string> {
-    const res = await fetch('/api/generate-after-facade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-    })
-
-    if (!res.ok || !res.body) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error || `API error ${res.status}`)
+// ── Fetch the API key from our secure token endpoint ─────────────────────────
+async function fetchApiKey(): Promise<string> {
+    const res = await fetch('/api/image-token', { cache: 'no-store' })
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(err.error || `Token fetch failed (${res.status})`)
     }
+    const data = await res.json() as { key: string }
+    if (!data.key) throw new Error('No key returned')
+    return data.key
+}
 
-    // Read SSE stream
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-
-        // Process all complete SSE lines in the buffer
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''   // keep incomplete last line
-
-        for (const line of lines) {
-            if (!line.startsWith('data: ')) continue
-            try {
-                const msg = JSON.parse(line.slice(6)) as {
-                    status: string
-                    imageBase64?: string
-                    imageUrl?: string
-                    error?: string
-                    message?: string
-                }
-                if (msg.status === 'done') {
-                    if (msg.imageBase64) return msg.imageBase64
-                    if (msg.imageUrl) return msg.imageUrl
-                    throw new Error('No image in response')
-                }
-                if (msg.status === 'error') throw new Error(msg.error || 'AI generation failed')
-                // 'generating' status — progress update, keep reading
-                if (msg.message) console.log('[AI]', msg.message)
-            } catch (parseErr) {
-                // ignore malformed SSE lines
-            }
+// ── Resize an image to 1536×1024 PNG using browser Canvas ────────────────────
+async function resizeImageToBase64(dataUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = 1536
+            canvas.height = 1024
+            const ctx = canvas.getContext('2d')!
+            // Cover-fit: scale to fill, centre-crop
+            const scale = Math.max(1536 / img.width, 1024 / img.height)
+            const w = img.width * scale, h = img.height * scale
+            ctx.drawImage(img, (1536 - w) / 2, (1024 - h) / 2, w, h)
+            resolve(canvas.toDataURL('image/png'))
         }
-    }
-
-    throw new Error('Stream ended without result')
+        img.onerror = reject
+        img.src = dataUrl
+    })
 }
 
-// ── Client-side function called from Step 5 ───────────────────────────────────
+// ── Core API caller — runs entirely in the browser ────────────────────────────
+async function callOpenAIDirect(payload: {
+    prompt: string
+    imageBase64?: string   // data:image/... for edit, undefined for generate
+}): Promise<string> {
+    const apiKey = await fetchApiKey()
+
+    let responseData: { data?: Array<{ b64_json?: string; url?: string }> }
+
+    if (payload.imageBase64) {
+        // images.edit — multipart/form-data
+        const resized = await resizeImageToBase64(payload.imageBase64)
+        const base64 = resized.split(',')[1]
+        const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+        const blob = new Blob([byteArray], { type: 'image/png' })
+
+        const form = new FormData()
+        form.append('model', 'gpt-image-1')
+        form.append('prompt', payload.prompt)
+        form.append('n', '1')
+        form.append('size', '1536x1024')
+        form.append('image', blob, 'facade.png')
+
+        const res = await fetch('https://api.openai.com/v1/images/edits', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}` },
+            body: form,
+        })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
+            throw new Error(err.error?.message || `OpenAI error ${res.status}`)
+        }
+        responseData = await res.json()
+    } else {
+        // images.generate — JSON
+        const res = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'gpt-image-1',
+                prompt: payload.prompt,
+                n: 1,
+                size: '1536x1024',
+            }),
+        })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
+            throw new Error(err.error?.message || `OpenAI error ${res.status}`)
+        }
+        responseData = await res.json()
+    }
+
+    const item = responseData.data?.[0]
+    if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`
+    if (item?.url) return item.url
+    throw new Error('No image returned from OpenAI')
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
 export async function generateAIAfterImage(data: DPFormData): Promise<string> {
     const prompt = buildAIAfterImagePrompt(data)
     const imageBase64 = data.photos.facade_avant
 
-    console.group('%c🤖 AI Facade Generation – gpt-image-1', 'color:#a78bfa;font-weight:bold;font-size:13px')
-    console.log('%cPrompt:', 'font-weight:bold;color:#60a5fa')
-    console.log(prompt)
+    console.group('%c🤖 AI Facade Generation – gpt-image-1 (browser)', 'color:#a78bfa;font-weight:bold;font-size:13px')
+    console.log('%cPrompt:', 'font-weight:bold;color:#60a5fa', prompt)
     console.log('%cBefore image provided:', 'font-weight:bold;color:#34d399', !!imageBase64)
     console.groupEnd()
 
     const realImage = imageBase64?.startsWith('data:') ? imageBase64 : undefined
-    return callImageAPI({ prompt, imageBase64: realImage })
+    return callOpenAIDirect({ prompt, imageBase64: realImage })
 }
 
 export async function generateAICroquis(data: DPFormData, baseImage: string): Promise<string> {
     const prompt = buildAICroquisPrompt(data)
     const realImage = baseImage.startsWith('data:') ? baseImage : undefined
 
-    console.group('%c🤖 AI Croquis Generation – gpt-image-1', 'color:#a78bfa;font-weight:bold;font-size:13px')
-    console.log('%cPrompt:', 'font-weight:bold;color:#60a5fa')
-    console.log(prompt)
-    console.log('%cBase image provided (from DP6):', 'font-weight:bold;color:#34d399', !!realImage)
+    console.group('%c🤖 AI Croquis Generation – gpt-image-1 (browser)', 'color:#a78bfa;font-weight:bold;font-size:13px')
+    console.log('%cPrompt:', 'font-weight:bold;color:#60a5fa', prompt)
+    console.log('%cBase image provided:', 'font-weight:bold;color:#34d399', !!realImage)
     console.groupEnd()
 
-    return callImageAPI({ prompt, imageBase64: realImage })
+    return callOpenAIDirect({ prompt, imageBase64: realImage })
 }
