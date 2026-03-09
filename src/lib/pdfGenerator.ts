@@ -292,7 +292,7 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         checkBox('dp4_checkbox', !!p.dp4_notice)
         // DP5 = Plans des façades (Existant = facade_avant, Projet = facade_apres_ai)
         checkBox('dp5_checkbox', !!(ph.facade_avant || ph.facade_arriere || ph.facade_droite || ph.facade_gauche || ph.facade_apres_ai))
-        checkBox('dp6_checkbox', false)
+        checkBox('dp6_checkbox', !!(ph.facade_apres_ai || ph.facade_croquis_ai))
         checkBox('dp7_checkbox', !!ph.dp7_vue_proche)
         checkBox('dp8_checkbox', !!ph.dp8_vue_lointaine)
         checkBox('dp8_1_checkbox', false)
