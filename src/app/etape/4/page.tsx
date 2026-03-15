@@ -110,11 +110,12 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }
                         >×</button>
                     </div>
                 ) : (
-                    <div>
-                        <div className="text-3xl mb-2">{icon}</div>
-                        <p className="text-sm font-medium" style={{ color: '#94a3b8' }}>Glissez une photo ici</p>
-                        <p className="text-xs mt-1" style={{ color: '#475569' }}>ou cliquez pour parcourir</p>
-                        <p className="text-xs mt-1" style={{ color: '#334155' }}>JPG, PNG, HEIC – max 10 Mo</p>
+                    <div className="py-4">
+                        <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-3 border border-slate-700/50 group-hover:bg-slate-700/50 transition-colors">
+                            <span className="text-xl">{icon}</span>
+                        </div>
+                        <p className="text-[13px] font-medium text-slate-400 group-hover:text-slate-300 transition-colors">Glissez une photo ici</p>
+                        <p className="text-[11px] mt-1 text-slate-500">ou cliquez pour parcourir</p>
                     </div>
                 )}
             </div>
@@ -129,12 +130,43 @@ export default function Etape4() {
 
     const photosCount = Object.values(p).filter(Boolean).length
 
-    // 🤖 Log full AI prompt whenever we have enough info (facade photo + work type)
+    // 🤖 Log full AI prompt whenever we have enough info (at least one facade photo + work type)
     useEffect(() => {
-        if (formData.photos.facade_avant && formData.travaux.type) {
+        const hasAnyFacade = formData.photos.facades.some(f => f.before)
+        if (hasAnyFacade && formData.travaux.type) {
             consoleLogAfterPrompt(formData, 'Etape 4 – Photos')
         }
-    }, [formData.photos.facade_avant, formData.travaux.type, formData])
+    }, [formData.photos.facades, formData.travaux.type, formData])
+
+    const addFacade = () => {
+        const newId = (formData.photos.facades.length + 1).toString()
+        const newFacades = [
+            ...formData.photos.facades,
+            { id: newId, label: `Façade ${newId}`, before: null, after: null, croquis: null, type: 'autre' as const }
+        ]
+        updatePhotos({ facades: newFacades })
+    }
+
+    const removeFacade = (id: string) => {
+        const newFacades = formData.photos.facades.filter(f => f.id !== id)
+        updatePhotos({ facades: newFacades })
+    }
+
+    const updateFacadePhoto = (id: string, before: string | null) => {
+        const newFacades = formData.photos.facades.map(f =>
+            f.id === id ? { ...f, before } : f
+        )
+        // Also sync legacy fields for the first 4 if they match types
+        const update: Partial<typeof formData.photos> = { facades: newFacades }
+        const f = newFacades.find(fac => fac.id === id)
+        if (f) {
+            if (f.type === 'avant') update.facade_avant = before
+            else if (f.type === 'arriere') update.facade_arriere = before
+            else if (f.type === 'droite') update.facade_droite = before
+            else if (f.type === 'gauche') update.facade_gauche = before
+        }
+        updatePhotos(update)
+    }
 
     return (
         <StepLayout>
@@ -196,35 +228,40 @@ export default function Etape4() {
                             en prenant en compte vos choix de matériaux et couleurs.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <PhotoUpload
-                                label="Façade principale (avant)"
-                                sublabel="Photo de la façade principale visible depuis la rue"
-                                icon="🏠"
-                                value={p.facade_avant}
-                                onChange={v => updatePhotos({ facade_avant: v })}
-                                required
-                            />
-                            <PhotoUpload
-                                label="Façade arrière"
-                                sublabel="Photo de la façade arrière de votre maison"
-                                icon="🏡"
-                                value={p.facade_arriere}
-                                onChange={v => updatePhotos({ facade_arriere: v })}
-                            />
-                            <PhotoUpload
-                                label="Façade latérale droite"
-                                sublabel="Pignon droit (optionnel)"
-                                icon="📐"
-                                value={p.facade_droite}
-                                onChange={v => updatePhotos({ facade_droite: v })}
-                            />
-                            <PhotoUpload
-                                label="Façade latérale gauche"
-                                sublabel="Pignon gauche (optionnel)"
-                                icon="📐"
-                                value={p.facade_gauche}
-                                onChange={v => updatePhotos({ facade_gauche: v })}
-                            />
+                            {formData.photos.facades.map((f, idx) => (
+                                <div key={f.id} className="relative group">
+                                    <PhotoUpload
+                                        label={f.label}
+                                        sublabel={f.type === 'avant' ? "Photo de la façade principale visible depuis la rue" : `Photo de la façade ${f.label.toLowerCase()}`}
+                                        icon={f.type === 'avant' ? "🏠" : f.type === 'arriere' ? "🏡" : "📐"}
+                                        value={f.before}
+                                        onChange={v => updateFacadePhoto(f.id, v)}
+                                        required={f.type === 'avant'}
+                                    />
+                                    {idx > 0 && (
+                                        <button
+                                            onClick={() => removeFacade(f.id)}
+                                            className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 opacity-0 group-hover:opacity-100 transition-all z-10 shadow-lg"
+                                            title="Supprimer cette façade"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                onClick={addFacade}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all text-sm font-medium"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Ajouter une autre façade
+                            </button>
                         </div>
                     </div>
 

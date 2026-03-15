@@ -281,13 +281,23 @@ export default function Etape3() {
 
                             <div className="space-y-5">
                                 <div className="dp-form-group">
-                                    <label className="dp-label">Courte description de votre projet ou de vos travaux :</label>
+                                    <label className="dp-label">
+                                        {t.type === 'menuiseries' ? 'Détails des menuiseries (couleurs, matériaux, ouvertures) :' :
+                                         t.type === 'isolation' ? 'Détails de la finition (type d\'enduit, coloris exact, façades) :' :
+                                         t.type === 'photovoltaique' ? 'Détails de l\'installation (type de pose, visibilité rue) :' :
+                                         'Courte description de votre projet ou de vos travaux :'}
+                                    </label>
                                     <textarea
                                         value={t.description_projet || ''}
                                         onChange={e => updateTravaux({ description_projet: e.target.value })}
                                         rows={4}
                                         className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 focus:bg-slate-800 transition-all outline-none"
-                                        placeholder="Décrivez succinctement les travaux envisagés..."
+                                        placeholder={
+                                            t.type === 'menuiseries' ? 'Ex: Remplacement des 4 fenêtres bois par du PVC blanc RAL 9016. Pose en rénovation.' :
+                                            t.type === 'isolation' ? 'Ex: Application d\'un enduit grésé ton pierre. Pose de bardage bois naturel sur le pignon droit.' :
+                                            t.type === 'photovoltaique' ? 'Ex: Pose de 12 panneaux noirs en surimposition sur le pan de toiture Sud.' :
+                                            'Décrivez succinctement les travaux envisagés...'
+                                        }
                                     />
                                 </div>
 

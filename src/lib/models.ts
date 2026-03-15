@@ -97,18 +97,31 @@ export interface Travaux {
     }
 }
 
+export interface FacadePhoto {
+    id: string
+    label: string
+    before: string | null
+    after: string | null
+    croquis: string | null
+    type: 'avant' | 'arriere' | 'droite' | 'gauche' | 'autre'
+}
+
 export interface PhotosUploadees {
     // DP5 - photos facades existantes
-    facade_avant: string | null       // base64
+    facade_avant: string | null       // base64 (Deprecated: use facades[0])
     facade_droite: string | null
     facade_gauche: string | null
     facade_arriere: string | null
+
+    // Multi-facade support
+    facades: FacadePhoto[]
+
     // DP7/DP8 - photos extérieures
     dp7_vue_proche: string | null
     dp8_vue_lointaine: string | null
     // Apres travaux simulées (via IA)
-    facade_apres_ai: string | null    // photorealistic simulation (DP6)
-    facade_croquis_ai: string | null  // architectural drawing (DP5)
+    facade_apres_ai: string | null    // photorealistic simulation (DP6) (Deprecated: use facades[0].after)
+    facade_croquis_ai: string | null  // architectural drawing (DP5) (Deprecated: use facades[0].croquis)
 }
 
 export interface PlansSauvegardes {
@@ -312,6 +325,10 @@ export const defaultPhotos: PhotosUploadees = {
     facade_droite: '/test-avant2.jpg',   // Façade latérale (avant 2)
     facade_gauche: null,
     facade_arriere: null,
+    facades: [
+        { id: 'f1', label: 'Façade principale (avant)', before: '/test-avant1.jpg', after: null, croquis: null, type: 'avant' },
+        { id: 'f2', label: 'Façade latérale', before: '/test-avant2.jpg', after: null, croquis: null, type: 'droite' }
+    ],
     dp7_vue_proche: '/test-avant1.jpg',  // DP7 : vue proche (avant 1)
     dp8_vue_lointaine: '/test-avant2.jpg', // DP8 : vue lointaine (avant 2)
     facade_apres_ai: null, // Simulation IA après travaux (DP6)
@@ -405,7 +422,22 @@ export const emptyTravaux: Travaux = {
     description_projet: '', surfaces: { existante: '', creee: '', supprimee: '' }
 }
 
-export const emptyPhotos: PhotosUploadees = { facade_avant: null, facade_droite: null, facade_gauche: null, facade_arriere: null, dp7_vue_proche: null, dp8_vue_lointaine: null, facade_apres_ai: null, facade_croquis_ai: null }
+export const emptyPhotos: PhotosUploadees = {
+    facade_avant: null,
+    facade_droite: null,
+    facade_gauche: null,
+    facade_arriere: null,
+    facades: [
+        { id: '1', label: 'Façade principale (avant)', before: null, after: null, croquis: null, type: 'avant' },
+        { id: '2', label: 'Façade arrière', before: null, after: null, croquis: null, type: 'arriere' },
+        { id: '3', label: 'Façade latérale droite', before: null, after: null, croquis: null, type: 'droite' },
+        { id: '4', label: 'Façade latérale gauche', before: null, after: null, croquis: null, type: 'gauche' },
+    ],
+    dp7_vue_proche: null,
+    dp8_vue_lointaine: null,
+    facade_apres_ai: null,
+    facade_croquis_ai: null
+}
 export const emptyPlans: PlansSauvegardes = { dp1_carte_situation: null, dp2_plan_masse: null, dp4_notice: null }
 
 export const emptyCerfaData: CerfaData = {

@@ -39,16 +39,16 @@ export async function geocodeAddress(address: string, commune: string): Promise<
  * Generates the IGN WMS URL
  * VERSION=1.3.0 is REQUIRED by data.geopf.fr
  */
-export function getIGNMapUrl(type: 'DP1' | 'DP2', coords: MapCoords): string {
+export function getIGNMapUrl(type: 'DP1' | 'DP2', coords: MapCoords, sizeMeters?: number): string {
     // Standard IGN Geoplateforme WMS endpoint (VERSION 1.3.0 mandatory)
     const baseUrl = 'https://data.geopf.fr/wms-r/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=EPSG:3857&WIDTH=1000&HEIGHT=1000&STYLES=';
 
     const timestamp = Date.now();
     if (type === 'DP1') {
-        const bbox = getBBox3857(coords.lat, coords.lon, 1200); // ~1.2km: zoomed-in situation plan
+        const bbox = getBBox3857(coords.lat, coords.lon, sizeMeters || 500); // Default to 500m
         return `${baseUrl}&LAYERS=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&FORMAT=image/png&BBOX=${bbox}&ts=${timestamp}`;
     } else {
-        const bbox = getBBox3857(coords.lat, coords.lon, 150);
+        const bbox = getBBox3857(coords.lat, coords.lon, sizeMeters || 150);
         // Orthophoto + Cadastre
         return `${baseUrl}&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS,CADASTRALPARCELS.PARCELS&FORMAT=image/png&BBOX=${bbox}&ts=${timestamp}`;
     }

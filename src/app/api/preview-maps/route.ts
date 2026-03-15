@@ -28,10 +28,11 @@ export async function GET(req: NextRequest) {
             lon: parseFloat(data[0].lon)
         };
 
+        const zoom = searchParams.get('zoom') ? parseInt(searchParams.get('zoom')!) : undefined;
         const ts = Date.now();
         return NextResponse.json({
             coords,
-            dp1Url: `/api/proxy-map?url=${encodeURIComponent(getIGNMapUrl('DP1', coords))}&_ts=${ts}`,
+            dp1Url: `/api/proxy-map?url=${encodeURIComponent(getIGNMapUrl('DP1', coords, zoom))}&_ts=${ts}`,
             dp2Url: `/api/proxy-map?url=${encodeURIComponent(getIGNMapUrl('DP2', coords))}&_ts=${ts}`
         });
     } catch (error) {

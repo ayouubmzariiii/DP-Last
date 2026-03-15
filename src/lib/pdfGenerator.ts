@@ -290,13 +290,19 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         checkBox('dp2_checkbox', !!p.dp2_plan_masse)
         checkBox('dp3_checkbox', false)
         checkBox('dp4_checkbox', !!p.dp4_notice)
-        // DP5 = Plans des façades (Existant = facade_avant, Projet = facade_apres_ai)
-        checkBox('dp5_checkbox', !!(ph.facade_avant || ph.facade_arriere || ph.facade_droite || ph.facade_gauche || ph.facade_apres_ai))
-        checkBox('dp6_checkbox', !!(ph.facade_apres_ai || ph.facade_croquis_ai))
+        // DP5 = Plans des façades (Existant = facades[i].before, Projet = facades[i].after/croquis)
+        const firstFacade = ph.facades[0]
+        const coverImgSrc = (firstFacade?.after || firstFacade?.before) || ph.dp7_vue_proche || '/placeholder.png'
+        const hasFacades = ph.facades.length > 0
+        const hasAIAfter = ph.facades.some(f => f.after)
+        const hasCroquis = ph.facades.some(f => f.croquis)
+
+        checkBox('dp5_checkbox', hasFacades)
+        checkBox('dp6_checkbox', hasAIAfter)
         checkBox('dp7_checkbox', !!ph.dp7_vue_proche)
         checkBox('dp8_checkbox', !!ph.dp8_vue_lointaine)
         checkBox('dp8_1_checkbox', false)
-        checkBox('dp11_checkbox', !!ph.facade_apres_ai) // Using 'après' AI for DP11 simulation
+        checkBox('dp11_checkbox', hasAIAfter) // Using 'après' AI for DP11 simulation
 
         // Log key fields for debugging
         console.log('[CERFA] Fields set. demandeur.date_naissance:', demandeur.date_naissance)

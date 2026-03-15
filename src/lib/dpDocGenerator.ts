@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, PageSizes, PDFFont, PDFPage } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, PageSizes, PDFFont, PDFPage, pushGraphicsState, popGraphicsState, moveTo, lineTo, closePath, clip, fillAndStroke, setFillingColor, setStrokingColor, setLineWidth, endPath, stroke } from 'pdf-lib'
 import { DPFormData } from './models'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -402,7 +402,8 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         const leftSideW = contentW - rightTableW - 20
         const imgW = leftSideW
         const maxImgH = 460
-        const coverImgSrc = photos.facade_apres_ai || photos.facade_avant || '/placeholder.png'
+        const firstFacade = photos.facades[0]
+        const coverImgSrc = (firstFacade?.after || firstFacade?.before) || photos.dp7_vue_proche || '/placeholder.png'
         const coverImg = await embed(doc, coverImgSrc)
 
         if (coverImg) {
@@ -489,14 +490,18 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         y = drawTitleProfessional(page, bold, 'Plan de situation du terrain', M, y)
         y -= 10
 
-        const mapUrl = coords ? getIGNMapUrl('DP1', coords) : null
+        const isCaptured = plans.dp1_carte_situation?.startsWith('data:image')
+        const mapUrl = isCaptured ? plans.dp1_carte_situation : (coords ? getIGNMapUrl('DP1', coords) : null)
         const mapImg = await embed(doc, mapUrl)
         const maxMapH = Math.min(y - FOOT_H - 25, 480)
 
         if (mapImg && maxMapH > 80) {
             const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
-            target(page, M + cW / 2, (y + newY) / 2)
-            north(page, bold, M + cW - 26, y - 20)
+            // Only draw overlays if it's NOT a UI capture (which already has them)
+            if (!isCaptured) {
+                target(page, M + cW / 2, (y + newY) / 2)
+                north(page, bold, M + cW - 26, y - 20)
+            }
             y = newY - 10
         } else {
             placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Carte IGN non disponible')
@@ -520,25 +525,29 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
 
         const maxMapH = Math.min(y - FOOT_H - 25, 480)
 
-        // Try to fetch WFS Vector Data for DP2
-        let vectorData = null
-        if (coords) {
-            vectorData = await getVectorMapData(coords, 80) // 80m radius — tight zoom on parcel
-        }
+        const isCaptured = plans.dp2_plan_masse?.startsWith('data:image')
 
-        if (vectorData && vectorData.cadastre && vectorData.cadastre.features && maxMapH > 80) {
-            // ── Professional architectural plan rendering ──────────────────
-
-            // Step 1: find target parcel (closest centroid to geocoded centre)
-            let cx3857 = 0, cy3857 = 0, hasCenter = false
+        if (isCaptured) {
+            const mapImg = await embed(doc, plans.dp2_plan_masse)
+            if (mapImg) {
+                const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
+                y = newY - 20
+            } else {
+                placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Plan de masse non disponible')
+                y -= Math.max(80, maxMapH) + 20
+            }
+        } else {
+            // Try to fetch WFS Vector Data for DP2
+            let vectorData = null
             if (coords) {
-                const R = 6378137
-                cx3857 = R * coords.lon * Math.PI / 180
-                cy3857 = R * Math.log(Math.tan(Math.PI / 4 + (coords.lat * Math.PI / 180) / 2))
-                hasCenter = true
+                vectorData = await getVectorMapData(coords, 120) // 120m wide bbox: enough context
             }
 
+        if (vectorData && vectorData.cadastre && vectorData.cadastre.features && maxMapH > 80) {
+            // ── Professional architectural plan rendering (Refined) ──────────
             const featuresC = vectorData.cadastre.features || []
+            const featuresB = vectorData.bati?.features || []
+
             const getCoordArrays = (feat: any) => {
                 const t = feat.geometry?.type
                 if (t === 'Polygon') return feat.geometry.coordinates
@@ -546,25 +555,29 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 return []
             }
 
+            // 1. Find target parcel
             let targetParcel: any = null
             let minDist = Infinity
-            if (hasCenter) {
+            let cx3857 = 0, cy3857 = 0
+            if (coords) {
+                const R = 6378137
+                cx3857 = R * coords.lon * Math.PI / 180
+                cy3857 = R * Math.log(Math.tan(Math.PI / 4 + (coords.lat * Math.PI / 180) / 2))
+                
                 for (const feat of featuresC) {
                     const rings = getCoordArrays(feat)
-                    if (!rings || !rings[0] || rings[0].length < 3) continue
+                    if (!rings || !rings[0]) continue
                     const ring = rings[0] as number[][]
-                    let cx = 0, cy = 0
-                    for (const c of ring) { cx += c[0]; cy += c[1] }
-                    cx /= ring.length; cy /= ring.length
-                    const dist = Math.sqrt((cx - cx3857) ** 2 + (cy - cy3857) ** 2)
+                    let fx = 0, fy = 0
+                    for (const c of ring) { fx += c[0]; fy += c[1] }
+                    fx /= ring.length; fy /= ring.length
+                    const dist = Math.sqrt((fx - cx3857) ** 2 + (fy - cy3857) ** 2)
                     if (dist < minDist) { minDist = dist; targetParcel = feat }
                 }
             }
 
-            // Step 2: compute view bbox zoomed to target parcel + 20m padding
-            const PADDING = 20
+            // 2. Determine view bbox based on target parcel + context (Matches UI)
             let vMinX: number, vMinY: number, vMaxX: number, vMaxY: number
-
             if (targetParcel) {
                 const ring = getCoordArrays(targetParcel)[0] as number[][]
                 let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
@@ -572,101 +585,100 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                     if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
                     if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
                 }
-                vMinX = bMinX - PADDING; vMinY = bMinY - PADDING
-                vMaxX = bMaxX + PADDING; vMaxY = bMaxY + PADDING
+                const centerX = (bMinX + bMaxX) / 2
+                const centerY = (bMinY + bMaxY) / 2
+                const w = bMaxX - bMinX
+                const h = bMaxY - bMinY
+                const span = Math.max(w, h, 80) * 0.8 // Provide about 60-100m context around center
+                vMinX = centerX - span; vMaxX = centerX + span
+                vMinY = centerY - span; vMaxY = centerY + span
             } else {
-                // Fallback to full bbox
-                const bboxParts = vectorData.bboxStr.split(',').map(Number)
-                vMinX = bboxParts[0]; vMinY = bboxParts[1]; vMaxX = bboxParts[2]; vMaxY = bboxParts[3]
+                const parts = vectorData.bboxStr.split(',').map(Number)
+                vMinX = parts[0]; vMinY = parts[1]; vMaxX = parts[2]; vMaxY = parts[3]
             }
 
             const mapSrcW = vMaxX - vMinX
             const mapSrcH = vMaxY - vMinY
-            const scale = Math.min(cW / mapSrcW, maxMapH / mapSrcH)
+            const scale = Math.min(cW / mapSrcW, maxMapH / mapSrcH) * 0.98
             const drawW = mapSrcW * scale
             const drawH = mapSrcH * scale
             const startX = M + (cW - drawW) / 2
             const startY = y - drawH
 
-            // Map EPSG:3857 → PDF units
             const mc = (gx: number, gy: number) => ({
                 x: startX + (gx - vMinX) * scale,
                 y: startY + (gy - vMinY) * scale,
             })
 
-            const toSvgPath = (rings: number[][][]) => {
-                let path = ''
+            const drawFillablePolygon = (rings: any, fillColor?: any, strokeColor?: any, width?: number) => {
+                if (!rings || !rings.length) return
                 for (const ring of rings) {
                     if (!ring || ring.length < 3) continue
-                    for (let i = 0; i < ring.length; i++) {
-                        const p = mc(ring[i][0], ring[i][1])
-                        path += (i === 0 ? `M ${p.x.toFixed(2)} ${p.y.toFixed(2)} ` : `L ${p.x.toFixed(2)} ${p.y.toFixed(2)} `)
+                    const points = ring.map((c: any) => mc(c[0], c[1]))
+                    
+                    page.pushOperators(pushGraphicsState())
+                    page.pushOperators(setLineWidth(width ?? 0.8))
+                    if (strokeColor) page.pushOperators(setStrokingColor(strokeColor))
+                    if (fillColor) page.pushOperators(setFillingColor(fillColor))
+                    
+                    page.pushOperators(moveTo(points[0].x, points[0].y))
+                    for (let i = 1; i < points.length; i++) {
+                        page.pushOperators(lineTo(points[i].x, points[i].y))
                     }
-                    path += 'Z '
+                    page.pushOperators(closePath())
+                    
+                    if (fillColor && strokeColor) page.pushOperators(fillAndStroke())
+                    else if (fillColor) page.pushOperators(fillAndStroke()) 
+                    else if (strokeColor) page.pushOperators(stroke())
+                    else page.pushOperators(stroke())
+                    
+                    page.pushOperators(popGraphicsState())
                 }
-                return path.trim()
             }
 
-            // 1. Grey road background
+            // Render Map with Clipping
+            page.pushOperators(pushGraphicsState())
+            page.pushOperators(moveTo(startX, startY))
+            page.pushOperators(lineTo(startX + drawW, startY))
+            page.pushOperators(lineTo(startX + drawW, startY + drawH))
+            page.pushOperators(lineTo(startX, startY + drawH))
+            page.pushOperators(closePath())
+            page.pushOperators(clip())
+            page.pushOperators(endPath())
+
             box(page, startX, startY, drawW, drawH, rgb(0.88, 0.88, 0.88), C.dark, 0.8)
 
-            // 2. Draw all cadastral parcels
+            // Draw Parcelles
             for (const feat of featuresC) {
+                const isTarget = feat === targetParcel
                 const rings = getCoordArrays(feat)
-                const path = toSvgPath(rings)
-                if (!path) continue
-                try {
-                    page.drawSvgPath(path, {
-                        color: rgb(0.97, 0.97, 0.95),
-                        borderColor: rgb(0.6, 0.6, 0.6),
-                        borderWidth: 0.5,
-                    })
-                } catch { /* ignore bad paths */ }
+                drawFillablePolygon(
+                    rings, 
+                    isTarget ? rgb(0.82, 0.93, 0.72) : rgb(0.96, 0.96, 0.94), 
+                    isTarget ? rgb(0, 0.35, 0.8) : rgb(0.65, 0.65, 0.65), 
+                    isTarget ? 1.8 : 0.6
+                )
             }
 
-            // 3. Highlight target parcel
-            if (targetParcel) {
-                const rings = getCoordArrays(targetParcel)
-                const path = toSvgPath(rings)
-                if (path) {
-                    try {
-                        page.drawSvgPath(path, {
-                            color: rgb(0.82, 0.93, 0.78),
-                            borderColor: rgb(0, 0.3, 0.8),
-                            borderWidth: 1.8,
-                        })
-                    } catch { /* ignore */ }
-                }
+            // Draw Buildings
+            for (const feat of featuresB) {
+                const rings = getCoordArrays(feat)
+                drawFillablePolygon(rings, rgb(0.62, 0.62, 0.62), rgb(0.2, 0.2, 0.2), 0.7)
             }
+            
+            // Pop Clipping
+            page.pushOperators(popGraphicsState())
 
-            // 4. Compute target parcel bbox for building containment check
-            let tpMinX = -Infinity, tpMinY = -Infinity, tpMaxX = Infinity, tpMaxY = Infinity
+            // Draw Dimensions (Buildings inside target parcel)
+            let tpMinX = Infinity, tpMinY = Infinity, tpMaxX = -Infinity, tpMaxY = -Infinity
             if (targetParcel) {
                 const ring = getCoordArrays(targetParcel)[0] as number[][]
-                tpMinX = Infinity; tpMinY = Infinity; tpMaxX = -Infinity; tpMaxY = -Infinity
                 for (const c of ring) {
                     if (c[0] < tpMinX) tpMinX = c[0]; if (c[0] > tpMaxX) tpMaxX = c[0]
                     if (c[1] < tpMinY) tpMinY = c[1]; if (c[1] > tpMaxY) tpMaxY = c[1]
                 }
             }
 
-            // 5. Draw BD TOPO buildings
-            const featuresB = vectorData.bati?.features || []
-            for (const feat of featuresB) {
-                const rings = getCoordArrays(feat)
-                const path = toSvgPath(rings)
-                if (!path) continue
-                try {
-                    page.drawSvgPath(path, {
-                        color: rgb(0.65, 0.65, 0.65),
-                        borderColor: rgb(0.25, 0.25, 0.25),
-                        borderWidth: 0.7,
-                    })
-                } catch { /* ignore */ }
-            }
-
-            // 6. Dimension labels — only for buildings inside target parcel + only 2 longest parcel sides
-            // Buildings inside parcel — width × depth
             for (const feat of featuresB) {
                 const rings = getCoordArrays(feat)
                 if (!rings || !rings[0]) continue
@@ -678,59 +690,33 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 }
                 const bCx = (bMinX + bMaxX) / 2, bCy = (bMinY + bMaxY) / 2
                 if (bCx < tpMinX || bCx > tpMaxX || bCy < tpMinY || bCy > tpMaxY) continue
+                
                 const wM = bMaxX - bMinX, hM = bMaxY - bMinY
-                if (wM < 1 && hM < 1) continue
-                // Width — below building
+                if (wM < 2 || hM < 2) continue
+
                 const bl = mc(bMinX, bMinY), br = mc(bMaxX, bMinY)
                 const tr = mc(bMaxX, bMaxY)
-                if (wM >= 1) dimLabel(page, font, bl.x, bl.y - 9, br.x, br.y - 9, `${wM.toFixed(1)} m`)
-                if (hM >= 1) dimLabel(page, font, br.x + 9, br.y, tr.x + 9, tr.y, `${hM.toFixed(1)} m`)
+                
+                dimLabel(page, font, bl.x, bl.y - 12, br.x, br.y - 12, `${wM.toFixed(1)} m`)
+                dimLabel(page, font, br.x + 12, br.y, tr.x + 12, tr.y, `${hM.toFixed(1)} m`)
             }
 
-            // Parcel: 2 longest sides only (blue)
-            if (targetParcel) {
-                const rings = getCoordArrays(targetParcel)
-                if (rings && rings[0] && rings[0].length >= 4) {
-                    const ring = rings[0] as number[][]
-                    const sides: { i: number; distM: number }[] = []
-                    for (let i = 0; i < ring.length - 1; i++) {
-                        const dx = ring[i + 1][0] - ring[i][0], dy = ring[i + 1][1] - ring[i][1]
-                        const distM = Math.sqrt(dx * dx + dy * dy)
-                        if (distM >= 3) sides.push({ i, distM })
-                    }
-                    sides.sort((a, b) => b.distM - a.distM)
-                    for (const { i, distM } of sides.slice(0, 2)) {
-                        const p1 = mc(ring[i][0], ring[i][1])
-                        const p2 = mc(ring[i + 1][0], ring[i + 1][1])
-                        const perpX = -(ring[i + 1][1] - ring[i][1]) / distM * 12
-                        const perpY = (ring[i + 1][0] - ring[i][0]) / distM * 12
-                        dimLabel(page, font, p1.x + perpX, p1.y + perpY, p2.x + perpX, p2.y + perpY, `${distM.toFixed(1)} m`)
-                    }
-                }
-            }
+            // Target Crosshair
+            target(page, mc(cx3857, cy3857).x, mc(cx3857, cy3857).y, 10)
+            compassRose(page, bold, startX + 35, startY + drawH - 35, 20)
 
-            // 7. Target crosshair + compass rose
-            if (hasCenter) {
-                const cPx = mc(cx3857, cy3857)
-                target(page, cPx.x, cPx.y, 12)
-            }
+            // Legend
+            const legX = startX + 10, legY = startY + 10
+            box(page, legX, legY, 150, 60, C.white, C.dark, 0.8)
+            page.drawRectangle({ x: legX + 8, y: legY + 45, width: 12, height: 8, color: rgb(0.82, 0.93, 0.72), borderColor: rgb(0, 0.35, 0.8), borderWidth: 1.5 })
+            tx(page, "Parcelle concernee", legX + 26, legY + 46, 7.5, font)
+            page.drawRectangle({ x: legX + 8, y: legY + 31, width: 12, height: 8, color: rgb(0.62, 0.62, 0.62), borderColor: rgb(0.2, 0.2, 0.2), borderWidth: 0.8 })
+            tx(page, "Batiments (BD TOPO)", legX + 26, legY + 32, 7.5, font)
+            page.drawRectangle({ x: legX + 8, y: legY + 17, width: 12, height: 8, color: rgb(0.88, 0.88, 0.88), borderColor: C.dark, borderWidth: 0.5 })
+            tx(page, "Voiries / Autres", legX + 26, legY + 18, 7.5, font)
+            tx(page, "IGN - BD TOPO / Cadastre", legX + 26, legY + 4, 6, fontOblique, C.mid)
 
-            // Compass rose – top-left corner of drawing
-            compassRose(page, bold, startX + 34, startY + drawH - 36, 22)
-
-            // 9. Legend box – lower left
-            const legX = startX + 8, legY = startY + 8
-            box(page, legX, legY, 140, 62, rgb(1, 1, 1), C.mid, 0.8)
-            page.drawRectangle({ x: legX + 6, y: legY + 46, width: 12, height: 10, color: rgb(0.97, 0.97, 0.95), borderColor: rgb(0, 0.3, 0.8), borderWidth: 1.5 })
-            tx(page, 'Parcelle concernee', legX + 22, legY + 48, 7, font, C.nearBlack)
-            page.drawRectangle({ x: legX + 6, y: legY + 32, width: 12, height: 10, color: rgb(0.82, 0.93, 0.78), borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 0.5 })
-            tx(page, 'Espaces verts', legX + 22, legY + 34, 7, font, C.nearBlack)
-            page.drawRectangle({ x: legX + 6, y: legY + 18, width: 12, height: 10, color: rgb(0.65, 0.65, 0.65), borderColor: rgb(0.25, 0.25, 0.25), borderWidth: 0.7 })
-            tx(page, 'Batiments (BD TOPO)', legX + 22, legY + 20, 7, font, C.nearBlack)
-            page.drawRectangle({ x: legX + 6, y: legY + 4, width: 12, height: 10, color: rgb(0.88, 0.88, 0.88), borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 0.5 })
-            tx(page, 'Voiries / autres parcelles', legX + 22, legY + 6, 7, font, C.nearBlack)
-
-            y = startY - 14
+            y = startY - 20
         } else {
             // Fallback to IGN WMS image if WFS fails
             const mapUrl = coords ? getIGNMapUrl('DP2', coords) : null
@@ -739,12 +725,13 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
                 target(page, M + cW / 2, (y + newY) / 2, 18)
                 north(page, bold, M + cW - 26, y - 20)
-                y = newY - 10
+                y = newY - 20
             } else {
-                placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Plan de masse IGN non disponible')
-                y -= Math.max(80, maxMapH) + 10
+                placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Plan de masse non disponible')
+                y -= Math.max(80, maxMapH) + 20
             }
         }
+    }
 
         drawDesignFooter(page, font, bold, data, 'DP 2', 'Plan de masse des constructions', '1:1 000')
     }
@@ -823,151 +810,169 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
 
     // ══════════════════════ PAGE 5 – DP5 Croquis Architectural ══════════
     {
+        const croquisToDraw = photos.facades.filter(f => f.croquis)
         const page = addPage()
         const M = M_INNER
         const cW = PW - M * 2
-
         drawFrame(page)
         let y = drawDesignHeader(page, fontOblique)
-
-        y = drawTitleProfessional(page, bold, 'Plans des facades : Etat projeté', M, y)
+        y = drawTitleProfessional(page, bold, 'Plans des facades : Etat projeté (DP 5)', M, y)
         y -= 10
 
-        const croquisImg = await embed(doc, photos.facade_croquis_ai)
-        const maxImgH = Math.min(y - FOOT_H - 120, 500)
-
-        if (croquisImg) {
-            y = drawImage(page, croquisImg, M, y, cW, maxImgH)
-            y -= 14
-        } else {
+        if (croquisToDraw.length === 0) {
             placeholder(page, font, M, y, cW, 200, 'Croquis architectural non genere')
-            y -= 210
+        } else {
+            const count = croquisToDraw.length
+            const cols = count > 1 ? 2 : 1
+            const rows = Math.ceil(count / cols)
+            const cellW = (cW - (cols - 1) * 12) / cols
+            const cellH = (y - FOOT_H - 120) / rows
+            
+            for (let i = 0; i < count; i++) {
+                const f = croquisToDraw[i]
+                const r = Math.floor(i / cols)
+                const c = i % cols
+                const cx = M + c * (cellW + 12)
+                const cy = y - r * (cellH + 20)
+                
+                const img = await embed(doc, f.croquis)
+                if (img) {
+                    const dims = img.scaleToFit(cellW, cellH - 40)
+                    const xOff = cx + (cellW - dims.width) / 2
+                    box(page, xOff - 2, cy - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 0.8)
+                    page.drawImage(img, { x: xOff, y: cy - dims.height, width: dims.width, height: dims.height })
+                    tx(page, f.label, cx, cy - dims.height - 15, 10, bold, C.nearBlack)
+                } else {
+                    placeholder(page, font, cx, cy, cellW, cellH - 40, `Croquis: ${f.label}`)
+                }
+                if (i >= 3) break 
+            }
         }
-
-        ln(page, M, y, PW - M, y, 1, C.black)
-        y -= 20
-
-        // Note technique block (Dynamic height)
-        const note = "Ce document presente les modifications architecturales projetees sous forme de dessin technique (elevation). " +
-            "Il permet d'apprecier l'aspect architectural, les proportions et les materiaux mis en oeuvre (couleurs, textures)."
-        const noteLines = wrapText(note, 110)
-        const noteH = 35 + noteLines.length * 16 + 10
-        y -= noteH
-        box(page, M, y, cW, noteH, C.offWhite, C.black, 1.5)
-        tx(page, 'NOTE TECHNIQUE DP 5', M + 14, y + noteH - 24, 12, bold, C.black)
-        textBlock(page, note, M + 14, y + noteH - 44, 11, font, 110, 16, C.nearBlack)
-        y -= 10 // buffer
+        
+        const note = "Documents presentant les modifications architecturales projetees pour l'ensemble des facades concernées. Ils permettent d'apprecier l'aspect architectural, les proportions et les materiaux mis en oeuvre."
+        const noteY = FOOT_H + 50
+        box(page, M, noteY, cW, 44, C.offWhite, C.black, 1.2)
+        textBlock(page, note, M + 14, noteY + 32, 10, font, 130, 14, C.nearBlack)
 
         drawDesignFooter(page, font, bold, data, 'DP 5', 'Plans des facades : croquis architectural', 'Sans')
     }
 
     // ══════════════════════ PAGE 6 – DP6 Insertion Paysagere ══════════════
     {
+        const facadesToDraw = photos.facades.filter(f => f.before || f.after)
+
+        if (facadesToDraw.length === 0) {
+            const page = addPage()
+            const M = M_INNER
+            const cW = PW - M * 2
+            drawFrame(page)
+            let y = drawDesignHeader(page, fontOblique)
+            y = drawTitleProfessional(page, bold, 'Insertion paysagere : Comparaison visuelle', M, y)
+            y -= 10
+            placeholder(page, font, M, y, cW, 200, 'Aucune photo pour l\'insertion paysagere')
+            drawDesignFooter(page, font, bold, data, 'DP 6', 'Insertion paysagere : simulation apres travaux', 'Sans')
+        } else {
+            for (const f of facadesToDraw) {
+                const page = addPage()
+                const M = M_INNER
+                const cW = PW - M * 2
+
+                drawFrame(page)
+                let y = drawDesignHeader(page, fontOblique)
+
+                y = drawTitleProfessional(page, bold, `Insertion paysagere : ${f.label}`, M, y)
+                y -= 10
+
+                const colW = (cW - 12) / 2
+                const maxImgH = Math.min(y - FOOT_H - 120, 420)
+
+                // Column headers
+                drawTitleProfessional(page, bold, 'Etat existant (Avant)', M, y, 14)
+                drawTitleProfessional(page, bold, 'Apres travaux (Simulation)', M + colW + 12, y, 14)
+                y -= 10
+
+                const avImg = await embed(doc, f.before)
+                const apImg = await embed(doc, f.after)
+
+                // Avant
+                if (avImg) {
+                    const dims = avImg.scaleToFit(colW, maxImgH)
+                    const xOff = M + (colW - dims.width) / 2
+                    box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
+                    page.drawImage(avImg, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
+                } else {
+                    placeholder(page, font, M, y, colW, maxImgH, `Photo ${f.label.toLowerCase()} manquante`)
+                }
+
+                // Apres
+                if (apImg) {
+                    const dims = apImg.scaleToFit(colW, maxImgH)
+                    const xOff = M + colW + 12 + (colW - dims.width) / 2
+                    box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
+                    page.drawImage(apImg, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
+                } else {
+                    placeholder(page, font, M + colW + 12, y, colW, maxImgH, 'Simulation IA non generee')
+                }
+
+                y -= maxImgH + 20
+                ln(page, M, y, PW - M, y, 1, C.black)
+                
+                // Note technique block
+                const note6 = `Le document DP6 est une insertion graphique permettant d'apprecier l'integration du projet pour la ${f.label.toLowerCase()}. Cette simulation photorealiste montre le futur aspect de la construction.`
+                const n6Lines = wrapText(note6, 110)
+                const n6H = 35 + n6Lines.length * 16 + 10
+                y -= n6H
+                box(page, M, y, cW, n6H, C.offWhite, C.black, 1.5)
+                tx(page, 'NOTE TECHNIQUE DP 6', M + 14, y + n6H - 24, 12, bold, C.black)
+                textBlock(page, note6, M + 14, y + n6H - 44, 11, font, 110, 16, C.nearBlack)
+
+                drawDesignFooter(page, font, bold, data, 'DP 6', `Insertion paysagere (${f.label})`, 'Sans')
+            }
+        }
+    }
+
+    // ══════════════════════ PAGE 7 – DP7 & DP8 Vue proche/lointaine ══════
+    {
         const page = addPage()
         const M = M_INNER
         const cW = PW - M * 2
-
         drawFrame(page)
         let y = drawDesignHeader(page, fontOblique)
 
-        y = drawTitleProfessional(page, bold, 'Insertion paysagere : Comparaison visuelle', M, y)
+        y = drawTitleProfessional(page, bold, 'Photographies de la construction (DP 7 & DP 8)', M, y)
         y -= 10
 
         const colW = (cW - 12) / 2
-        const maxImgH = Math.min(y - FOOT_H - 50, 420)
-
-        // Column headers - Unfied style
-        drawTitleProfessional(page, bold, 'Etat existant (Avant)', M, y, 14)
-        drawTitleProfessional(page, bold, 'Apres travaux (Simulation)', M + colW + 12, y, 14)
-        y -= 10
-
-        const avImg = await embed(doc, photos.facade_avant)
-        const apImg = await embed(doc, photos.facade_apres_ai)
-
-        // Avant
-        if (avImg) {
-            const dims = avImg.scaleToFit(colW, maxImgH)
+        const maxImgH = y - FOOT_H - 140
+        
+        // DP 7
+        drawTitleProfessional(page, bold, 'DP 7 : Vue rapprochee', M, y, 14)
+        const img7 = await embed(doc, photos.dp7_vue_proche)
+        if (img7) {
+            const dims = img7.scaleToFit(colW, maxImgH)
             const xOff = M + (colW - dims.width) / 2
-            box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
-            page.drawImage(avImg, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
+            box(page, xOff - 2, y - 25 - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
+            page.drawImage(img7, { x: xOff, y: y - 25 - dims.height, width: dims.width, height: dims.height })
+            tx(page, 'Vue rapprochee depuis la voie publique', M, y - 25 - dims.height - 18, 9, fontOblique, C.dark)
         } else {
-            placeholder(page, font, M, y, colW, maxImgH, 'Photo facade avant')
+            placeholder(page, font, M, y - 25, colW, 200, 'Photo DP 7 manquante')
         }
 
-        // Apres
-        if (apImg) {
-            const dims = apImg.scaleToFit(colW, maxImgH)
+        // DP 8
+        drawTitleProfessional(page, bold, 'DP 8 : Vue eloignee', M + colW + 12, y, 14)
+        const img8 = await embed(doc, photos.dp8_vue_lointaine)
+        if (img8) {
+            const dims = img8.scaleToFit(colW, maxImgH)
             const xOff = M + colW + 12 + (colW - dims.width) / 2
-            box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
-            page.drawImage(apImg, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
+            box(page, xOff - 2, y - 25 - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
+            page.drawImage(img8, { x: xOff, y: y - 25 - dims.height, width: dims.width, height: dims.height })
+            tx(page, 'Vue d\'ensemble de l\'environnement', M + colW + 12, y - 25 - dims.height - 18, 9, fontOblique, C.dark)
         } else {
-            placeholder(page, font, M + colW + 12, y, colW, maxImgH, 'Simulation IA non generee')
+            placeholder(page, font, M + colW + 12, y - 25, colW, 200, 'Photo DP 8 manquante')
         }
 
-        y -= maxImgH + 20
-        ln(page, M, y, PW - M, y, 1, C.black)
-        // Note technique block (Dynamic height)
-        const note6 = "Le document DP6 est une insertion graphique permettant d'apprecier l'integration du projet dans son environnement. Cette simulation photorealiste montre le futur aspect de la construction apres realisation des travaux decrits dans la notice (DP4) et le croquis (DP5)."
-        const n6Lines = wrapText(note6, 110)
-        const n6H = 35 + n6Lines.length * 16 + 10
-        y -= n6H
-        box(page, M, y, cW, n6H, C.offWhite, C.black, 1.5)
-        tx(page, 'NOTE TECHNIQUE DP 6', M + 14, y + n6H - 24, 12, bold, C.black)
-        textBlock(page, note6, M + 14, y + n6H - 44, 11, font, 110, 16, C.nearBlack)
-
-        drawDesignFooter(page, font, bold, data, 'DP 6', 'Insertion paysagere : simulation apres travaux', 'Sans')
+        drawDesignFooter(page, font, bold, data, 'DP 7/8', 'Photographies de la construction', 'Sans')
     }
-
-    // ══════════════════════ PAGE 7 – DP7 Vue proche ══════════════════════
-    await addPhotoPage(doc, font, fontOblique, bold, 'DP 7',
-        'Photographie de la construction : Vue rapprochee',
-        photos.dp7_vue_proche,
-        'Vue rapprochee depuis la voie publique permettant d\'identifier clairement la construction et la facade concernee par les travaux.',
-        data, addPage)
-
-    // ══════════════════════ PAGE 8 – DP8 Vue lointaine ═══════════════════
-    await addPhotoPage(doc, font, fontOblique, bold, 'DP 8',
-        'Photographie de la construction : Vue eloignee',
-        photos.dp8_vue_lointaine,
-        'Vue d\'ensemble permettant de situer la construction dans son environnement immediat (rue, quartier, paysage bati et non bati).',
-        data, addPage)
 
     return await doc.save()
-}
-
-// ─── Photo page helper ────────────────────────────────────────────────────────
-async function addPhotoPage(
-    doc: PDFDocument, font: PDFFont, fontOblique: PDFFont, bold: PDFFont,
-    dpNum: string, title: string, photo: string | null, description: string,
-    data: DPFormData, addPage: () => PDFPage
-) {
-    const page = addPage()
-    const M = M_INNER
-    const cW = PageSizes.A3[0] - M * 2
-
-    drawFrame(page)
-    let y = drawDesignHeader(page, fontOblique)
-
-    y = drawTitleProfessional(page, bold, title, M, y)
-    y -= 16
-
-    // Description box
-    const descW = wrapText(san(description), 110)
-    const descBoxH = Math.max(40, descW.length * 20 + 20)
-    box(page, M, y - descBoxH, cW, descBoxH, C.offWhite, C.black, 1.5)
-    descW.forEach((l, i) => tx(page, l, M + 14, y - 28 - i * 20, 12, font, C.dark))
-    y -= descBoxH + 16
-
-    const img = await embed(doc, photo)
-    const maxH = y - FOOT_H - 40
-    if (img && maxH > 60) {
-        const dims = img.scaleToFit(cW, maxH)
-        const xOff = M + (cW - dims.width) / 2
-        box(page, xOff - 2, y - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
-        page.drawImage(img, { x: xOff, y: y - dims.height, width: dims.width, height: dims.height })
-    } else {
-        placeholder(page, font, M, y, cW, Math.max(60, maxH), 'Aucune photographie fournie pour ce document')
-    }
-
-    drawDesignFooter(page, font, bold, data, dpNum, title, 'Sans')
 }

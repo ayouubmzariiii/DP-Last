@@ -77,8 +77,9 @@ VISUAL STYLE (MANDATORY):
 - Shadows: Simple, flat, solid grey shadows at a 45-degree angle to show depth. No gradients.
 - Background: Solid white background.
 - Details: Include subtle material textures like fine grid for roof tiles.
-- Content: DO NOT add or remove any architectural features from the provided image. Exactly replicate the structure shown in the image.
-- Professionalism: No text, no people, no trees, no artifacts. Just the building facade on a white background.`
+- Content: Exactly replicate the structure shown in the image.
+- ANNOTATIONS: Draw thin black arrows pointing at the key areas of change (e.g., new windows, new pintu, new cladding). Near each arrow, add a small, legibly written technical description in French (e.g., "Nouveau portail", "Menuiseries Aluminium RAL 7016", "Isolation par l'extérieur").
+- Professionalism: No people, no trees, no artifacts. Just the building facade with technical annotations on a white background.`
 }
 
 // ── Fetch the API key from our secure token endpoint ─────────────────────────
@@ -188,8 +189,8 @@ export async function generateAIAfterImage(data: DPFormData): Promise<string> {
     return callOpenAIDirect({ prompt, imageBase64: realImage })
 }
 
-export async function generateAICroquis(data: DPFormData, baseImage: string): Promise<string> {
-    const prompt = buildAICroquisPrompt(data)
+export async function generateAICroquis(data: DPFormData, baseImage: string, customInstruction?: string): Promise<string> {
+    const prompt = buildAICroquisPrompt(data, customInstruction)
     const realImage = baseImage.startsWith('data:') ? baseImage : undefined
 
     console.group('%c🤖 AI Croquis Generation – gpt-image-1 (browser)', 'color:#a78bfa;font-weight:bold;font-size:13px')
