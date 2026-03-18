@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 export default function Etape1() {
     const router = useRouter()
@@ -170,14 +171,38 @@ export default function Etape1() {
                         <h3 className="dp-section-title">Coordonnées</h3>
                         <div className="space-y-4">
                             <div className="dp-form-group mb-4">
-                                <label className="dp-label">Numéro et voie *</label>
-                                <input className="dp-input" placeholder="Numéro et nom de rue" value={d.adresse} onChange={e => updateDemandeur({ adresse: e.target.value })} />
+                                <label className="dp-label">Recherche d'adresse complète *</label>
+                                <AddressAutocomplete
+                                    placeholder="Saisissez votre adresse..."
+                                    initialValue={d.adresse ? `${d.adresse}, ${d.code_postal} ${d.commune}` : ''}
+                                    onAddressSelected={(addr) => {
+                                         updateDemandeur({
+                                             adresse: addr.adresse,
+                                             code_postal: addr.code_postal,
+                                             commune: addr.commune,
+                                             coords: addr.coords,
+                                             pays: 'France',
+                                             lieu_dit: '',
+                                             boite_postale: '',
+                                             cedex: '',
+                                             division_territoriale: ''
+                                         })
+                                     }}
+                                />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Voie (extraite)</label>
+                                    <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={d.adresse} />
+                                </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Lieu-dit</label>
                                     <input className="dp-input" placeholder="Lieu-dit" value={d.lieu_dit} onChange={e => updateDemandeur({ lieu_dit: e.target.value })} />
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="dp-form-group">
                                         <label className="dp-label">BP / Boîte Postale</label>
@@ -188,17 +213,18 @@ export default function Etape1() {
                                         <input className="dp-input" placeholder="Ex: 75001 Cedex" value={d.cedex} onChange={e => updateDemandeur({ cedex: e.target.value })} />
                                     </div>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                                <div className="dp-form-group">
-                                    <label className="dp-label">Code postal / Zip *</label>
-                                    <input className="dp-input" placeholder="75001" maxLength={6} value={d.code_postal} onChange={e => updateDemandeur({ code_postal: e.target.value })} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="dp-form-group">
+                                        <label className="dp-label">Code postal</label>
+                                        <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={d.code_postal} />
+                                    </div>
+                                    <div className="dp-form-group">
+                                        <label className="dp-label">Commune</label>
+                                        <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={d.commune} />
+                                    </div>
                                 </div>
-                                <div className="dp-form-group md:col-span-2">
-                                    <label className="dp-label">Localité / Commune *</label>
-                                    <input className="dp-input" placeholder="Paris" value={d.commune} onChange={e => updateDemandeur({ commune: e.target.value })} />
-                                </div>
                             </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div className="dp-form-group">
                                     <label className="dp-label">Pays</label>

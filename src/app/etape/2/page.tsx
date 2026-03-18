@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 export default function Etape2() {
     const router = useRouter()
@@ -35,6 +36,7 @@ export default function Etape2() {
                 adresse: d.adresse,
                 code_postal: d.code_postal,
                 commune: d.commune,
+                coords: d.coords,
             })
         }
     }
@@ -71,31 +73,48 @@ export default function Etape2() {
                         {!t.meme_adresse && (
                             <div className="space-y-4">
                                 <div className="dp-form-group mb-4">
-                                    <label className="dp-label">Adresse des travaux *</label>
-                                    <input className="dp-input" placeholder="Numéro et nom de rue" value={t.adresse} onChange={e => updateTerrain({ adresse: e.target.value })} />
+                                    <label className="dp-label">Recherche d'adresse complète *</label>
+                                    <AddressAutocomplete
+                                        placeholder="Ex: 1 avenue du Huit Mai, Les Ponts-de-Cé"
+                                        initialValue={t.adresse ? `${t.adresse}, ${t.code_postal} ${t.commune}` : ''}
+                                        onAddressSelected={(addr) => {
+                                             updateTerrain({
+                                                 adresse: addr.adresse,
+                                                 code_postal: addr.code_postal,
+                                                 commune: addr.commune,
+                                                 coords: addr.coords
+                                             })
+                                         }}
+                                    />
+                                    <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">Recherche certifiée par l'API Adresse du Gouvernement</p>
                                 </div>
-                                <div className="dp-form-group">
-                                    <label className="dp-label">Lieu-dit</label>
-                                    <input className="dp-input" placeholder="Lieu-dit" value={t.lieu_dit} onChange={e => updateTerrain({ lieu_dit: e.target.value })} />
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="dp-form-group">
+                                        <label className="dp-label">Voie (extraite)</label>
+                                        <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={t.adresse} />
+                                    </div>
+                                    <div className="dp-form-group">
+                                        <label className="dp-label">Lieu-dit</label>
+                                        <input className="dp-input" placeholder="Lieu-dit" value={t.lieu_dit} onChange={e => updateTerrain({ lieu_dit: e.target.value })} />
+                                    </div>
                                 </div>
+
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div className="dp-form-group">
-                                        <label className="dp-label">Code postal *</label>
+                                        <label className="dp-label">Code postal</label>
                                         <input
-                                            className="dp-input"
-                                            placeholder="75001"
-                                            maxLength={5}
+                                            className="dp-input bg-slate-900/50 text-slate-400"
+                                            readOnly
                                             value={t.code_postal}
-                                            onChange={e => updateTerrain({ code_postal: e.target.value })}
                                         />
                                     </div>
                                     <div className="dp-form-group md:col-span-2">
-                                        <label className="dp-label">Commune *</label>
+                                        <label className="dp-label">Commune</label>
                                         <input
-                                            className="dp-input"
-                                            placeholder="Paris"
+                                            className="dp-input bg-slate-900/50 text-slate-400"
+                                            readOnly
                                             value={t.commune}
-                                            onChange={e => updateTerrain({ commune: e.target.value })}
                                         />
                                     </div>
                                 </div>

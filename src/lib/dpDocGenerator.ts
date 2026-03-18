@@ -357,7 +357,10 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
     const refStr = `DP-${new Date().getFullYear()}-${san(d.nom || 'XX').toUpperCase().substring(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`
 
     // ── Geocode for maps ───────────────────────────────────────────────────
-    const coords = await geocodeAddress(addr || '', com || '')
+    let coords = data.terrain.coords
+    if (!coords) {
+        coords = await geocodeAddress(addr || '', com || '')
+    }
 
     const pages: PDFPage[] = []
     const addPage = (): PDFPage => { const p = doc.addPage([1190.55, 841.89]); pages.push(p); return p }

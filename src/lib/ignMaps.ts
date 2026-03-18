@@ -22,7 +22,31 @@ export function getBBox3857(lat: number, lon: number, sizeMeters: number): strin
 
 export async function geocodeAddress(address: string, commune: string): Promise<MapCoords | null> {
     try {
-        const query = encodeURIComponent(`${address} ${commune} France`);
+        const cleanAddress = (address || '').split(',')[0].trim();
+        const cleanCommune = (commune || '').trim();
+        
+        // Construct a clean query: avoid repeating the city if it's already in the address
+        let queryStr = cleanAddress;
+        if (cleanCommune && !cleanAddress.toLowerCase().includes(cleanCommune.toLowerCase())) {
+            queryStr += ` ${cleanCommune}`;
+        }
+        
+        // 1. Try API Adresse Gouv (Best for France, handles typos very well)
+        const gouvQuery = encodeURIComponent(queryStr);
+        const gouvUrl = `https://api-adresse.data.gouv.fr/search/?q=${gouvQuery}&limit=1`;
+        const gouvRes = await fetch(gouvUrl);
+        const gouvData = await gouvRes.json();
+        
+        if (gouvData.features && gouvData.features.length > 0) {
+            const feature = gouvData.features[0];
+            return {
+                lat: feature.geometry.coordinates[1],
+                lon: feature.geometry.coordinates[0]
+            };
+        }
+
+        // 2. Fallback to Nominatim (More global, but sometimes slower/stricter)
+        const query = encodeURIComponent(`${queryStr} France`);
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
         const res = await fetch(url, { headers: { 'User-Agent': 'DP-Travaux-Generator/1.0' } });
         const data = await res.json();

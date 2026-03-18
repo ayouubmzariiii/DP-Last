@@ -7,17 +7,19 @@ import { useDPContext } from '@/lib/context'
 import { generateAICroquis, buildAIAfterImagePrompt, buildAICroquisPrompt, buildAIAfterImagePrompt as buildDP6Prompt } from '@/lib/aiImageGenerator'
 import { DPFormData } from '@/lib/models'
 import html2canvas from 'html2canvas'
+import { geocodeAddress } from '@/lib/ignMaps'
 
 const MAX_IMG_SIZE = 1.5 * 1024 * 1024 // 1.5MB to save bandwidth for Nemotron
 
 
 function MapCard({
-    title, code, address, commune, color = 'blue', zoom, onZoomChange, onCapture, savedImage
+    title, code, address, commune, color = 'blue', zoom, onZoomChange, onCapture, savedImage, coords
 }: {
     title: string; code: string; address: string; commune: string; color?: 'blue' | 'green'
     zoom?: number; onZoomChange?: (z: number) => void;
     onCapture?: (img: string) => void;
     savedImage?: string | null;
+    coords?: { lat: number; lon: number };
 }) {
     const [mapUrl, setMapUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
@@ -26,12 +28,18 @@ function MapCard({
     const mapRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        if (!commune && !address) return
+        if (!commune && !address && !coords) return
         setLoading(true)
         setError(false)
 
-        const params = new URLSearchParams({ address, commune })
+        const params = new URLSearchParams()
+        if (address) params.append('address', address)
+        if (commune) params.append('commune', commune)
         if (zoom) params.append('zoom', zoom.toString())
+        if (coords) {
+            params.append('lat', coords.lat.toString())
+            params.append('lon', coords.lon.toString())
+        }
         
         fetch(`/api/preview-maps?${params.toString()}`)
             .then(r => r.json())
@@ -44,7 +52,7 @@ function MapCard({
                 setError(true)
             })
             .finally(() => setLoading(false))
-    }, [address, commune, code, zoom])
+    }, [address, commune, code, zoom, coords])
 
     const iconColor = color === 'green' ? '#4ade80' : '#60a5fa'
     const codeColor = color === 'green' ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)'
@@ -156,7 +164,7 @@ function MapCard({
 }
 
 /** DP2 vector plan card — fetches BD TOPO & Cadastre GeoJSON and renders as SVG */
-function Dp2VectorCard({ address, commune, formData, onCapture, savedImage }: { address: string; commune: string; formData: any; onCapture?: (img: string) => void; savedImage?: string | null }) {
+function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coords }: { address: string; commune: string; formData: any; onCapture?: (img: string) => void; savedImage?: string | null; coords?: { lat: number; lon: number } }) {
     const [geoData, setGeoData] = useState<{ cadastre: any; bati: any; center: number[] } | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(false)
@@ -164,41 +172,47 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage }: { 
     const mapRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        if (!commune && !address) return
+        if (!commune && !address && !coords) return
         setLoading(true)
         setError(false)
 
-        const q = encodeURIComponent(`${address} ${commune} France`)
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, {
-            headers: { 'User-Agent': 'DP-Travaux-Generator/1.0' }
-        })
-            .then(r => r.json())
-            .then(async (nominatim) => {
-                if (!nominatim || !nominatim[0]) throw new Error('Geocoding failed')
-                const lat = parseFloat(nominatim[0].lat)
-                const lon = parseFloat(nominatim[0].lon)
+        const fetchVector = async (lat: number, lon: number) => {
+            const R = 6378137
+            const cx = R * lon * Math.PI / 180
+            const cy = R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2))
+            const half = 80 // 160m wide bbox
 
-                const R = 6378137
-                const cx = R * lon * Math.PI / 180
-                const cy = R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2))
-                const half = 80 // 160m wide bbox
+            const bboxStr = [cx - half, cy - half, cx + half, cy + half].map(v => v.toFixed(2)).join(',')
+            const base = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&OUTPUTFORMAT=application/json&srsName=EPSG:3857`
 
-                const bboxStr = [cx - half, cy - half, cx + half, cy + half].map(v => v.toFixed(2)).join(',')
-                const base = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&OUTPUTFORMAT=application/json&srsName=EPSG:3857`
+            const [resCad, resBati] = await Promise.all([
+                fetch(`${base}&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle&BBOX=${bboxStr},EPSG:3857`).then(r => r.json()).catch(() => null),
+                fetch(`${base}&TYPENAMES=BDTOPO_V3:batiment&BBOX=${bboxStr},EPSG:3857`).then(r => r.json()).catch(() => null)
+            ])
 
-                const [resCad, resBati] = await Promise.all([
-                    fetch(`${base}&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle&BBOX=${bboxStr},EPSG:3857`).then(r => r.json()).catch(() => null),
-                    fetch(`${base}&TYPENAMES=BDTOPO_V3:batiment&BBOX=${bboxStr},EPSG:3857`).then(r => r.json()).catch(() => null)
-                ])
+            setGeoData({ cadastre: resCad, bati: resBati, center: [cx, cy] })
+        }
 
-                setGeoData({ cadastre: resCad, bati: resBati, center: [cx, cy] })
-            })
-            .catch(err => {
-                console.error('DP2 vector load error:', err)
-                setError(true)
-            })
-            .finally(() => setLoading(false))
-    }, [address, commune])
+        if (coords) {
+            fetchVector(coords.lat, coords.lon)
+                .catch(err => {
+                    console.error('DP2 vector load error:', err)
+                    setError(true)
+                })
+                .finally(() => setLoading(false))
+        } else {
+            geocodeAddress(address, commune)
+                .then(async (c) => {
+                    if (!c) throw new Error('Geocoding failed')
+                    return fetchVector(c.lat, c.lon)
+                })
+                .catch(err => {
+                    console.error('DP2 vector load error:', err)
+                    setError(true)
+                })
+                .finally(() => setLoading(false))
+        }
+    }, [address, commune, coords])
 
     const handleCapture = async () => {
         if (!mapRef.current) return
@@ -299,44 +313,51 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage }: { 
             const rings = getCoords(feat)
             if (!rings || !rings[0]) return
             const ring = rings[0] as number[][]
-            let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
-            for (const c of ring) {
-                if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
-                if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
-            }
+            
+            // Strictly check if building is inside target parcel
             if (targetIdx >= 0) {
+                let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
+                for (const c of ring) {
+                    if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
+                    if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
+                }
                 const bCx = (bMinX + bMaxX) / 2, bCy = (bMinY + bMaxY) / 2
+                
+                // Building must be strictly within target parcel bounds
                 if (bCx < tpMinX || bCx > tpMaxX || bCy < tpMinY || bCy > tpMaxY) return
-            }
-            const wM = bMaxX - bMinX, hM = bMaxY - bMinY
-            if (wM < 1 && hM < 1) return
-            const tl = toSvg(bMinX, bMaxY), tr = toSvg(bMaxX, bMaxY), bl = toSvg(bMinX, bMinY), br = toSvg(bMaxX, bMinY)
-            const svgW = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2)
-            const svgH = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2)
-            if (svgW < 8 && svgH < 8) return
+                
+                // Second check: size of building to filter out tiny artifacts
+                const wM = bMaxX - bMinX, hM = bMaxY - bMinY
+                if (wM < 2 || hM < 2) return
 
-            const wlabel = `${wM.toFixed(1)} m`
-            const wmx = (bl.x + br.x) / 2, wmy = (bl.y + br.y) / 2 + 9
-            if (svgW >= 8) bldDimLines.push(
-                <g key={`w${bi}`}>
-                    <line x1={bl.x} y1={bl.y + 8} x2={br.x} y2={br.y + 8} stroke="#222" strokeWidth={0.9} />
-                    <line x1={bl.x} y1={bl.y + 4} x2={bl.x} y2={bl.y + 12} stroke="#222" strokeWidth={0.9} />
-                    <line x1={br.x} y1={br.y + 4} x2={br.x} y2={br.y + 12} stroke="#222" strokeWidth={0.9} />
-                    <rect x={wmx - 14} y={wmy - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
-                    <text x={wmx} y={wmy + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#111">{wlabel}</text>
-                </g>
-            )
-            const hlabel = `${hM.toFixed(1)} m`
-            const hmx = (tr.x + br.x) / 2 + 9, hmy = (tr.y + br.y) / 2
-            if (svgH >= 8) bldDimLines.push(
-                <g key={`h${bi}`}>
-                    <line x1={tr.x + 8} y1={tr.y} x2={br.x + 8} y2={br.y} stroke="#222" strokeWidth={0.9} />
-                    <line x1={tr.x + 4} y1={tr.y} x2={tr.x + 12} y2={tr.y} stroke="#222" strokeWidth={0.9} />
-                    <line x1={br.x + 4} y1={br.y} x2={br.x + 12} y2={br.y} stroke="#222" strokeWidth={0.9} />
-                    <rect x={hmx - 14} y={hmy - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
-                    <text x={hmx} y={hmy + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#111">{hlabel}</text>
-                </g>
-            )
+                const tl = toSvg(bMinX, bMaxY), tr = toSvg(bMaxX, bMaxY), bl = toSvg(bMinX, bMinY), br = toSvg(bMaxX, bMinY)
+                const svgW = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2)
+                const svgH = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2)
+                if (svgW < 12 && svgH < 12) return
+
+                const wlabel = `${wM.toFixed(1)} m`
+                const wmx = (bl.x + br.x) / 2, wmy = (bl.y + br.y) / 2 + 10
+                bldDimLines.push(
+                    <g key={`w${bi}`}>
+                        <line x1={bl.x} y1={bl.y + 8} x2={br.x} y2={br.y + 8} stroke="#111" strokeWidth={1.2} />
+                        <line x1={bl.x} y1={bl.y + 4} x2={bl.x} y2={bl.y + 12} stroke="#111" strokeWidth={1.2} />
+                        <line x1={br.x} y1={br.y + 4} x2={br.x} y2={br.y + 12} stroke="#111" strokeWidth={1.2} />
+                        <rect x={wmx - 16} y={wmy - 6} width={32} height={12} fill="white" rx={2} stroke="#ccc" strokeWidth={0.5} />
+                        <text x={wmx} y={wmy + 2.5} textAnchor="middle" fontSize={8} fontWeight="700" fill="#000">{wlabel}</text>
+                    </g>
+                )
+                const hlabel = `${hM.toFixed(1)} m`
+                const hmx = (tr.x + br.x) / 2 + 10, hmy = (tr.y + br.y) / 2
+                bldDimLines.push(
+                    <g key={`h${bi}`}>
+                        <line x1={tr.x + 8} y1={tr.y} x2={br.x + 8} y2={br.y} stroke="#111" strokeWidth={1.2} />
+                        <line x1={tr.x + 4} y1={tr.y} x2={tr.x + 12} y2={tr.y} stroke="#111" strokeWidth={1.2} />
+                        <line x1={br.x + 4} y1={br.y} x2={br.x + 12} y2={br.y} stroke="#111" strokeWidth={1.2} />
+                        <rect x={hmx - 16} y={hmy - 6} width={32} height={12} fill="white" rx={2} stroke="#ccc" strokeWidth={0.5} />
+                        <text x={hmx} y={hmy + 2.5} textAnchor="middle" fontSize={8} fontWeight="700" fill="#000">{hlabel}</text>
+                    </g>
+                )
+            }
         })
 
         const parcelDimLines: JSX.Element[] = []
@@ -373,11 +394,26 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage }: { 
         const terrain = formData?.terrain || {}, travaux = formData?.travaux || {}, anns: string[] = []
         if (terrain.surface_terrain) anns.push(`Terrain: ${terrain.surface_terrain} m²`)
         if (terrain.surface_plancher) anns.push(`Plancher: ${terrain.surface_plancher} m²`)
-        if (travaux.surfaces?.creee) anns.push(`Surface créée: ${travaux.surfaces.creee} m²`)
-        if (travaux.surfaces?.existante) anns.push(`Existante: ${travaux.surfaces.existante} m²`)
-        if (travaux.menuiseries?.largeur && travaux.menuiseries?.hauteur) anns.push(`Menuiseries: ${travaux.menuiseries.largeur}×${travaux.menuiseries.hauteur} cm`)
-        if (travaux.isolation?.epaisseur_isolant) anns.push(`Isolant: e=${travaux.isolation.epaisseur_isolant} cm`)
-        if (travaux.photovoltaique?.surface_totale) anns.push(`PV: ${travaux.photovoltaique.surface_totale} m² (${travaux.photovoltaique.nombre_panneaux} pan.)`)
+        
+        // Accurate work surfaces
+        const sCreee = travaux.surfaces?.creee || '0'
+        const sExist = travaux.surfaces?.existante || '0'
+        anns.push(`Surface créée: ${sCreee} m²`)
+        anns.push(`Existante: ${sExist} m²`)
+
+        // Specific work details
+        if (travaux.type === 'menuiseries' && travaux.menuiseries) {
+            const m = travaux.menuiseries
+            anns.push(`Menuiseries: ${m.largeur || '?'}×${m.hauteur || '?'} cm`)
+            if (m.type) anns.push(`Type: ${m.type.replace('_', ' ')}`)
+        }
+        if (travaux.type === 'isolation' && travaux.isolation) {
+            anns.push(`Isolant: e=${travaux.isolation.epaisseur_isolant || '?'} cm`)
+        }
+        if (travaux.type === 'photovoltaique' && travaux.photovoltaique) {
+            const pv = travaux.photovoltaique
+            anns.push(`PV: ${pv.surface_totale || '?'} m² (${pv.nombre_panneaux || '?'} pan.)`)
+        }
 
         const annLineH = 13, annBoxW = 145, annBoxH = anns.length > 0 ? anns.length * annLineH + 22 : 0
         const annBoxX = VW - annBoxW - 6, annBoxY = VH - annBoxH - 70
@@ -770,6 +806,9 @@ export default function Etape5() {
     const commune = formData.terrain.meme_adresse
         ? formData.demandeur.commune
         : formData.terrain.commune
+    const coords = formData.terrain.meme_adresse
+        ? formData.demandeur.coords
+        : formData.terrain.coords
 
     useEffect(() => {
         // Auto-generate DP4 notice based on work type
@@ -1069,6 +1108,7 @@ export default function Etape5() {
                                 code="DP1"
                                 address={address}
                                 commune={commune}
+                                coords={coords}
                                 color="blue"
                                 zoom={dp1Zoom}
                                 onZoomChange={setDp1Zoom}
@@ -1098,6 +1138,7 @@ export default function Etape5() {
                             <Dp2VectorCard
                                 address={address}
                                 commune={commune}
+                                coords={coords}
                                 formData={formData}
                                 onCapture={(img) => updatePlans({ dp2_plan_masse: img })}
                                 savedImage={formData.plans.dp2_plan_masse}

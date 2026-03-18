@@ -21,6 +21,7 @@ export interface Demandeur {
     lieu_dit: string
     code_postal: string
     commune: string
+    coords?: { lat: number; lon: number }
     boite_postale: string
     cedex: string
     pays: string
@@ -42,6 +43,7 @@ export interface Terrain {
     lieu_dit: string
     code_postal: string
     commune: string
+    coords?: { lat: number; lon: number }
     prefixe_cadastral: string
     section_cadastrale: string
     numero_parcelle: string
