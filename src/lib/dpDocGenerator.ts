@@ -359,7 +359,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
     // ── Geocode for maps ───────────────────────────────────────────────────
     let coords = data.terrain.coords
     if (!coords) {
-        coords = await geocodeAddress(addr || '', com || '')
+        coords = (await geocodeAddress(addr || '', com || '')) ?? undefined
     }
 
     const pages: PDFPage[] = []
