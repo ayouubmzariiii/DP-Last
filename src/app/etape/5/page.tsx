@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
-import { generateAICroquis, buildAIAfterImagePrompt, buildAICroquisPrompt, buildAIAfterImagePrompt as buildDP6Prompt } from '@/lib/aiImageGenerator'
+import { generateAICroquis, buildAIAfterImagePrompt, buildAICroquisPrompt, buildAIAfterImagePrompt as buildDP6Prompt, resizeImageForOpenAI } from '@/lib/aiImageGenerator'
 import { DPFormData } from '@/lib/models'
 import html2canvas from 'html2canvas'
 import { geocodeAddress } from '@/lib/ignMaps'
@@ -884,22 +884,12 @@ export default function Etape5() {
                 let imageUrl: string | undefined
 
                 if (imageBase64.startsWith('data:')) {
-                    const resized = await new Promise<string>((resolve, reject) => {
-                        const img = new Image(); img.onload = () => {
-                            const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024
-                            const ctx = canvas.getContext('2d')!
-                            const scale = Math.max(1536 / img.width, 1024 / img.height)
-                            const w = img.width * scale, h = img.height * scale
-                            ctx.drawImage(img, (1536 - w) / 2, (1024 - h) / 2, w, h)
-                            resolve(canvas.toDataURL('image/png'))
-                        }; img.onerror = reject; img.src = imageBase64
-                    })
-                    const b64 = resized.split(',')[1]
-                    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                    const { base64, width, height } = await resizeImageForOpenAI(imageBase64)
+                    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
                     const blob = new Blob([bytes], { type: 'image/png' })
                     const form = new FormData()
                     form.append('model', 'gpt-image-1'); form.append('prompt', prompt); form.append('n', '1')
-                    form.append('size', '1536x1024'); form.append('image', blob, 'facade.png')
+                    form.append('size', `${width}x${height}`); form.append('image', blob, 'facade.png')
                     
                     const aiRes = await fetch('https://api.openai.com/v1/images/edits', {
                         method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
@@ -957,22 +947,12 @@ export default function Etape5() {
                 let newImage: string | undefined
 
                 if (imageBase64 && imageBase64.startsWith('data:')) {
-                    const resized = await new Promise<string>((resolve, reject) => {
-                        const img = new Image(); img.onload = () => {
-                            const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024
-                            const ctx = canvas.getContext('2d')!
-                            const scale = Math.max(1536 / img.width, 1024 / img.height)
-                            const w = img.width * scale, h = img.height * scale
-                            ctx.drawImage(img, (1536 - w) / 2, (1024 - h) / 2, w, h)
-                            resolve(canvas.toDataURL('image/png'))
-                        }; img.onerror = reject; img.src = imageBase64
-                    })
-                    const b64 = resized.split(',')[1]
-                    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                    const { base64, width, height } = await resizeImageForOpenAI(imageBase64)
+                    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
                     const blob = new Blob([bytes], { type: 'image/png' })
                     const form = new FormData()
                     form.append('model', 'gpt-image-1'); form.append('prompt', prompt); form.append('n', '1')
-                    form.append('size', '1536x1024'); form.append('image', blob, 'facade.png')
+                    form.append('size', `${width}x${height}`); form.append('image', blob, 'facade.png')
                     const aiRes = await fetch('https://api.openai.com/v1/images/edits', {
                         method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form,
                     })

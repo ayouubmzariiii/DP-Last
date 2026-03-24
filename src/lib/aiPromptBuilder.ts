@@ -37,16 +37,18 @@ Requested changes:
 "${userDescription}"
 
 STRICT INSTRUCTIONS:
-1. Apply the requested changes as photo-realistically as possible.
-2. YOU MUST KEEP EVERYTHING ELSE EXACTLY AS IN THE ORIGINAL PHOTO.
-3. The existing walls (unless modified by the request), roof structure, garden, driveway, surroundings, lighting, sky, and camera angle MUST remain 100% unchanged.
-4. Only apply the specific replacements or additions clearly mentioned in the requested changes. Do not invent new structures or alter the architectural style of unmentioned elements.
-5. Provide a photorealistic architectural result without any text, borders, or artificial artifacts.`
+1. DO NOT ADD ANY NEW ELEMENTS. You must not add windows, doors, shutters, chimneys, or any architectural features that were not present in the original photo.
+2. DO NOT REMOVE OR MOVE EXISTING ELEMENTS. Keep all existing windows, doors, and structural features in their exact same positions, shapes, and sizes. The number of windows and doors MUST NOT change.
+3. KEEP THE PHOTO IDENTICAL. The existing walls (unless specifically being re-rendered by request), roof structure, garden, driveway, surroundings, lighting, sky, and camera angle MUST remain 100% unchanged.
+4. ONLY IMPLEMENT REQUESTED CHANGES. If the request is for "painting the door", ONLY change the color of the door. Do not touch the windows. If the request is for "cladding", only apply cladding to the specified areas.
+5. CLEAR THE VIEW. Remove any temporary obstacles, people, cars, or objects that might be in front of the areas being modified (like windows or walls) to ensure the changes are clearly visible.
+6. ZERO CREATIVITY FOR UNMENTIONED AREAS. Do not invent new structures or alter the architectural style of unmentioned elements.
+7. Ensure a photorealistic architectural result without any text, borders, or artificial artifacts.`
 
     return {
         prompt,
         changeSummary,
-        negativePrompt: 'cartoon, render, CGI, extra openings, missing openings, changed walls, different angle, changed garden, changed roof, blurry, low quality',
+        negativePrompt: 'extra windows, extra doors, new openings, missing openings, changed architecture, changed walls, different camera angle, changed garden, changed roof, blurry, low quality, cartoon, render, CGI, text, watermark, people, cars, trucks, trash cans, scaffolding, clutter',
         isReady: hasBeforeImage && !!t.type
     }
 }

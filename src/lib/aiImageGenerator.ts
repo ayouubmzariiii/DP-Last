@@ -46,10 +46,13 @@ REQUESTED CHANGES:
 "${rawDescription}"
 
 CONSTRAINTS (strictly enforced):
-- YOU MUST KEEP EVERYTHING ELSE EXACTLY AS IN THE ORIGINAL PHOTO.
-- The existing walls (unless modified by the request), roof structure, garden, driveway, surroundings, lighting, sky, and camera angle MUST remain 100% unchanged.
-- Only apply the specific replacements or additions clearly mentioned in the requested changes. Do not invent new structures or alter the architectural style of unmentioned elements.
-- Provide a photorealistic architectural result without any text, borders, or artificial artifacts.`
+- DO NOT ADD ANY NEW ELEMENTS. You must not add windows, doors, shutters, chimneys, or any architectural features that were not present in the original photo.
+- DO NOT REMOVE OR MOVE EXISTING ELEMENTS. Keep all existing windows, doors, and structural features in their exact same positions, shapes, and sizes. The number of windows and doors MUST NOT change.
+- KEEP THE PHOTO IDENTICAL. The existing walls (unless specifically being re-rendered by request), roof structure, garden, driveway, surroundings, lighting, sky, and camera angle MUST remain 100% unchanged.
+- ONLY IMPLEMENT REQUESTED CHANGES. If the request is for "painting the door", ONLY change the color of the door. Do not touch the windows. If the request is for "cladding", only apply cladding to the specified areas.
+- CLEAR THE VIEW. Remove any temporary obstacles, people, cars, or objects that might be in front of the areas being modified (like windows or walls) to ensure the changes are clearly visible.
+- ZERO CREATIVITY FOR UNMENTIONED AREAS. Do not invent new structures or alter the architectural style of unmentioned elements.
+- Ensure a photorealistic architectural result without any text, borders, or artificial artifacts.`
 }
 
 export function buildAICroquisPrompt(data: DPFormData, customInstruction?: string): string {
@@ -94,22 +97,50 @@ async function fetchApiKey(): Promise<string> {
     return data.key
 }
 
-// ── Resize an image to 1536×1024 PNG using browser Canvas ────────────────────
-async function resizeImageToBase64(dataUrl: string): Promise<string> {
+export interface ResizedImage {
+    base64: string
+    width: number
+    height: number
+}
+
+// ── Resize an image to OpenAI compatible size while preserving ratio ─────────
+export async function resizeImageForOpenAI(dataUrl: string): Promise<ResizedImage> {
     return new Promise((resolve, reject) => {
         const img = new Image()
         img.onload = () => {
+            // OpenAI DALL-E 2 (edits) supports 256x256, 512x512, or 1024x1024 (square)
+            // DALL-E 3 (generations) supports 1024x1024, 1024x1792, 1792x1024
+            // Since we use 'gpt-image-1' (proxy for DALL-E 3), we'll aim for 1024x1024, 1792x1024 or 1024x1792
+            
+            let targetW, targetH;
+            if (img.width > img.height) {
+                targetW = 1792;
+                targetH = 1024;
+            } else if (img.height > img.width) {
+                targetW = 1024;
+                targetH = 1792;
+            } else {
+                targetW = 1024;
+                targetH = 1024;
+            }
+            
             const canvas = document.createElement('canvas')
-            canvas.width = 1536
-            canvas.height = 1024
+            canvas.width = targetW
+            canvas.height = targetH
             const ctx = canvas.getContext('2d')!
-            // Cover-fit: scale to fill, centre-crop
-            const scale = Math.max(1536 / img.width, 1024 / img.height)
+            
+            // Draw original image on the target canvas, preserving its ratio (cover fit)
+            const scale = Math.max(targetW / img.width, targetH / img.height)
             const w = img.width * scale, h = img.height * scale
-            ctx.drawImage(img, (1536 - w) / 2, (1024 - h) / 2, w, h)
-            resolve(canvas.toDataURL('image/png'))
+            ctx.drawImage(img, (targetW - w) / 2, (targetH - h) / 2, w, h)
+            
+            resolve({
+                base64: canvas.toDataURL('image/png').split(',')[1],
+                width: targetW,
+                height: targetH
+            })
         }
-        img.onerror = reject
+        img.onerror = () => reject(new Error('Failed to load image for resizing'))
         img.src = dataUrl
     })
 }
@@ -125,8 +156,7 @@ async function callOpenAIDirect(payload: {
 
     if (payload.imageBase64) {
         // images.edit — multipart/form-data
-        const resized = await resizeImageToBase64(payload.imageBase64)
-        const base64 = resized.split(',')[1]
+        const { base64, width, height } = await resizeImageForOpenAI(payload.imageBase64)
         const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
         const blob = new Blob([byteArray], { type: 'image/png' })
 
@@ -134,7 +164,7 @@ async function callOpenAIDirect(payload: {
         form.append('model', 'gpt-image-1')
         form.append('prompt', payload.prompt)
         form.append('n', '1')
-        form.append('size', '1536x1024')
+        form.append('size', `${width}x${height}`)
         form.append('image', blob, 'facade.png')
 
         const res = await fetch('https://api.openai.com/v1/images/edits', {
@@ -159,7 +189,7 @@ async function callOpenAIDirect(payload: {
                 model: 'gpt-image-1',
                 prompt: payload.prompt,
                 n: 1,
-                size: '1536x1024',
+                size: '1024x1024',
             }),
         })
         if (!res.ok) {
