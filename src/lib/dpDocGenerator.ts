@@ -187,7 +187,7 @@ function drawDesignFooter(page: PDFPage, font: PDFFont, bold: PDFFont, data: DPF
     txCentered(page, 'Date :', curX + (w5 * 3) / 4, yFoot + hFoot * 0.75 - 4, 9, font, C.nearBlack)
 
     // Values (Bottom Row) - Vertically centered in bottom half
-    txCentered(page, scale, curX + w5 / 4, yFoot + hFoot * 0.25 - 5, 10, font, C.mid)
+    txCentered(page, san(scale), curX + w5 / 4, yFoot + hFoot * 0.25 - 5, 10, font, C.mid)
     const dateStr = new Date().toLocaleDateString('fr-FR')
     txCentered(page, dateStr, curX + (w5 * 3) / 4, yFoot + hFoot * 0.25 - 5, 10, font, C.mid)
 }
@@ -264,6 +264,43 @@ function dimLabel(page: PDFPage, font: PDFFont, x1: number, y1: number, x2: numb
     tx(page, label, mx - tw / 2, my + 1.5, 7, font, blue)
 }
 
+
+// Pick a "nice" 1/2/5 × 10ⁿ ground length ≤ v (for graphic scale bars).
+function niceRound(v: number): number {
+    if (!(v > 0)) return 1
+    const pow = Math.pow(10, Math.floor(Math.log10(v)))
+    const f = v / pow
+    const nice = f >= 5 ? 5 : f >= 2 ? 2 : 1
+    return nice * pow
+}
+
+// Convert points-per-meter to a printed scale ratio "1:N" (1 pt = 0.352778 mm).
+function scaleRatioLabel(pxPerMeter: number): string {
+    if (!(pxPerMeter > 0)) return 'Variable'
+    const n = Math.round(1 / (pxPerMeter * 0.000352778))
+    // round to a tidy value
+    const tidy = n >= 1000 ? Math.round(n / 100) * 100 : n >= 100 ? Math.round(n / 50) * 50 : n
+    // Group thousands with a plain ASCII space (NOT toLocaleString — that emits U+202F which
+    // pdf-lib's WinAnsi font cannot encode).
+    const grouped = tidy.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    return `1:${grouped}`
+}
+
+// Draw a graphic scale bar (échelle graphique) anchored at bottom-left (x, y).
+function scaleBar(page: PDFPage, font: PDFFont, x: number, y: number, pxPerMeter: number) {
+    if (!(pxPerMeter > 0)) return
+    const ground = niceRound(120 / pxPerMeter) // aim ~120pt long
+    const barPx = ground * pxPerMeter
+    const half = barPx / 2
+    box(page, x - 6, y - 8, barPx + 16, 28, C.white, C.dark, 0.6)
+    page.drawRectangle({ x, y, width: half, height: 6, color: C.black })
+    page.drawRectangle({ x: x + half, y, width: half, height: 6, color: rgb(1, 1, 1), borderColor: C.black, borderWidth: 0.6 })
+    page.drawRectangle({ x, y, width: barPx, height: 6, borderColor: C.black, borderWidth: 0.6 })
+    const fmt = (m: number) => (m % 1 === 0 ? `${m}` : m.toFixed(1))
+    tx(page, '0', x - 2, y + 9, 7, font, C.nearBlack)
+    tx(page, fmt(ground / 2), x + half - 5, y + 9, 7, font, C.nearBlack)
+    tx(page, `${fmt(ground)} m`, x + barPx - 8, y + 9, 7, font, C.nearBlack)
+}
 
 // ─── Image utilities ──────────────────────────────────────────────────────────
 async function loadImg(src: string | null): Promise<{ bytes: Uint8Array; isPng: boolean } | null> {
@@ -497,21 +534,30 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         const mapUrl = isCaptured ? plans.dp1_carte_situation : (coords ? getIGNMapUrl('DP1', coords) : null)
         const mapImg = await embed(doc, mapUrl)
         const maxMapH = Math.min(y - FOOT_H - 25, 480)
+        // Ground span of the DP1 map: persisted from the capture zoom, else IGN default (500 m).
+        const dp1Span = isCaptured ? (plans.dp1_span_m || 500) : 500
+        let dp1ScaleLabel = 'Variable'
 
         if (mapImg && maxMapH > 80) {
+            const dims = mapImg.scaleToFit(cW, maxMapH)
             const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
             // Only draw overlays if it's NOT a UI capture (which already has them)
             if (!isCaptured) {
                 target(page, M + cW / 2, (y + newY) / 2)
                 north(page, bold, M + cW - 26, y - 20)
             }
+            // Graphic scale bar + computed ratio (the IGN/captured map spans dp1Span metres across its width).
+            const pxPerMeter = dims.width / dp1Span
+            const imgLeft = M + (cW - dims.width) / 2
+            scaleBar(page, font, imgLeft + 10, newY + 12, pxPerMeter)
+            dp1ScaleLabel = scaleRatioLabel(pxPerMeter)
             y = newY - 10
         } else {
             placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Carte IGN non disponible')
             y -= Math.max(80, maxMapH) + 10
         }
 
-        drawDesignFooter(page, font, bold, data, 'DP 1', 'Plan de situation du terrain', '1:10 000')
+        drawDesignFooter(page, font, bold, data, 'DP 1', 'Plan de situation du terrain', dp1ScaleLabel)
     }
 
     // ══════════════════════ PAGE 2 – DP2 Plan de masse ═══════════════════
@@ -527,24 +573,16 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         y -= 10
 
         const maxMapH = Math.min(y - FOOT_H - 25, 480)
+        let dp2ScaleLabel = 'Variable' // replaced with the true ratio when rendered from vector data
 
         const isCaptured = plans.dp2_plan_masse?.startsWith('data:image')
 
-        if (isCaptured) {
-            const mapImg = await embed(doc, plans.dp2_plan_masse)
-            if (mapImg) {
-                const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
-                y = newY - 20
-            } else {
-                placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Plan de masse non disponible')
-                y -= Math.max(80, maxMapH) + 20
-            }
-        } else {
-            // Try to fetch WFS Vector Data for DP2
-            let vectorData = null
-            if (coords) {
-                vectorData = await getVectorMapData(coords, 120) // 120m wide bbox: enough context
-            }
+        // Prefer an accurate, to-scale vector render (setback cotes + graphic scale bar) over a
+        // flat screenshot. Fall back to the captured image, then to an IGN ortho image.
+        let vectorData = null
+        if (coords) {
+            vectorData = await getVectorMapData(coords, 120) // 120m wide bbox: enough context
+        }
 
         if (vectorData && vectorData.cadastre && vectorData.cadastre.features && maxMapH > 80) {
             // ── Professional architectural plan rendering (Refined) ──────────
@@ -699,9 +737,20 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
 
                 const bl = mc(bMinX, bMinY), br = mc(bMaxX, bMinY)
                 const tr = mc(bMaxX, bMaxY)
-                
+
                 dimLabel(page, font, bl.x, bl.y - 12, br.x, br.y - 12, `${wM.toFixed(1)} m`)
                 dimLabel(page, font, br.x + 12, br.y, tr.x + 12, tr.y, `${hM.toFixed(1)} m`)
+
+                // Setback cotes: distance from the building to each parcel boundary (a core
+                // plan-de-masse requirement). Drawn only where the gap is meaningful (>1 m).
+                if (targetParcel) {
+                    const gapL = bMinX - tpMinX, gapR = tpMaxX - bMaxX
+                    const gapB = bMinY - tpMinY, gapT = tpMaxY - bMaxY
+                    if (gapL > 1) { const a = mc(tpMinX, bCy), b = mc(bMinX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapL.toFixed(1)} m`) }
+                    if (gapR > 1) { const a = mc(bMaxX, bCy), b = mc(tpMaxX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapR.toFixed(1)} m`) }
+                    if (gapB > 1) { const a = mc(bCx, tpMinY), b = mc(bCx, bMinY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapB.toFixed(1)} m`) }
+                    if (gapT > 1) { const a = mc(bCx, bMaxY), b = mc(bCx, tpMaxY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapT.toFixed(1)} m`) }
+                }
             }
 
             // Target Crosshair
@@ -719,24 +768,37 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
             tx(page, "Voiries / Autres", legX + 26, legY + 18, 7.5, font)
             tx(page, "IGN - BD TOPO / Cadastre", legX + 26, legY + 4, 6, fontOblique, C.mid)
 
+            // Cadastral reference printed directly on the plan (required identification).
+            const cadRef = san(`Parcelle ${t.section_cadastrale || ''} ${t.numero_parcelle || ''}`.trim())
+            if (cadRef.length > 9) {
+                const crw = bold.widthOfTextAtSize(cadRef, 9)
+                box(page, startX + drawW - crw - 18, startY + drawH - 26, crw + 14, 18, C.white, C.dark, 0.6)
+                tx(page, cadRef, startX + drawW - crw - 11, startY + drawH - 20, 9, bold, C.black)
+            }
+
+            // Graphic scale bar + true scale ratio (échelle graphique — robust to print scaling).
+            scaleBar(page, font, startX + drawW - 150, startY + 14, scale)
+            dp2ScaleLabel = scaleRatioLabel(scale)
+
             y = startY - 20
         } else {
-            // Fallback to IGN WMS image if WFS fails
-            const mapUrl = coords ? getIGNMapUrl('DP2', coords) : null
-            const mapImg = await embed(doc, mapUrl)
+            // No vector data → use the captured screenshot if present, else an IGN ortho image.
+            const fallbackUrl = isCaptured ? plans.dp2_plan_masse : (coords ? getIGNMapUrl('DP2', coords) : null)
+            const mapImg = await embed(doc, fallbackUrl)
             if (mapImg && maxMapH > 80) {
                 const newY = drawImage(page, mapImg, M, y, cW, maxMapH)
-                target(page, M + cW / 2, (y + newY) / 2, 18)
-                north(page, bold, M + cW - 26, y - 20)
+                if (!isCaptured) {
+                    target(page, M + cW / 2, (y + newY) / 2, 18)
+                    north(page, bold, M + cW - 26, y - 20)
+                }
                 y = newY - 20
             } else {
                 placeholder(page, font, M, y, cW, Math.max(80, maxMapH), 'Plan de masse non disponible')
                 y -= Math.max(80, maxMapH) + 20
             }
         }
-    }
 
-        drawDesignFooter(page, font, bold, data, 'DP 2', 'Plan de masse des constructions', '1:1 000')
+        drawDesignFooter(page, font, bold, data, 'DP 2', 'Plan de masse des constructions', dp2ScaleLabel)
     }
 
 
@@ -813,45 +875,50 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
 
     // ══════════════════════ PAGE 5 – DP5 Croquis Architectural ══════════
     {
-        const croquisToDraw = photos.facades.filter(f => f.croquis)
+        // DP5 must show BOTH the existing state (photo) AND the projected state (croquis/AI) of
+        // each façade, side by side, so the mairie can compare état existant vs état projeté.
+        const facadesDp5 = photos.facades.filter(f => f.before || f.croquis || f.after)
         const page = addPage()
         const M = M_INNER
         const cW = PW - M * 2
         drawFrame(page)
         let y = drawDesignHeader(page, fontOblique)
-        y = drawTitleProfessional(page, bold, 'Plans des facades : Etat projeté (DP 5)', M, y)
+        y = drawTitleProfessional(page, bold, 'Plans des facades : etat existant et projeté (DP 5)', M, y)
         y -= 10
 
-        if (croquisToDraw.length === 0) {
-            placeholder(page, font, M, y, cW, 200, 'Croquis architectural non genere')
+        if (facadesDp5.length === 0) {
+            placeholder(page, font, M, y, cW, 200, 'Plans de facades non disponibles')
         } else {
-            const count = croquisToDraw.length
-            const cols = count > 1 ? 2 : 1
-            const rows = Math.ceil(count / cols)
-            const cellW = (cW - (cols - 1) * 12) / cols
-            const cellH = (y - FOOT_H - 120) / rows
-            
-            for (let i = 0; i < count; i++) {
-                const f = croquisToDraw[i]
-                const r = Math.floor(i / cols)
-                const c = i % cols
-                const cx = M + c * (cellW + 12)
-                const cy = y - r * (cellH + 20)
-                
-                const img = await embed(doc, f.croquis)
-                if (img) {
-                    const dims = img.scaleToFit(cellW, cellH - 40)
-                    const xOff = cx + (cellW - dims.width) / 2
-                    box(page, xOff - 2, cy - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 0.8)
-                    page.drawImage(img, { x: xOff, y: cy - dims.height, width: dims.width, height: dims.height })
-                    tx(page, f.label, cx, cy - dims.height - 15, 10, bold, C.nearBlack)
-                } else {
-                    placeholder(page, font, cx, cy, cellW, cellH - 40, `Croquis: ${f.label}`)
+            const rowsToDraw = facadesDp5.slice(0, 3)
+            const rowH = (y - FOOT_H - 90) / rowsToDraw.length
+            const halfW = (cW - 16) / 2
+            const imgH = rowH - 34
+
+            for (let i = 0; i < rowsToDraw.length; i++) {
+                const f = rowsToDraw[i]
+                const rowTop = y - i * rowH
+
+                tx(page, san(f.label).toUpperCase(), M, rowTop, 10, bold, C.nearBlack)
+                const cellTop = rowTop - 16
+
+                const cell = async (src: string | null, x: number, caption: string) => {
+                    const img = await embed(doc, src)
+                    if (img) {
+                        const dims = img.scaleToFit(halfW, imgH)
+                        const xOff = x + (halfW - dims.width) / 2
+                        box(page, xOff - 2, cellTop - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 0.8)
+                        page.drawImage(img, { x: xOff, y: cellTop - dims.height, width: dims.width, height: dims.height })
+                    } else {
+                        placeholder(page, font, x, cellTop, halfW, imgH, caption)
+                    }
+                    txCentered(page, caption, x + halfW / 2, cellTop - imgH - 12, 8.5, fontOblique, C.mid)
                 }
-                if (i >= 3) break 
+
+                await cell(f.before, M, 'Etat existant')
+                await cell(f.croquis || f.after, M + halfW + 16, 'Etat projeté')
             }
         }
-        
+
         const note = "Documents presentant les modifications architecturales projetees pour l'ensemble des facades concernées. Ils permettent d'apprecier l'aspect architectural, les proportions et les materiaux mis en oeuvre."
         const noteY = FOOT_H + 50
         box(page, M, noteY, cW, 44, C.offWhite, C.black, 1.2)

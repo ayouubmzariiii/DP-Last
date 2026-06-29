@@ -16,7 +16,8 @@ interface PhotoUploadProps {
     badge?: string
 }
 
-const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
+// Higher resolution/quality so DP5–DP8 photos stay legible when printed at A4/300dpi.
+const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.85): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader()
         reader.readAsDataURL(file)
@@ -79,7 +80,7 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }
                 </label>
                 {badge && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }}>
+                        style={{ background: 'rgba(45,90,76,0.15)', color: '#2D5A4C' }}>
                         {badge}
                     </span>
                 )}
@@ -270,8 +271,8 @@ export default function Etape5() {
                         <div className="flex items-start gap-3">
                             <div className="text-2xl">🤖</div>
                             <div>
-                                <h4 className="font-semibold mb-1" style={{ color: '#c4b5fd' }}>Génération IA de la vue après travaux</h4>
-                                <p className="text-sm" style={{ color: '#a78bfa' }}>
+                                <h4 className="font-semibold mb-1" style={{ color: '#2D5A4C' }}>Génération IA de la vue après travaux</h4>
+                                <p className="text-sm" style={{ color: '#2D5A4C' }}>
                                     À l'étape suivante, notre IA (DALL-E 3) utilisera vos photos de façade et les détails de vos travaux
                                     ({formData.travaux.type || 'travaux sélectionnés'}) pour générer une simulation réaliste de votre maison après rénovation.
                                     Le prompt sera optimisé avec vos choix de matériaux et couleurs.

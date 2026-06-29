@@ -1,8 +1,8 @@
 /**
- * AI Image Generation – "Après Travaux" Facade Simulation
- * Model: gpt-image-1 (OpenAI), landscape 1536×1024
- * Calls OpenAI directly from the browser (no server timeout issues).
- * The API key is vended per-request from /api/image-token after rate-limit checks.
+ * AI Image Generation – "Après Travaux" Facade Simulation.
+ * Prompts are built here; the actual generation runs server-side via
+ * /api/generate-after-facade (a cheap OpenRouter image model). No API key ever
+ * reaches the browser.
  */
 import { DPFormData } from './models'
 
@@ -83,18 +83,6 @@ VISUAL STYLE (MANDATORY):
 - Content: Exactly replicate the structure shown in the image.
 - ANNOTATIONS: Draw thin black arrows pointing at the key areas of change (e.g., new windows, new pintu, new cladding). Near each arrow, add a small, legibly written technical description in French (e.g., "Nouveau portail", "Menuiseries Aluminium RAL 7016", "Isolation par l'extérieur").
 - Professionalism: No people, no trees, no artifacts. Just the building facade with technical annotations on a white background.`
-}
-
-// ── Fetch the API key from our secure token endpoint ─────────────────────────
-async function fetchApiKey(): Promise<string> {
-    const res = await fetch('/api/image-token', { cache: 'no-store' })
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string }
-        throw new Error(err.error || `Token fetch failed (${res.status})`)
-    }
-    const data = await res.json() as { key: string }
-    if (!data.key) throw new Error('No key returned')
-    return data.key
 }
 
 export interface ResizedImage {

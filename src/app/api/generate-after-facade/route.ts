@@ -104,7 +104,10 @@ export async function POST(req: NextRequest) {
                     'X-Title': 'DP Travaux Facade Generator'
                 },
                 body: JSON.stringify({
-                    model: 'x-ai/grok-imagine-image-quality',
+                    // Image generation is the ONE paid step — use a cheap OpenRouter image model
+                    // (override via OPENROUTER_IMAGE_MODEL). gemini-2.5-flash-image supports both
+                    // image input (editing the "before" photo) and image output, at very low cost.
+                    model: process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.5-flash-image',
                     messages: [{ role: 'user', content: contentArray }],
                     modalities: ['image']
                 })
@@ -112,7 +115,7 @@ export async function POST(req: NextRequest) {
 
             if (!response.ok) {
                 const errText = await response.text()
-                throw new Error(`OpenRouter Grok Imagine Error: ${response.status} ${errText}`)
+                throw new Error(`OpenRouter image model error: ${response.status} ${errText}`)
             }
 
             const data = await response.json()

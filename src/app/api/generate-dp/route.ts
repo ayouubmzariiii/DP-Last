@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateDPDocument } from '@/lib/dpDocGenerator'
 import { DPFormData } from '@/lib/models'
+import { validateDPForm, fatalIssues } from '@/lib/validation'
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
     try {
         const data: DPFormData = await req.json()
+
+        // Safety net for the graphic dossier: require valid applicant/terrain/works.
+        // The engagement signature lives on the CERFA, so step-7 fatals don't block here.
+        const fatals = fatalIssues(validateDPForm(data)).filter(i => i.step !== 7)
+        if (fatals.length > 0) {
+            return NextResponse.json(
+                { error: 'Dossier incomplet', issues: fatals },
+                { status: 422 },
+            )
+        }
+
         const pdfBytes = await generateDPDocument(data)
 
         return new NextResponse(Buffer.from(pdfBytes), {

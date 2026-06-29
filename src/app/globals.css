@@ -1,279 +1,237 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Warm-paper design system (matches "DP Travaux.dc.html") ───────────────── */
 :root {
-  --dp-blue: #1a56db;
-  --dp-blue-dark: #1e40af;
-  --dp-blue-light: #3b82f6;
-  --dp-bg: #0f172a;
-  --dp-card: #1e293b;
-  --dp-card-border: rgba(255, 255, 255, 0.08);
-  --dp-input: #0f172a;
-  --dp-text: #f1f5f9;
-  --dp-muted: #94a3b8;
+  --paper: #F1ECE3;        /* page background */
+  --surface: #FFFFFF;      /* cards */
+  --surface-2: #FAF7F1;    /* subtle surfaces */
+  --field: #FCFBF8;        /* inputs */
+  --field-ro: #F4F0E9;     /* read-only inputs */
+  --ink: #25221E;          /* primary text */
+  --ink-2: #5C564C;        /* secondary text */
+  --muted: #8A8378;        /* muted / labels */
+  --faint: #B5AEA2;        /* placeholders */
+  --line: #E5DFD5;         /* card borders */
+  --line-2: #ECE6DC;       /* inner dividers */
+  --line-3: #D8D1C4;       /* input borders */
+  --ac: #2D5A4C;           /* accent green */
+  --acd: #244A3E;          /* accent dark */
+  --act: #E8F0EC;          /* accent tint */
+  --acb: #CFE0D8;          /* accent border */
+  --hf: 'Spectral', Georgia, serif;
+  --mf: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* legacy var names kept so any older references still resolve to the new palette */
+  --dp-bg: var(--paper);
+  --dp-card: var(--surface);
+  --dp-text: var(--ink);
+  --dp-muted: var(--muted);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
-  background-color: var(--dp-bg);
-  color: var(--dp-text);
-  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
+h1, h2, h3, .font-serif { font-family: var(--hf); }
+
+/* ─── Component classes (used throughout the wizard) ────────────────────────── */
 @layer components {
   .dp-card {
     @apply rounded-2xl p-6 md:p-8;
-    background: rgba(30, 41, 59, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(8px);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: 0 1px 2px rgba(37,34,30,.03), 0 16px 36px -28px rgba(37,34,30,.22);
   }
 
-  .dp-input {
-    @apply w-full px-4 py-3 rounded-xl text-sm transition-all duration-200;
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #f1f5f9;
-    outline: none;
-  }
-
-  .dp-input::placeholder {
-    color: #475569;
-  }
-
-  .dp-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-  }
-
+  .dp-input,
   .dp-select {
-    @apply w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 cursor-pointer;
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #f1f5f9;
+    @apply w-full px-4 py-3 rounded-[10px] text-[15px] transition-all duration-200;
+    background: var(--field);
+    border: 1px solid var(--line-3);
+    color: var(--ink);
     outline: none;
   }
-
+  .dp-select { @apply cursor-pointer; }
+  .dp-input::placeholder { color: var(--faint); }
+  .dp-input:focus,
   .dp-select:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    border-color: var(--ac);
+    box-shadow: 0 0 0 3px rgba(45,90,76,.12);
+    background: #fff;
   }
-
-  .dp-select option {
-    background: #1e293b;
-    color: #f1f5f9;
-  }
+  .dp-select option { background: #fff; color: var(--ink); }
 
   .dp-label {
-    @apply block text-sm font-semibold mb-2;
-    color: #cbd5e1;
+    @apply block mb-2;
+    font-family: var(--mf);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 
   .dp-btn-primary {
-    @apply inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
-    background: #2563eb;
-    color: white;
+    @apply inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+    background: var(--ac);
+    color: #fff;
+    box-shadow: 0 12px 30px -14px rgba(45,90,76,.55);
   }
-
-  .dp-btn-primary:hover:not(:disabled) {
-    background: #1d4ed8;
-  }
+  .dp-btn-primary:hover:not(:disabled) { background: var(--acd); transform: translateY(-1px); }
 
   .dp-btn-secondary {
-    @apply inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-xl transition-all duration-200 shadow-sm active:scale-95;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #cbd5e1;
+    @apply inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-xl transition-all duration-200 active:scale-95;
+    background: var(--surface);
+    border: 1px solid var(--line-3);
+    color: var(--ink-2);
   }
-
-  .dp-btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
+  .dp-btn-secondary:hover { background: var(--surface-2); border-color: var(--muted); }
 
   .dp-btn-outline {
     @apply inline-flex items-center gap-2 px-5 py-2.5 font-semibold rounded-xl transition-all duration-200;
-    border: 2px solid #3b82f6;
-    color: #3b82f6;
+    border: 1px solid var(--ac);
+    color: var(--ac);
     background: transparent;
   }
-
-  .dp-btn-outline:hover:not(:disabled) {
-    background: #3b82f6;
-    color: white;
-  }
+  .dp-btn-outline:hover:not(:disabled) { background: var(--ac); color: #fff; }
 
   .dp-section-title {
-    @apply text-base font-bold pb-3 mb-5;
-    color: #e2e8f0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    @apply text-[19px] font-semibold pb-3.5 mb-5;
+    font-family: var(--hf);
+    color: var(--ink);
+    border-bottom: 1px solid var(--line-2);
   }
 
-  .dp-form-group {
-    @apply space-y-1.5;
+  /* Eyebrow label above step titles */
+  .dp-eyebrow {
+    font-family: var(--mf);
+    font-size: 12px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ac);
   }
+
+  .dp-form-group { @apply space-y-1.5; }
 
   .upload-zone {
     @apply rounded-xl p-8 text-center transition-all duration-200 cursor-pointer;
-    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border: 2px dashed var(--line-3);
+    background: var(--surface-2);
   }
-
-  .upload-zone:hover {
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
-  }
-
-  .upload-zone.has-file {
-    border-color: rgba(34, 197, 94, 0.5);
-    background: rgba(34, 197, 94, 0.05);
-  }
+  .upload-zone:hover { border-color: var(--ac); background: var(--act); }
+  .upload-zone.has-file { border-color: var(--ac); background: var(--act); }
 
   .travaux-card {
-    @apply relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-200;
-    border-color: rgba(255, 255, 255, 0.1);
-    background: rgba(15, 23, 42, 0.6);
+    @apply relative p-5 rounded-2xl border cursor-pointer transition-all duration-200;
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(37,34,30,.03), 0 16px 36px -28px rgba(37,34,30,.22);
   }
+  .travaux-card:hover { border-color: var(--acb); }
+  .travaux-card.selected { border-color: var(--ac); background: var(--act); }
 
-  .travaux-card:hover {
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
-  }
-
-  .travaux-card.selected {
-    border-color: #2563eb;
-    background: rgba(37, 99, 235, 0.12);
-  }
-
-  /* Menuiseries sub-card colours */
   .travaux-sub-card {
     @apply rounded-xl border p-4 cursor-pointer transition-all;
-    background: rgba(15, 23, 42, 0.5);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--surface-2);
+    border-color: var(--line);
   }
-
-  .travaux-sub-card.selected {
-    border-color: #f59e0b;
-    background: rgba(245, 158, 11, 0.1);
-  }
+  .travaux-sub-card.selected { border-color: var(--ac); background: var(--act); }
 }
 
-/* Inline overrides for dark toggles */
+/* Toggle buttons (civilité, modes…) */
 .toggle-btn {
   padding: 0.625rem 1.25rem;
   border-radius: 0.75rem;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.5);
-  color: #94a3b8;
+  border: 1px solid var(--line-3);
+  background: var(--surface);
+  color: var(--ink-2);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s;
 }
+.toggle-btn.active { border-color: var(--ac); background: var(--act); color: var(--ac); }
+.toggle-btn:hover:not(.active) { border-color: var(--muted); }
 
-.toggle-btn.active {
-  border-color: #2563eb;
-  background: rgba(37, 99, 235, 0.2);
-  color: #93c5fd;
-}
+.progress-fill { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
 
-.toggle-btn:hover:not(.active) {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #e2e8f0;
-}
-
-/* Progress bar animation */
-.progress-fill {
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* AI badge */
 .ai-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
+  display: inline-flex; align-items: center; gap: 0.375rem;
   padding: 0.25rem 0.75rem;
-  background: rgba(124, 58, 237, 0.2);
-  color: #a78bfa;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9999px;
-  border: 1px solid rgba(124, 58, 237, 0.3);
+  background: var(--act); color: var(--ac);
+  font-size: 0.75rem; font-weight: 600; border-radius: 9999px;
+  border: 1px solid var(--acb);
 }
 
-/* Fade in animation */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fadeIn { animation: fadeIn 0.45s cubic-bezier(.2,.7,.2,1); }
+@keyframes dpSpin { to { transform: rotate(360deg); } }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #EBE5DA; }
+::-webkit-scrollbar-thumb { background: #CFC7B8; border-radius: 5px; border: 2px solid #EBE5DA; }
+::-webkit-scrollbar-thumb:hover { background: #BDB4A2; }
 
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
-}
+textarea.dp-input { resize: vertical; min-height: 100px; font-family: inherit; }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
+.info-box { padding: 1rem 1.25rem; border-radius: 0.875rem; font-size: 0.875rem; }
+.info-box-blue  { background: var(--act); border: 1px solid var(--acb); color: var(--acd); }
+.info-box-violet{ background: #F0ECF6; border: 1px solid #DCD2EC; color: #5B4B7A; }
+.info-box-amber { background: #FBF1DC; border: 1px solid #EBD9A8; color: #8A6D1F; }
+.info-box-green { background: var(--act); border: 1px solid var(--acb); color: var(--acd); }
 
-::-webkit-scrollbar-track {
-  background: #0f172a;
-}
+/* ─── Compatibility shims: remap the old dark-slate Tailwind utilities used across
+   the step pages onto the warm palette, so they read correctly on cream. Scoped to
+   body so they beat Tailwind's single-class specificity without !important. ──── */
+body .text-white { color: var(--ink); }
+body .text-slate-100, body .text-slate-200 { color: var(--ink); }
+body .text-slate-300 { color: #4A453C; }
+body .text-slate-400, body .text-slate-500 { color: var(--ink-2); }
+body .text-slate-600 { color: var(--muted); }
 
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 3px;
-}
+body .bg-slate-900, body .bg-slate-950,
+body [class*="bg-slate-900/"], body [class*="bg-slate-950/"] { background-color: var(--surface-2) !important; }
+body .bg-slate-800, body [class*="bg-slate-800/"] { background-color: var(--surface-2) !important; }
+body .bg-slate-700, body [class*="bg-slate-700/"] { background-color: #EFE9DE !important; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
-}
+body .border-slate-900, body .border-slate-800, body .border-slate-750,
+body [class*="border-slate-800/"], body [class*="border-slate-700/"],
+body .border-slate-700, body .border-slate-600 { border-color: var(--line) !important; }
 
-/* Textarea dark */
-textarea.dp-input {
-  resize: vertical;
-  min-height: 100px;
-  font-family: inherit;
-}
+/* Inputs that were styled inline with dark bg utilities → keep them light */
+body .bg-slate-900\/50, body .bg-slate-900\/40 { background-color: var(--field) !important; }
 
-/* Info boxes dark */
-.info-box {
-  padding: 1rem 1.25rem;
-  border-radius: 0.875rem;
-  font-size: 0.875rem;
-}
+/* ─── Unify the old blue/indigo/violet/purple accent onto the design's green. Semantic
+   status colours (red / amber / green / emerald) are intentionally left untouched. ─── */
+body [class*="text-blue-"], body [class*="text-indigo-"],
+body [class*="text-violet-"], body [class*="text-purple-"] { color: var(--ac) !important; }
 
-.info-box-blue {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  color: #93c5fd;
-}
+body [class*="border-blue-"], body [class*="border-indigo-"],
+body [class*="border-violet-"], body [class*="border-purple-"] { border-color: var(--acb) !important; }
 
-.info-box-violet {
-  background: rgba(124, 58, 237, 0.1);
-  border: 1px solid rgba(124, 58, 237, 0.2);
-  color: #c4b5fd;
-}
+/* Solid blue/violet fills → green tint (their white text was remapped to ink, which reads on a tint) */
+body .bg-blue-500, body .bg-blue-600, body .bg-blue-700,
+body .bg-violet-500, body .bg-violet-600, body .bg-violet-700,
+body .bg-indigo-500, body .bg-indigo-600,
+body .bg-purple-500, body .bg-purple-600 { background-color: var(--act) !important; color: var(--ac) !important; }
 
-.info-box-amber {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  color: #fcd34d;
-}
+/* Translucent blue/violet/purple tint backgrounds → green tint */
+body [class*="bg-blue-"][class*="/"], body [class*="bg-violet-"][class*="/"],
+body [class*="bg-indigo-"][class*="/"], body [class*="bg-purple-"][class*="/"] { background-color: var(--act) !important; }
 
-.info-box-green {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  color: #86efac;
-}
+/* The violet download button on the final step → green to match the primary action */
+body .bg-violet-600 { background-color: var(--ac) !important; color: #fff !important; }
+body .bg-violet-600:hover, body .hover\:bg-violet-700:hover { background-color: var(--acd) !important; }
+
+/* All checkboxes/radios use the green accent (overrides accent-blue-500/accent-pink-500 etc.) */
+body input[type="checkbox"], body input[type="radio"] { accent-color: var(--ac); }

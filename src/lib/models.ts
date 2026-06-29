@@ -38,6 +38,27 @@ export interface Demandeur {
     representant_prenom: string
 }
 
+// Optional second applicant (co-déclarant) — common for joint owners / couples.
+// Maps to CERFA section 2BIS.
+export interface CoDemandeur {
+    actif: boolean
+    est_societe: boolean
+    civilite: Civilite
+    nom: string
+    prenom: string
+    // Société
+    nom_societe: string
+    type_societe: string
+    siret: string
+    representant_nom: string
+    representant_prenom: string
+}
+
+export const emptyCoDemandeur: CoDemandeur = {
+    actif: false, est_societe: false, civilite: 'M', nom: '', prenom: '',
+    nom_societe: '', type_societe: '', siret: '', representant_nom: '', representant_prenom: '',
+}
+
 export interface Terrain {
     adresse: string
     lieu_dit: string
@@ -66,6 +87,7 @@ export interface Terrain {
             }>;
             fetchedAt?: string
             analysisReport?: string
+            verified?: boolean
             pdfType?: 'text' | 'scanned' | 'missing' | 'error'
             textLength?: number
             extractedText?: string
@@ -178,7 +200,9 @@ export interface PhotosUploadees {
 
 export interface PlansSauvegardes {
     dp1_carte_situation: string | null    // URL carte statique
+    dp1_span_m?: number                   // ground span (m) of the captured DP1 map, for scale bar
     dp2_plan_masse: string | null         // URL carte statique zoom+
+    dp2_span_m?: number                   // ground span (m) of the captured DP2 map, for scale bar
     dp4_notice: string | null            // texte généré
 }
 
@@ -246,6 +270,7 @@ export interface Engagement {
 
 export interface DPFormData {
     demandeur: Demandeur
+    co_demandeur?: CoDemandeur
     terrain: Terrain
     travaux: Travaux
     photos: PhotosUploadees
@@ -408,6 +433,7 @@ export const defaultCerfaData: CerfaData = {
 
 export const defaultFormData: DPFormData = {
     demandeur: defaultDemandeur,
+    co_demandeur: emptyCoDemandeur,
     terrain: defaultTerrain,
     travaux: defaultTravaux,
     photos: defaultPhotos,
@@ -508,6 +534,7 @@ export const emptyCerfaData: CerfaData = {
 
 export const emptyFormData: DPFormData = {
     demandeur: emptyDemandeur,
+    co_demandeur: emptyCoDemandeur,
     terrain: emptyTerrain,
     travaux: emptyTravaux,
     photos: emptyPhotos,

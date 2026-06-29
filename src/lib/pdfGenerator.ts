@@ -199,29 +199,32 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         setFragmented('2_adresse_telephone', demandeur.telephone, 10)
         setFragmented('2_adresse_indicatif_etranger', demandeur.indicatif_etranger, 4)
         setEmailField('2_adresse_email', demandeur.email)
-        checkBox('2_adresse-si_reponse_email_checkbox', c.adresse.accept_email || true)
+        // Respect the applicant's actual choice (collected in Étape 1), don't force-tick.
+        checkBox('2_adresse-si_reponse_email_checkbox', !!data.accord_dematerialisation)
 
-        // ── 2BIS ADDITIONAL DECLARANT ──────────────────────────────
-        // The user requested to fill new/omitted sections with placeholders for now to minimize pressure
-        const placeholder = 'À COMPLÉTER'
-        setField('2BIS_particulier_nom', '')
-        setField('2BIS_particulier_prenom', '')
-        setField('2BIS_morale_raison_sociale', '')
-        setField('2BIS_morale_denomination', '')
-        setField('2BIS_morale_type_societe', '')
-        setField('2BIS_morale_represantant_nom', '')
-        setField('2BIS_morale_represantant_prenom', '')
-        setField('2BIS_morale_adresse_voie', '')
-        setField('2BIS_morale_adresse_numero', '')
-        setField('2BIS_morale_adresse_lieu_dit', '')
-        setField('2BIS_morale_adresse_localite', '')
-        setFragmented('2BIS_morale_adresse_code_postal', '', 5)
-        setField('2BIS_morale_si_etranger_pays', '')
-        setField('2BIS_morale_si_etranger_division_territoriale', '')
-        setFragmented('2BIS_morale_num_siret', '', 14)
-        setFragmented('2BIS_morale_telephone', '', 10)
-        setFragmented('2BIS_morale_telephone_indicatif', '', 4)
-        setEmailField('2BIS_morale_email', '')
+        // ── 2BIS CO-DÉCLARANT (optional second applicant — joint owners/couples) ──
+        const co = data.co_demandeur
+        if (co?.actif && !co.est_societe) {
+            setField('2BIS_particulier_nom', co.nom)
+            setField('2BIS_particulier_prenom', co.prenom)
+        } else if (co?.actif && co.est_societe) {
+            setField('2BIS_morale_denomination', co.nom_societe)
+            setField('2BIS_morale_raison_sociale', co.nom_societe)
+            setField('2BIS_morale_type_societe', co.type_societe)
+            setField('2BIS_morale_represantant_nom', co.representant_nom)
+            setField('2BIS_morale_represantant_prenom', co.representant_prenom)
+            setFragmented('2BIS_morale_num_siret', co.siret, 14)
+        } else {
+            // Inactive → clear all 2BIS fields.
+            setField('2BIS_particulier_nom', '')
+            setField('2BIS_particulier_prenom', '')
+            setField('2BIS_morale_denomination', '')
+            setField('2BIS_morale_raison_sociale', '')
+            setField('2BIS_morale_type_societe', '')
+            setField('2BIS_morale_represantant_nom', '')
+            setField('2BIS_morale_represantant_prenom', '')
+            setFragmented('2BIS_morale_num_siret', '', 14)
+        }
 
         // ── 3 TERRAIN (LAND) ──────────────────────────────
         const landAddr = extractAddress(terrain.adresse);
@@ -256,9 +259,10 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         checkBox('4_1_cloture_checkbox', false)
         setField('4_1_description_projet', data.travaux.description_projet || '')
 
-        // Fallback or deduce from UI if needed, right now we default to Principale
-        checkBox('4_1_residence_principale_checkbox', true)
-        checkBox('4_1_residence_secondaire_checkbox', false)
+        // Destination — driven by the user's choice (Étape 3), default principale.
+        const secondaire = data.projet_concerne === 'secondaire'
+        checkBox('4_1_residence_principale_checkbox', !secondaire)
+        checkBox('4_1_residence_secondaire_checkbox', secondaire)
 
         // ── 4.2 SURFACES ──────────────────────────────
         setField('4_2_surface_plancher_existante', data.travaux.surfaces?.existante || '')
@@ -279,7 +283,8 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         if (data.engagement) {
             setField('8_engagement_lieu', data.engagement.lieu)
             setDateField('8_engagement_date', data.engagement.date)
-            checkBox('signature_309udhn', data.engagement.signature)
+            // NB: 'signature_309udhn' is a PDFSignature field (not a checkbox); it is signed
+            // by hand on the printed form, so we don't attempt to set it programmatically.
         }
 
         // ── ATTACHMENTS (DP DOCUMENTS) ──────────────────────────────
@@ -346,7 +351,11 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
 
             deniPage.drawText('2. Destination des Surfaces (Habitation):', { x: 50, y: yOffset, size: 10, font: helveticaBold })
             yOffset -= 20
-            deniPage.drawText(`- Surface taxable existante conservée: ${data.taxation.destination_habitation_existante || 0} m²`, { x: 70, y: yOffset, size: 10, font: helvetica })
+            // Derive the existing taxable surface from the real surface input when the taxation
+            // field is left at 0/blank, rather than emitting a fabricated default.
+            const taxExist = (Number(data.taxation.destination_habitation_existante) || 0)
+                || (Number(data.travaux?.surfaces?.existante) || 0)
+            deniPage.drawText(`- Surface taxable existante conservée: ${taxExist} m²`, { x: 70, y: yOffset, size: 10, font: helvetica })
             yOffset -= 15
             deniPage.drawText(`- Surface taxable créée: ${data.taxation.destination_habitation_creee || 0} m²`, { x: 70, y: yOffset, size: 10, font: helvetica })
             yOffset -= 15
@@ -360,6 +369,10 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
             deniPage.drawText(`- Projet financé par d'autres prêts aidés: ${data.taxation.financement_pret_social ? 'OUI' : 'NON'}`, { x: 70, y: yOffset, size: 10, font: helvetica })
         }
 
+        // NB: we intentionally do NOT call form.flatten(). The base cerfa.pdf ships malformed
+        // checkbox appearance streams ("Unexpected N type") that make pdf-lib's flatten throw and
+        // leave the document half-processed. The fields are already made read-only above, which
+        // reliably prevents casual edits while keeping every viewer's rendering correct.
         return await pdfDoc.save()
 
     } catch (err) {

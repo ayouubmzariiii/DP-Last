@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import { issuesForStep, fatalIssues } from '@/lib/validation'
 
 export default function Etape2() {
     const router = useRouter()
     const { formData, updateTerrain, updateField, updateDemandeur } = useDPContext()
     const t = formData.terrain
     const d = formData.demandeur
+
+    const stepFatals = fatalIssues(issuesForStep(formData, 2))
 
     const [loadingPLU, setLoadingPLU] = useState(false)
     const [pluError, setPluError] = useState<string | null>(null)
@@ -131,7 +134,7 @@ export default function Etape2() {
                                     onClick={() => handleSameAddress(val)}
                                     className="flex-1 py-3 px-4 rounded-xl border-2 text-sm font-semibold transition-all"
                                     style={t.meme_adresse === val
-                                        ? { borderColor: '#2563eb', background: 'rgba(37,99,235,0.2)', color: '#93c5fd' }
+                                        ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.2)', color: '#2D5A4C' }
                                         : { borderColor: 'rgba(148,163,184,0.3)', color: '#94a3b8' }}
                                 >
                                     {val ? '📍 Identique à mon adresse' : '🗺️ Adresse différente'}
@@ -194,7 +197,7 @@ export default function Etape2() {
                         )}
 
                         {t.meme_adresse && d.adresse && (
-                            <div className="rounded-xl px-4 py-3 text-sm font-medium" style={{ background: 'rgba(37,99,235,0.15)', color: '#93c5fd', border: '1px solid rgba(37,99,235,0.3)' }}>
+                            <div className="rounded-xl px-4 py-3 text-sm font-medium" style={{ background: 'rgba(45,90,76,0.15)', color: '#2D5A4C', border: '1px solid rgba(45,90,76,0.3)' }}>
                                 📍 {d.adresse}, {d.code_postal} {d.commune}
                             </div>
                         )}
@@ -389,6 +392,18 @@ export default function Etape2() {
                         </div>
                     </div>
 
+                    {/* Validation summary */}
+                    {stepFatals.length > 0 && (
+                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                            <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-1.5">Informations requises avant de continuer</p>
+                            <ul className="space-y-1">
+                                {stepFatals.map(i => (
+                                    <li key={i.id} className="text-sm text-red-300 flex items-start gap-2"><span>✗</span>{i.message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
                         <button onClick={() => router.push('/etape/1')} className="dp-btn-secondary">
@@ -397,7 +412,7 @@ export default function Etape2() {
                             </svg>
                             Retour
                         </button>
-                        <button onClick={() => router.push('/etape/3')} className="dp-btn-primary text-base">
+                        <button onClick={() => router.push('/etape/3')} disabled={stepFatals.length > 0} className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed">
                             Étape suivante
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

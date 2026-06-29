@@ -171,9 +171,12 @@ async function fallbackSearchPlu(commune: string, postcode: string, departmentNa
             })
             
             rankedUrls.sort((a, b) => b.score - a.score)
-            
+
+            // Only accept a web-scraped PDF if the commune name actually appears in the URL
+            // (score includes +10 for a commune match) — never grab another commune's règlement.
+            const minScore = cleanCommune ? 10 : 1
             for (const item of rankedUrls) {
-                if (item.score > 0) {
+                if (item.score >= minScore) {
                     try {
                         const checkRes = await fetch(item.url, { method: 'HEAD' })
                         if (checkRes.ok) {

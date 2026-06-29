@@ -5,12 +5,16 @@ import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import { issuesForStep, fatalIssues } from '@/lib/validation'
 
 export default function Etape1() {
     const router = useRouter()
-    const { formData, updateDemandeur, updateTerrain, updateField } = useDPContext()
+    const { formData, updateDemandeur, updateCoDemandeur, updateTerrain, updateField } = useDPContext()
     const d = formData.demandeur
     const t = formData.terrain
+    const co = formData.co_demandeur
+
+    const stepFatals = fatalIssues(issuesForStep(formData, 1))
 
     const [loadingPLU, setLoadingPLU] = useState(false)
     const [pluError, setPluError] = useState<string | null>(null)
@@ -109,9 +113,9 @@ export default function Etape1() {
                                         })}
                                         className="toggle-btn"
                                         style={d.civilite === civ ? {
-                                            borderColor: '#2563eb',
-                                            background: 'rgba(37,99,235,0.2)',
-                                            color: '#93c5fd'
+                                            borderColor: '#2D5A4C',
+                                            background: 'rgba(45,90,76,0.2)',
+                                            color: '#2D5A4C'
                                         } : {}}
                                     >
                                         {civ === 'M' ? 'Monsieur' : civ === 'Mme' ? 'Madame' : '🏢 Société'}
@@ -122,7 +126,7 @@ export default function Etape1() {
 
                         {d.est_societe && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 rounded-xl"
-                                style={{ background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.2)' }}>
+                                style={{ background: 'rgba(45,90,76,0.1)', border: '1px solid rgba(45,90,76,0.2)' }}>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Dénomination sociale *</label>
                                     <input
@@ -230,6 +234,69 @@ export default function Etape1() {
                                         onChange={e => updateDemandeur({ pays_naissance: e.target.value })}
                                     />
                                 </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Co-déclarant (optionnel) */}
+                    <div className="dp-card">
+                        <label className="flex items-center gap-3 cursor-pointer mb-1">
+                            <input
+                                type="checkbox"
+                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 accent-blue-500 cursor-pointer"
+                                checked={!!co?.actif}
+                                onChange={e => updateCoDemandeur({ actif: e.target.checked })}
+                            />
+                            <span className="dp-section-title !mb-0">Ajouter un co-déclarant</span>
+                        </label>
+                        <p className="text-xs text-slate-500 mb-4">Pour un bien en indivision ou un couple co-propriétaire (rubrique 2BIS du CERFA).</p>
+
+                        {co?.actif && (
+                            <div className="space-y-4 animate-fadeIn">
+                                <div className="flex gap-3 flex-wrap">
+                                    {['M', 'Mme', 'Société'].map((civ) => (
+                                        <button
+                                            key={civ}
+                                            type="button"
+                                            onClick={() => updateCoDemandeur({ civilite: civ as 'M' | 'Mme' | 'Société', est_societe: civ === 'Société' })}
+                                            className="toggle-btn"
+                                            style={co.civilite === civ ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.2)', color: '#2D5A4C' } : {}}
+                                        >
+                                            {civ === 'M' ? 'Monsieur' : civ === 'Mme' ? 'Madame' : '🏢 Société'}
+                                        </button>
+                                    ))}
+                                </div>
+                                {!co.est_societe ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="dp-form-group">
+                                            <label className="dp-label">Nom</label>
+                                            <input className="dp-input" placeholder="Nom de famille" value={co.nom} onChange={e => updateCoDemandeur({ nom: e.target.value })} />
+                                        </div>
+                                        <div className="dp-form-group">
+                                            <label className="dp-label">Prénom</label>
+                                            <input className="dp-input" placeholder="Prénom" value={co.prenom} onChange={e => updateCoDemandeur({ prenom: e.target.value })} />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="dp-form-group">
+                                            <label className="dp-label">Dénomination sociale</label>
+                                            <input className="dp-input" placeholder="ex: SCI Dupont" value={co.nom_societe} onChange={e => updateCoDemandeur({ nom_societe: e.target.value })} />
+                                        </div>
+                                        <div className="dp-form-group">
+                                            <label className="dp-label">SIRET</label>
+                                            <input className="dp-input" placeholder="14 chiffres" value={co.siret} onChange={e => updateCoDemandeur({ siret: e.target.value })} />
+                                        </div>
+                                        <div className="dp-form-group">
+                                            <label className="dp-label">Représentant (Nom)</label>
+                                            <input className="dp-input" value={co.representant_nom} onChange={e => updateCoDemandeur({ representant_nom: e.target.value })} />
+                                        </div>
+                                        <div className="dp-form-group">
+                                            <label className="dp-label">Représentant (Prénom)</label>
+                                            <input className="dp-input" value={co.representant_prenom} onChange={e => updateCoDemandeur({ representant_prenom: e.target.value })} />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -472,10 +539,22 @@ export default function Etape1() {
                         </div>
                     </div>
 
+                    {/* Validation summary */}
+                    {stepFatals.length > 0 && (
+                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                            <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-1.5">Informations requises avant de continuer</p>
+                            <ul className="space-y-1">
+                                {stepFatals.map(i => (
+                                    <li key={i.id} className="text-sm text-red-300 flex items-start gap-2"><span>✗</span>{i.message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
                         <div />
-                        <button onClick={handleNext} className="dp-btn-primary text-base">
+                        <button onClick={handleNext} disabled={stepFatals.length > 0} className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed">
                             Étape suivante
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -54,8 +54,8 @@ function MapCard({
             .finally(() => setLoading(false))
     }, [address, commune, code, zoom, coords])
 
-    const iconColor = color === 'green' ? '#4ade80' : '#60a5fa'
-    const codeColor = color === 'green' ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)'
+    const iconColor = color === 'green' ? '#4ade80' : '#2D5A4C'
+    const codeColor = color === 'green' ? 'rgba(34,197,94,0.2)' : 'rgba(45,90,76,0.2)'
 
     const handleCapture = async () => {
         if (!mapRef.current) return
@@ -590,9 +590,9 @@ function FacadeCard({
                 <div>
                     <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${hideBefore ? 'text-blue-500' : 'text-violet-500'}`}>{hideBefore ? 'Croquis Architectural' : 'Simulation Après'}</p>
                     {isGenerating ? (
-                        <div className="rounded-xl overflow-hidden aspect-[3/2] flex flex-col items-center justify-center relative shadow-inner" style={{ background: 'rgba(139,92,246,0.04)', border: '1px dashed rgba(139,92,246,0.2)' }}>
-                            <div className="text-center" style={{ color: '#a78bfa' }}>
-                                <div className="w-8 h-8 border-2 border-violet-300 border-t-violet-500 rounded-full animate-spin mx-auto mb-3 shadow-[0_0_15px_rgba(139,92,246,0.3)]" />
+                        <div className="rounded-xl overflow-hidden aspect-[3/2] flex flex-col items-center justify-center relative shadow-inner" style={{ background: 'rgba(45,90,76,0.04)', border: '1px dashed rgba(45,90,76,0.2)' }}>
+                            <div className="text-center" style={{ color: '#2D5A4C' }}>
+                                <div className="w-8 h-8 border-2 border-violet-300 border-t-violet-500 rounded-full animate-spin mx-auto mb-3 shadow-[0_0_15px_rgba(45,90,76,0.3)]" />
                                 <span className="text-xs font-medium tracking-wide animate-pulse">Création de l'image en cours...</span>
                             </div>
                         </div>
@@ -634,8 +634,8 @@ function FacadeCard({
                                     title="Regénérer l'image"
                                     className="px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-semibold transition-all text-white border border-violet-500/30"
                                     style={{
-                                        background: showEditPanel ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : 'rgba(139,92,246,0.1)',
-                                        boxShadow: showEditPanel ? '0 0 15px rgba(139,92,246,0.3)' : 'none'
+                                        background: showEditPanel ? 'linear-gradient(135deg, #2D5A4C, #7c3aed)' : 'rgba(45,90,76,0.1)',
+                                        boxShadow: showEditPanel ? '0 0 15px rgba(45,90,76,0.3)' : 'none'
                                     }}
                                 >
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -665,14 +665,14 @@ function FacadeCard({
             <div
                 className={`transition-all duration-300 ease-in-out relative overflow-hidden ${showEditPanel ? 'opacity-100 max-h-[300px] mt-2' : 'opacity-0 max-h-0'}`}
             >
-                <div className="rounded-xl p-5 relative" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.05), rgba(139,92,246,0.02))', border: '1px solid rgba(139,92,246,0.2)' }}>
+                <div className="rounded-xl p-5 relative" style={{ background: 'linear-gradient(135deg, rgba(45,90,76,0.05), rgba(45,90,76,0.02))', border: '1px solid rgba(45,90,76,0.2)' }}>
                     <div className="absolute top-0 right-10 flex space-x-1 -translate-y-1/2">
-                        <div className="w-2 h-2 rounded-full bg-violet-400 opacity-50 shadow-[0_0_5px_rgba(139,92,246,0.5)] animate-pulse" />
-                        <div className="w-2 h-2 rounded-full bg-violet-500 opacity-80 shadow-[0_0_5px_rgba(139,92,246,0.5)] animate-pulse delay-75" />
-                        <div className="w-2 h-2 rounded-full bg-violet-600 shadow-[0_0_5px_rgba(139,92,246,0.5)] animate-pulse delay-150" />
+                        <div className="w-2 h-2 rounded-full bg-violet-400 opacity-50 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse" />
+                        <div className="w-2 h-2 rounded-full bg-violet-500 opacity-80 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse delay-75" />
+                        <div className="w-2 h-2 rounded-full bg-violet-600 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse delay-150" />
                     </div>
 
-                    <p className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: '#c4b5fd' }}>
+                    <p className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: '#2D5A4C' }}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
                         Atelier magique : que souhaitez-vous modifier ?
                     </p>
@@ -693,7 +693,7 @@ function FacadeCard({
                             }}
                             disabled={!prompt.trim() || isGenerating}
                             className="px-6 rounded-xl text-sm font-bold flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-40 hover:scale-[1.02]"
-                            style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white', boxShadow: '0 4px 15px rgba(139,92,246,0.3)' }}
+                            style={{ background: 'linear-gradient(135deg, #2D5A4C, #7c3aed)', color: 'white', boxShadow: '0 4px 15px rgba(45,90,76,0.3)' }}
                         >
                             {isGenerating ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -711,7 +711,7 @@ function FacadeCard({
     )
 }
 
-const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
+const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.85): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader()
         reader.readAsDataURL(file)
@@ -739,7 +739,7 @@ const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6
     })
 }
 
-const compressDataURL = (dataUrl: string, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
+const compressDataURL = (dataUrl: string, maxWidth: number = 1500, quality: number = 0.82): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image()
         img.src = dataUrl
@@ -1025,7 +1025,7 @@ export default function Etape6() {
                     {steps.map((s, idx) => (
                         <div key={s.id} className="relative z-10 flex flex-col items-center gap-2 group cursor-pointer" onClick={() => (s.id < subStep || aiGenerated) && setSubStep(s.id)}>
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 border ${
-                                subStep === s.id ? 'bg-blue-600 border-blue-400 scale-110 shadow-[0_0_20px_rgba(37,99,235,0.4)]' :
+                                subStep === s.id ? 'bg-blue-600 border-blue-400 scale-110 shadow-[0_0_20px_rgba(45,90,76,0.4)]' :
                                 subStep > s.id ? 'bg-green-500/20 border-green-500/50' : 'bg-slate-900 border-slate-700'
                             }`}>
                                 {subStep > s.id ? (
@@ -1079,7 +1079,7 @@ export default function Etape6() {
                                 color="blue"
                                 zoom={dp1Zoom}
                                 onZoomChange={setDp1Zoom}
-                                onCapture={(img) => updatePlans({ dp1_carte_situation: img })}
+                                onCapture={(img) => updatePlans({ dp1_carte_situation: img, dp1_span_m: dp1Zoom })}
                                 savedImage={formData.plans.dp1_carte_situation}
                             />
                             <div className="flex justify-end pt-4">

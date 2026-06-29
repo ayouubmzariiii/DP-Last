@@ -8,6 +8,7 @@ interface DPContextType {
     isTestMode: boolean
     toggleTestMode: () => void
     updateDemandeur: (data: Partial<DPFormData['demandeur']>) => void
+    updateCoDemandeur: (data: Partial<NonNullable<DPFormData['co_demandeur']>>) => void
     updateTerrain: (data: Partial<DPFormData['terrain']>) => void
     updateTravaux: (data: Partial<DPFormData['travaux']>) => void
     updatePhotos: (data: Partial<DPFormData['photos']>) => void
@@ -19,7 +20,7 @@ interface DPContextType {
 const DPContext = createContext<DPContextType | undefined>(undefined)
 
 const STORAGE_KEY = 'dp-travaux-form'
-const STORAGE_VERSION = 'v9' // bump to force reset on default changes
+const STORAGE_VERSION = 'v10' // bump to force reset on default changes
 
 export function DPProvider({ children }: { children: ReactNode }) {
     const [formData, setFormData] = useState<DPFormData>(emptyFormData)
@@ -49,8 +50,11 @@ export function DPProvider({ children }: { children: ReactNode }) {
             const saved = localStorage.getItem(STORAGE_KEY)
             if (saved) {
                 const parsed = JSON.parse(saved)
-                // Use defaultFormData (which has our dummy data templates) as base if testMode is on, otherwise emptyFormData
-                const baseData = savedTestMode === 'true' ? defaultFormData : emptyFormData
+                // IMPORTANT: never merge over `defaultFormData` (the dummy test template) for a
+                // real session — that bleeds fake values (Martin/Pierre, parcel AB 0124, test
+                // photos) into a partially-filled real dossier. Always base on emptyFormData so a
+                // field the user left blank stays blank rather than inheriting a dummy value.
+                const baseData = emptyFormData
                 setFormData({
                     ...baseData,
                     ...parsed,
@@ -93,6 +97,10 @@ export function DPProvider({ children }: { children: ReactNode }) {
         setFormData(prev => ({ ...prev, demandeur: { ...prev.demandeur, ...data } }))
     }
 
+    const updateCoDemandeur = (data: Partial<NonNullable<DPFormData['co_demandeur']>>) => {
+        setFormData(prev => ({ ...prev, co_demandeur: { ...emptyFormData.co_demandeur!, ...prev.co_demandeur, ...data } }))
+    }
+
     const updateTerrain = (data: Partial<DPFormData['terrain']>) => {
         setFormData(prev => ({ ...prev, terrain: { ...prev.terrain, ...data } }))
     }
@@ -127,6 +135,7 @@ export function DPProvider({ children }: { children: ReactNode }) {
             isTestMode,
             toggleTestMode,
             updateDemandeur,
+            updateCoDemandeur,
             updateTerrain,
             updateTravaux,
             updatePhotos,
