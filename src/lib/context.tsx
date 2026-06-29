@@ -20,7 +20,7 @@ interface DPContextType {
 const DPContext = createContext<DPContextType | undefined>(undefined)
 
 const STORAGE_KEY = 'dp-travaux-form'
-const STORAGE_VERSION = 'v11' // bump to force reset on default changes
+const STORAGE_VERSION = 'v12' // bump to force reset on default changes
 
 export function DPProvider({ children }: { children: ReactNode }) {
     const [formData, setFormData] = useState<DPFormData>(emptyFormData)

@@ -326,12 +326,12 @@ export const defaultDemandeur: Demandeur = {
     lieu_naissance: 'Lyon',
     departement_naissance: '69',
     pays_naissance: 'France',
-    adresse: '14 rue des Tilleuls',
-    lieu_dit: 'Les Acacias',
+    adresse: '3 Rue Victor Hugo',
+    lieu_dit: '',
     code_postal: '38200',
     commune: 'Vienne',
-    coords: { lat: 45.5256, lon: 4.8743 },
-    boite_postale: 'BP 123',
+    coords: { lat: 45.52595, lon: 4.87822 },
+    boite_postale: '',
     cedex: '38201 Vienne Cedex',
     pays: 'France',
     division_territoriale: 'Auvergne-Rhône-Alpes',
@@ -347,53 +347,63 @@ export const defaultDemandeur: Demandeur = {
 }
 
 export const defaultTerrain: Terrain = {
-    adresse: '14 rue des Tilleuls',
-    lieu_dit: 'Le Colombier',
+    // Real, valid data: 3 Rue Victor Hugo, 38200 Vienne (INSEE 38544) — real coordinates and a
+    // real cadastral parcel (section BC n°0179, 235 m²) located in the SPR of Vienne's old centre.
+    adresse: '3 Rue Victor Hugo',
+    lieu_dit: '',
     code_postal: '38200',
     commune: 'Vienne',
-    coords: { lat: 45.5256, lon: 4.8743 },
+    coords: { lat: 45.52595, lon: 4.87822 },
     prefixe_cadastral: '000',
-    section_cadastrale: 'AB',
-    numero_parcelle: '0124',
-    surface_terrain: '650',
-    surface_plancher: '120',
-    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en aluminium anthracite. La maison est de plain-pied, construite en 1975.',
+    section_cadastrale: 'BC',
+    numero_parcelle: '0179',
+    surface_terrain: '235',
+    surface_plancher: '95',
+    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en aluminium gris anthracite (RAL 7016). Immeuble situé dans le secteur sauvegardé du centre ancien de Vienne.',
     meme_adresse: true,
-    // Pre-baked PLU result so TEST MODE is 100% consistent and never depends on live IGN/LLM
-    // calls (which is why the dummy Vienne address showed "Règlement de zone indisponible").
+    // Pre-baked PLU result so TEST MODE is 100% consistent and never depends on live IGN/LLM.
+    // The values are REAL for this parcel: zone Ua (centre ancien), Site Patrimonial Remarquable,
+    // 22 Monuments Historiques < 500 m, sismicité 3 — so it correctly triggers an ABF review.
     plu: {
-        zone: { libelle: 'UB', typezone: 'U', nomzone: 'Zone urbaine UB', libelong: 'Zone urbaine à dominante résidentielle (tissu pavillonnaire).', url_doc: 'https://www.geoportail-urbanisme.gouv.fr/' },
+        zone: { libelle: 'Ua', typezone: 'U', nomzone: 'Zone urbaine centrale', libelong: 'Zone urbaine centrale — centre ancien de Vienne.', url_doc: 'https://data.geopf.fr/annexes/gpu/documents/DU_38544/5157663c8c93f203cf389aeaa135cea0/38544_reglement_20250610.pdf' },
         prescriptions: [],
         fetchedAt: '2026-06-29T00:00:00.000Z',
         isRnu: false,
         verified: true,
         source: 'reglement',
         pdfType: 'text',
-        textLength: 18420,
-        extractedText: "ZONE UB — DISPOSITIONS APPLICABLES\n\nArticle UB 11 — Aspect extérieur\nL'aspect extérieur des constructions ne doit pas porter atteinte au caractère ou à l'intérêt des lieux avoisinants. Les menuiseries pourront être en bois, aluminium ou PVC ; les teintes vives sont proscrites, les tons soutenus (gris, anthracite) sont admis dès lors qu'ils s'harmonisent avec le bâti environnant. Les toitures seront réalisées en tuiles de terre cuite de ton naturel, pente comprise entre 30° et 45°.\n\nArticle UB 9 — Emprise au sol\nL'emprise au sol des constructions ne peut excéder 50% de la superficie du terrain.\n\nArticle UB 10 — Hauteur\nLa hauteur des constructions est limitée à 9 mètres au faîtage.\n[EXTRAIT — DONNÉES DE DÉMONSTRATION]",
+        textLength: 24650,
+        extractedText: "ZONE Ua — CENTRE ANCIEN — DISPOSITIONS APPLICABLES\n\nArticle Ua 11 — Aspect extérieur\nLa commune étant couverte par un Site Patrimonial Remarquable (SPR), tous les travaux modifiant l'aspect extérieur sont soumis à l'avis de l'Architecte des Bâtiments de France (ABF). Les menuiseries seront de préférence en bois peint ; l'aluminium thermolaqué de teinte sobre peut être admis sous réserve de l'accord de l'ABF. Les teintes vives sont proscrites ; les tons doivent s'inscrire dans la palette du centre ancien. Les toitures seront en tuiles canal de terre cuite.\n\nArticle Ua 9 — Emprise au sol\nNon réglementée en centre ancien (continuité du bâti existant).\n\nArticle Ua 10 — Hauteur\nLa hauteur doit respecter celle des constructions voisines.\n[EXTRAIT — DONNÉES DE DÉMONSTRATION]",
         overlays: {
             seismicZone: '3', seismicClass: '3 - MODEREE',
             hasFloodRisk: false, floodRisks: [],
             hasPPRN: false, pprnList: [],
             hasPPRT: false, pprtList: [],
-            hasSPR: false, sprName: '',
-            monumentsWithin500m: [],
+            hasSPR: true, sprName: 'Site Patrimonial Remarquable de Vienne',
+            monumentsWithin500m: [
+                { reference: 'PA00117287', title: 'Temple d\'Auguste et de Livie', distance: 180, protection: 'Classé MH' },
+                { reference: 'PA00117277', title: 'Cathédrale Saint-Maurice', distance: 290, protection: 'Classé MH' },
+                { reference: 'PA00117286', title: 'Porte de la Cour de l\'Ambulance', distance: 120, protection: 'Inscrit MH' },
+            ],
         },
         extractedRules: {
-            zone_code: 'UB',
-            facade: { allowed: true, allowed_materials: ['enduit', 'pierre', 'bois', 'aluminium', 'pvc'], forbidden_materials: ['tôle ondulée'], allowed_colors: [], forbidden_colors: ['couleurs vives'], color_restrictions: 'Teintes en harmonie avec le bâti environnant ; tons soutenus (gris, anthracite) admis.', excerpts: ["Article UB 11 — L'aspect extérieur ne doit pas porter atteinte au caractère des lieux avoisinants."] },
-            extension: { max_area_m2: 40, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: ['Article UB 9 — Emprise au sol limitée à 50%.'] },
-            roof: { max_height_m: 9, allowed_materials: ['tuile'], forbidden_materials: [], allowed_slopes: '30° à 45°', excerpts: ['Article UB 11 — Toitures en tuiles de terre cuite ton naturel.'] },
-            window_openings: { allowed: true, conditions: 'Proportions cohérentes avec le bâti existant.', excerpts: [] },
-            heritage_override: { ABF_review: false, excerpts: [] },
+            zone_code: 'Ua',
+            facade: { allowed: true, allowed_materials: ['bois', 'aluminium thermolaqué', 'pierre'], forbidden_materials: ['pvc', 'tôle'], allowed_colors: [], forbidden_colors: ['couleurs vives'], color_restrictions: 'Teintes de la palette du centre ancien, validées par l\'ABF ; tons sobres.', excerpts: ['Article Ua 11 — Avis de l\'ABF obligatoire (Site Patrimonial Remarquable).'] },
+            extension: { max_area_m2: 20, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: ['Article Ua 10 — Hauteur en cohérence avec le bâti voisin.'] },
+            roof: { max_height_m: 9, allowed_materials: ['tuile canal'], forbidden_materials: [], allowed_slopes: 'Pentes traditionnelles locales', excerpts: ['Article Ua 11 — Toitures en tuiles canal de terre cuite.'] },
+            window_openings: { allowed: true, conditions: 'Proportions et partitions conformes au bâti ancien.', excerpts: [] },
+            heritage_override: { ABF_review: true, excerpts: ['SPR — avis conforme de l\'ABF requis.'] },
         },
         evaluationResult: {
-            status: 'PROBABLEMENT CONFORME',
-            decision: 'DECLARATION_PREALABLE_OK',
+            status: 'CONFORMITÉ INCERTAINE',
+            decision: 'DECLARATION_PREALABLE_ABF',
             violations: [],
-            warnings: ["Vérifiez que la teinte RAL 7016 (gris anthracite) s'harmonise avec les menuiseries des constructions voisines (article UB 11)."],
+            warnings: [
+                'Le projet se situe en Site Patrimonial Remarquable (SPR) et à proximité de plusieurs Monuments Historiques : l\'avis conforme de l\'Architecte des Bâtiments de France (ABF) est obligatoire, ce qui porte le délai d\'instruction à 2 mois.',
+                'En secteur sauvegardé, le bois peint est préconisé ; l\'aluminium gris anthracite (RAL 7016) peut être accepté s\'il est thermolaqué et d\'une teinte validée par l\'ABF — à confirmer avant dépôt.',
+            ],
         },
-        analysisReport: "### STATUT DE CONFORMITÉ\nLe remplacement de menuiseries en aluminium gris anthracite (RAL 7016) en zone UB apparaît conforme aux règles d'aspect extérieur. Aucune servitude patrimoniale n'est relevée à proximité.\n\n### DÉCRYPTAGE DE LA ZONE D'URBANISME\nLa zone UB est une zone urbaine à dominante résidentielle (tissu pavillonnaire). Les travaux d'entretien et de remplacement de menuiseries y relèvent d'une simple déclaration préalable dès lors qu'ils respectent l'aspect extérieur.\n\n### RÈGLES PLU CLÉS À CONSEILLER\n- Aspect extérieur (art. UB 11) : harmonie avec le bâti voisin ; tons soutenus admis, teintes vives proscrites.\n- Toitures : tuiles de terre cuite, pente 30° à 45°.\n- Emprise au sol (art. UB 9) : ≤ 50% du terrain.\n- Hauteur (art. UB 10) : ≤ 9 m au faîtage.\n\n### RISQUES ET ALERTES PATRIMONIALES\nAucun monument historique ni site patrimonial remarquable (SPR) à proximité. Commune en zone de sismicité modérée (3) — sans incidence sur un simple remplacement de menuiseries.\n\n### RECOMMANDATIONS CONSTRUCTIVES\n- Joindre un nuancier précisant la teinte RAL 7016.\n- Conserver les proportions des baies existantes.\n- Préciser le maintien des coffres de volets et l'absence de modification des dimensions des ouvertures.",
+        analysisReport: "### STATUT DE CONFORMITÉ\nLe remplacement de menuiseries en aluminium gris anthracite (RAL 7016) se situe en zone Ua (centre ancien) couverte par un Site Patrimonial Remarquable. Le projet relève d'une déclaration préalable avec avis conforme de l'ABF — conformité à confirmer avec l'Architecte des Bâtiments de France.\n\n### DÉCRYPTAGE DE LA ZONE D'URBANISME\nLa zone Ua correspond au centre ancien de Vienne, à forte valeur patrimoniale. Toute modification de l'aspect extérieur y est encadrée par le règlement du SPR et soumise à l'ABF.\n\n### RÈGLES PLU CLÉS À CONSEILLER\n- Avis de l'ABF obligatoire (Site Patrimonial Remarquable) — délai 2 mois.\n- Menuiseries : bois peint préconisé ; aluminium thermolaqué de teinte sobre admis sous réserve.\n- Teintes : palette du centre ancien, tons sobres ; teintes vives proscrites.\n- Toitures : tuiles canal de terre cuite.\n\n### RISQUES ET ALERTES PATRIMONIALES\nSite Patrimonial Remarquable de Vienne et 22 Monuments Historiques recensés dans un rayon de 500 m (Temple d'Auguste et de Livie, Cathédrale Saint-Maurice…). Avis conforme de l'ABF requis. Commune en zone de sismicité modérée (3).\n\n### RECOMMANDATIONS CONSTRUCTIVES\n- Privilégier le bois peint ou, à défaut, un aluminium thermolaqué d'une teinte validée par l'ABF.\n- Joindre un nuancier et un détail des profils de menuiseries.\n- Conserver les proportions et partitions des baies existantes.\n- Anticiper le délai d'instruction de 2 mois lié à l'avis de l'ABF.",
     },
 }
 
@@ -437,23 +447,25 @@ export const defaultTravaux: Travaux = {
 }
 
 export const defaultPhotos: PhotosUploadees = {
-    facade_avant: '/test-avant1.jpg',    // Façade principale (avant 1)
-    facade_droite: '/test-avant2.jpg',   // Façade latérale (avant 2)
+    // Real photos served from public/test/ (downloaded), so test mode shows real façades.
+    facade_avant: '/test/facade-principale.jpg',
+    facade_droite: '/test/facade-laterale.jpg',
     facade_gauche: null,
     facade_arriere: null,
     facades: [
-        { id: 'f1', label: 'Façade principale (avant)', before: '/test-avant1.jpg', after: null, croquis: null, type: 'avant' },
-        { id: 'f2', label: 'Façade latérale', before: '/test-avant2.jpg', after: null, croquis: null, type: 'droite' }
+        { id: 'f1', label: 'Façade principale (avant)', before: '/test/facade-principale.jpg', after: null, croquis: null, type: 'avant' },
+        { id: 'f2', label: 'Façade latérale', before: '/test/facade-laterale.jpg', after: null, croquis: null, type: 'droite' }
     ],
-    dp7_vue_proche: '/test-avant1.jpg',  // DP7 : vue proche (avant 1)
-    dp8_vue_lointaine: '/test-avant2.jpg', // DP8 : vue lointaine (avant 2)
-    facade_apres_ai: null, // Simulation IA après travaux (DP6)
+    dp7_vue_proche: '/test/vue-proche.jpg',
+    dp8_vue_lointaine: '/test/vue-lointaine.jpg',
+    facade_apres_ai: null, // Simulation IA après travaux (DP6) — generated + cached on demand
     facade_croquis_ai: null, // Croquis IA après travaux (DP5)
 }
 
 export const defaultPlans: PlansSauvegardes = {
-    dp1_carte_situation: '/test-avant1.jpg',
-    dp2_plan_masse: '/test-avant2.jpg',
+    // Maps are captured live from IGN at l'étape Plans (not pre-baked).
+    dp1_carte_situation: null,
+    dp2_plan_masse: null,
     dp4_notice: null,
 }
 
