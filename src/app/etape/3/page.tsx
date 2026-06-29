@@ -34,7 +34,7 @@ const TRAVAUX_TYPES = [
 const COLOR_MAP_ACTIVE: Record<string, React.CSSProperties> = {
     blue: { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.18)', color: '#2D5A4C' },
     emerald: { borderColor: '#10b981', background: 'rgba(16,185,129,0.18)', color: '#6ee7b7' },
-    amber: { borderColor: '#f59e0b', background: 'rgba(245,158,11,0.18)', color: '#fcd34d' },
+    amber: { borderColor: '#f59e0b', background: 'rgba(245,158,11,0.18)', color: '#8A6D1F' },
 }
 
 import React from 'react'

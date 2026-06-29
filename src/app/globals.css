@@ -244,8 +244,8 @@ body [class*="bg-indigo-"][class*="/"], body [class*="bg-purple-"][class*="/"] {
 body .bg-violet-600 { background-color: var(--ac) !important; color: #fff !important; }
 body .bg-violet-600:hover, body .hover\:bg-violet-700:hover { background-color: var(--acd) !important; }
 
-/* All checkboxes/radios use the green accent (overrides accent-blue-500/accent-pink-500 etc.) */
-body input[type="checkbox"], body input[type="radio"] { accent-color: var(--ac); }
+/* All checkboxes/radios/range sliders use the green accent (overrides accent-blue-500 etc.) */
+body input[type="checkbox"], body input[type="radio"], body input[type="range"] { accent-color: var(--ac); }
 
 /* Status text contrast: the light amber/green/red Tailwind shades are unreadable on the cream/
    tinted backgrounds — remap to darker, readable tones (semantics preserved). */

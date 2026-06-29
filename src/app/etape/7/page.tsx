@@ -423,16 +423,16 @@ export default function Etape7() {
                         </div>
 
                         {(cerfaDone || dpDone) && (
-                            <div className="mt-5 rounded-xl px-4 py-3 text-sm text-center" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#86efac' }}>
+                            <div className="mt-5 rounded-xl px-4 py-3 text-sm text-center" style={{ background: '#E8F0EC', border: '1px solid #CFE0D8', color: '#244A3E' }}>
                                 ✅ Documents générés ! Déposez-les en mairie avec votre dossier complet.
                             </div>
                         )}
                     </div>
 
                     {/* Instructions dépôt */}
-                    <div className="rounded-2xl p-5" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
-                        <h4 className="font-semibold mb-3" style={{ color: '#fcd34d' }}>📮 Dépôt en mairie</h4>
-                        <ul className="space-y-2 text-sm" style={{ color: '#fde68a' }}>
+                    <div className="rounded-2xl p-5" style={{ background: '#FBF1DC', border: '1px solid #EBD9A8' }}>
+                        <h4 className="font-semibold mb-3" style={{ color: '#8A6D1F' }}>📮 Dépôt en mairie</h4>
+                        <ul className="space-y-2 text-sm" style={{ color: '#6B5512' }}>
                             <li className="flex items-start gap-2">
                                 <span className="font-bold mt-0.5">1.</span>
                                 <span>Imprimez les documents en <strong>2 exemplaires minimum</strong></span>

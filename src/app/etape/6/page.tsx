@@ -82,19 +82,18 @@ function MapCard({
                     <h3 className="font-semibold text-white leading-tight">{title}</h3>
                     {savedImage && <span className="text-[10px] text-green-400 font-medium">✓ Plan capturé pour le PDF</span>}
                 </div>
-                <button 
+                <button
                     onClick={handleCapture}
                     disabled={loading || !mapUrl || capturing}
-                    className={`ml-auto px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
-                        savedImage 
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30' 
-                        : 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20'
-                    }`}
+                    className="ml-auto px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50"
+                    style={savedImage
+                        ? { background: '#E8F0EC', color: '#2D5A4C', border: '1px solid #CFE0D8' }
+                        : { background: '#2D5A4C', color: '#fff', boxShadow: '0 4px 12px -4px rgba(45,90,76,.5)' }}
                 >
                     {capturing ? (
                         <>
-                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Capture...
+                            <div className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                            Capture…
                         </>
                     ) : (
                         <>
@@ -102,7 +101,7 @@ function MapCard({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 011.664.89l.812 1.22A2 2 0 0010.07 10H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            {savedImage ? 'Actualiser capture' : 'PING PONG PDF'}
+                            {savedImage ? 'Actualiser' : 'Capturer pour le PDF'}
                         </>
                     )}
                 </button>
@@ -137,7 +136,8 @@ function MapCard({
                 ) : mapUrl ? (
                     <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={mapUrl} alt={title} className="w-full h-full object-cover" />
+                        <img src={mapUrl} alt={title} className="w-full h-full object-cover"
+                            onLoad={() => { if (onCapture && !savedImage) setTimeout(() => handleCapture(), 400) }} />
                         {/* Red Circle Indicator */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="w-12 h-12 border-2 border-red-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)] flex items-center justify-center">
@@ -229,6 +229,16 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
             setCapturing(false)
         }
     }
+
+    // Auto-capture once the vector plan has rendered, so DP2 is ready without a manual click.
+    const autoCapturedRef = useRef(false)
+    useEffect(() => {
+        if (geoData?.cadastre?.features?.length && !savedImage && !autoCapturedRef.current) {
+            autoCapturedRef.current = true
+            const t = setTimeout(() => handleCapture(), 700)
+            return () => clearTimeout(t)
+        }
+    }, [geoData, savedImage])
 
     const renderMap = () => {
         if (!geoData || !geoData.cadastre) return null
@@ -380,11 +390,11 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
                 const mx = (ox1 + ox2) / 2, my = (oy1 + oy2) / 2
                 parcelDimLines.push(
                     <g key={`p${i}`}>
-                        <line x1={p1.x} y1={p1.y} x2={ox1} y2={oy1} stroke="#0044cc" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
-                        <line x1={p2.x} y1={p2.y} x2={ox2} y2={oy2} stroke="#0044cc" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
-                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#0044cc" strokeWidth={1} />
+                        <line x1={p1.x} y1={p1.y} x2={ox1} y2={oy1} stroke="#2D5A4C" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
+                        <line x1={p2.x} y1={p2.y} x2={ox2} y2={oy2} stroke="#2D5A4C" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
+                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#2D5A4C" strokeWidth={1} />
                         <rect x={mx - 14} y={my - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
-                        <text x={mx} y={my + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#0033cc">{distM.toFixed(1)} m</text>
+                        <text x={mx} y={my + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#2D5A4C">{distM.toFixed(1)} m</text>
                     </g>
                 )
             }
@@ -423,7 +433,7 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
                     const d = toPath(getCoords(feat))
                     if (!d) return null
                     const isTarget = i === targetIdx
-                    return <path key={i} d={d} fill={isTarget ? '#d0ebb8' : '#f5f5f2'} stroke={isTarget ? '#0055cc' : '#aaa'} strokeWidth={isTarget ? 2 : 0.8} />
+                    return <path key={i} d={d} fill={isTarget ? '#d0ebb8' : '#f5f5f2'} stroke={isTarget ? '#2D5A4C' : '#aaa'} strokeWidth={isTarget ? 2 : 0.8} />
                 })}
                 {(geoData.bati?.features || []).map((feat: any, i: number) => {
                     const d = toPath(getCoords(feat))
@@ -436,11 +446,11 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
                 {anns.length > 0 && (
                     <g>
                         <rect x={annBoxX - 1} y={annBoxY - 1} width={annBoxW + 2} height={annBoxH + 2} fill="rgba(0,0,0,0.15)" rx={4} />
-                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={annBoxH} fill="#f0f4ff" stroke="#0044cc" strokeWidth={0.9} rx={3} />
-                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={15} fill="#0044cc" rx={3} />
-                        <rect x={annBoxX} y={annBoxY + 10} width={annBoxW} height={5} fill="#0044cc" />
+                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={annBoxH} fill="#E8F0EC" stroke="#2D5A4C" strokeWidth={0.9} rx={3} />
+                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={15} fill="#2D5A4C" rx={3} />
+                        <rect x={annBoxX} y={annBoxY + 10} width={annBoxW} height={5} fill="#2D5A4C" />
                         <text x={annBoxX + annBoxW / 2} y={annBoxY + 10.5} textAnchor="middle" fontSize={7.5} fontWeight="bold" fill="white">DIMENSIONS DU PROJET</text>
-                        {anns.map((ann, i) => <text key={i} x={annBoxX + 8} y={annBoxY + 28 + i * annLineH} fontSize={7.5} fill="#0033aa">• {ann}</text>)}
+                        {anns.map((ann, i) => <text key={i} x={annBoxX + 8} y={annBoxY + 28 + i * annLineH} fontSize={7.5} fill="#244A3E">• {ann}</text>)}
                     </g>
                 )}
                 {[0, 45, 90, 135, 180, 225, 270, 315].map(a => {
@@ -450,7 +460,7 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
                 <circle cx={28} cy={VH - 28} r={2.5} fill="#333" />
                 <text x={28} y={VH - 50} textAnchor="middle" fontSize={8} fontWeight="bold" fill="#111">N</text>
                 <rect x={8} y={VH - 60} width={130} height={54} fill="white" stroke="#bbb" strokeWidth={0.7} rx={2} />
-                <rect x={14} y={VH - 52} width={9} height={7} fill="#d0ebb8" stroke="#0055cc" strokeWidth={1.2} />
+                <rect x={14} y={VH - 52} width={9} height={7} fill="#d0ebb8" stroke="#2D5A4C" strokeWidth={1.2} />
                 <text x={26} y={VH - 47} fontSize={7} fill="#333">Parcelle concernée</text>
                 <rect x={14} y={VH - 42} width={9} height={7} fill="#f5f5f2" stroke="#aaa" strokeWidth={0.7} />
                 <text x={26} y={VH - 37} fontSize={7} fill="#333">Autres parcelles</text>
@@ -692,7 +702,7 @@ function FacadeCard({
                             }}
                             disabled={!prompt.trim() || isGenerating}
                             className="px-6 rounded-xl text-sm font-bold flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-40 hover:scale-[1.02]"
-                            style={{ background: 'linear-gradient(135deg, #2D5A4C, #7c3aed)', color: 'white', boxShadow: '0 4px 15px rgba(45,90,76,0.3)' }}
+                            style={{ background: 'linear-gradient(135deg, #2D5A4C, #244A3E)', color: 'white', boxShadow: '0 4px 15px rgba(45,90,76,0.3)' }}
                         >
                             {isGenerating ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
