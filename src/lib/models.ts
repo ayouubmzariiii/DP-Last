@@ -88,6 +88,7 @@ export interface Terrain {
             fetchedAt?: string
             analysisReport?: string
             verified?: boolean
+            source?: 'reglement' | 'estimation' | 'rnu'
             pdfType?: 'text' | 'scanned' | 'missing' | 'error'
             textLength?: number
             extractedText?: string
@@ -366,6 +367,7 @@ export const defaultTerrain: Terrain = {
         fetchedAt: '2026-06-29T00:00:00.000Z',
         isRnu: false,
         verified: true,
+        source: 'reglement',
         pdfType: 'text',
         textLength: 18420,
         extractedText: "ZONE UB — DISPOSITIONS APPLICABLES\n\nArticle UB 11 — Aspect extérieur\nL'aspect extérieur des constructions ne doit pas porter atteinte au caractère ou à l'intérêt des lieux avoisinants. Les menuiseries pourront être en bois, aluminium ou PVC ; les teintes vives sont proscrites, les tons soutenus (gris, anthracite) sont admis dès lors qu'ils s'harmonisent avec le bâti environnant. Les toitures seront réalisées en tuiles de terre cuite de ton naturel, pente comprise entre 30° et 45°.\n\nArticle UB 9 — Emprise au sol\nL'emprise au sol des constructions ne peut excéder 50% de la superficie du terrain.\n\nArticle UB 10 — Hauteur\nLa hauteur des constructions est limitée à 9 mètres au faîtage.\n[EXTRAIT — DONNÉES DE DÉMONSTRATION]",

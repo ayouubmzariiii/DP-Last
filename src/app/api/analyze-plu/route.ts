@@ -13,7 +13,7 @@ const PLU_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || PLU_MODEL
 
 // In-memory extraction cache keyed by document URL + zone (règlements change rarely → big
 // reliability/latency/cost win for repeat addresses in the same zone).
-type CachedExtraction = { report: string; extractedRules: any; pdfType: string; at: number }
+type CachedExtraction = { report: string; extractedRules: any; pdfType: string; source?: string; at: number }
 const extractionCache = new Map<string, CachedExtraction>()
 const CACHE_TTL_MS = 24 * 3600 * 1000
 
@@ -266,8 +266,22 @@ URL Règlement complet: ${plu.zone.url_doc || 'Non fourni'}`
             ? plu.prescriptions.map((p: any) => `- ${p.libelle} (Type: ${p.typepresc})`).join('\n')
             : 'Aucune prescription ou servitude patrimoniale/environnementale spécifique détectée.'
 
+        // Reliable contraintes — these come from independent APIs (Géorisques, data.culture,
+        // APICarto SUP) and are available EVEN WHEN the règlement PDF isn't. Always feed them in.
+        const ov = plu?.overlays || {}
+        const overlaysText = [
+            `Zone de sismicité : ${ov.seismicClass || 'inconnue'}`,
+            `Risque inondation / PPRN : ${ov.hasFloodRisk || ov.hasPPRN ? 'OUI' : 'non détecté'}`,
+            `Site Patrimonial Remarquable (SPR) : ${ov.hasSPR ? `OUI${ov.sprName ? ' — ' + ov.sprName : ''}` : 'non'}`,
+            `Monuments Historiques dans un rayon de 500 m : ${(ov.monumentsWithin500m?.length || 0)}${(ov.monumentsWithin500m?.length || 0) > 0 ? ' (avis ABF requis)' : ''}`,
+        ].join('\n')
+
+        // `estimation` = the official règlement could not be read; we still produce a useful,
+        // clearly-indicative analysis from the zone TYPE + national rules + the real contraintes.
+        let source: 'reglement' | 'estimation' | 'rnu' = 'reglement'
         let pdfContextPrompt = ''
         if (plu?.isRnu) {
+            source = 'rnu'
             pdfContextPrompt = `ATTENTION : La commune n'est pas couverte par un plan local d'urbanisme (PLU) mais est régie directement par le RÈGLEMENT NATIONAL D'URBANISME (RNU).
 Tu dois te baser sur les règles nationales d'urbanisme (RNU), notamment l'article L. 111-1-2 (constructibilité limitée), l'article R. 111-21 (aspect extérieur et insertion paysagère) pour formuler ton analyse.`
         } else if (pdfType === 'text') {
@@ -275,8 +289,15 @@ Tu dois te baser sur les règles nationales d'urbanisme (RNU), notamment l'artic
         } else if (pdfType === 'scanned') {
             pdfContextPrompt = `IMPORTANT : Le règlement PLU est un document scanné — ses pages sont JOINTES EN IMAGES à ce message. Lis attentivement ces images (OCR), repère le chapitre de la zone ${plu?.zone?.libelle || ''}, et extrais-en les règles réelles (matériaux, couleurs, toiture, ouvertures). Ne te contente pas de généralités : cite les passages lus.`
         } else {
-            pdfContextPrompt = `ATTENTION : Le document de règlement PDF n'est pas disponible.
-Tu dois te baser sur les informations du Géoportail (zonage, prescriptions) et sur tes connaissances d'expert des règlements d'urbanisme standards en France.`
+            // Tier 2/4 — règlement indisponible : ESTIMATION par type de zone.
+            source = 'estimation'
+            const zt = plu?.zone?.libelle || plu?.zone?.typezone || 'urbaine (U)'
+            pdfContextPrompt = `ATTENTION : Le règlement écrit de la commune n'a pas pu être récupéré ni lu automatiquement.
+Tu dois produire une ESTIMATION INDICATIVE (et non l'extrait verbatim du règlement communal), fondée sur :
+- le TYPE de zone détecté (« ${zt} ») et les règles standards typiques de ce type de zone en France ;
+- les règles nationales d'urbanisme applicables à défaut (Code de l'urbanisme, art. R.111-27 sur l'aspect extérieur et l'insertion paysagère) ;
+- les CONTRAINTES réellement détectées ci-dessous (sismicité, inondation, SPR, Monuments Historiques) — celles-ci sont fiables et doivent primer.
+Dans le rapport, indique clairement qu'il s'agit d'une estimation à confirmer avec le règlement de la commune. Renseigne quand même des valeurs réalistes typiques dans "rules" (matériaux/couleurs/extension/toiture) pour ce type de zone, et mets des "excerpts" génériques (ex: « Estimation — règle type pour zone ${zt} »).`
         }
 
         const prompt = `Tu es un expert d'élite en urbanisme français et instructeur de dossiers de déclaration préalable (DP).
@@ -291,6 +312,9 @@ ${zoneText}
 
 PRESCRIPTIONS / SERVITUDES CONSTATÉES :
 ${prescriptionsText}
+
+CONTRAINTES DÉTECTÉES (sources officielles indépendantes — fiables) :
+${overlaysText}
 
 ${pdfContextPrompt}
 
@@ -358,6 +382,7 @@ Le JSON doit respecter exactement ce schéma :
             report = cached.report
             extractedRules = cached.extractedRules
             pdfType = cached.pdfType as typeof pdfType
+            if (cached.source) source = cached.source as typeof source
         } else if (plu?.isRnu) {
             extractedRules = RNU_RULES
             try { report = parseRulesJson(await callOpenRouter(apiKey, PLU_MODEL, prompt))?.report || '' } catch (e) { console.error('RNU report failed:', e) }
@@ -381,12 +406,18 @@ Le JSON doit respecter exactement ce schéma :
                 report = parsed.report || ''
                 extractedRules = parsed.rules || null
             }
-            if (extractedRules) extractionCache.set(cacheKey, { report, extractedRules, pdfType, at: Date.now() })
+            if (extractedRules) extractionCache.set(cacheKey, { report, extractedRules, pdfType, source, at: Date.now() })
         }
 
-        // If extraction failed → DO NOT bless the project with permissive defaults; flag it.
+        // An estimation (règlement not read) is never "verified", even when the model returned rules.
+        if (source === 'estimation') verified = false
+
+        // Last resort — even the estimation model call failed entirely (rare). Keep an honest note.
+        let unreadable = false
         if (!extractedRules) {
             verified = false
+            unreadable = true
+            source = 'estimation'
             extractedRules = {
                 zone_code: zoneLibelle || 'Inconnue', _unverified: true,
                 facade: { allowed: true, allowed_materials: [], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], color_restrictions: null, excerpts: [] },
@@ -395,7 +426,7 @@ Le JSON doit respecter exactement ce schéma :
                 window_openings: { allowed: true, conditions: null, excerpts: [] },
                 heritage_override: { ABF_review: false, excerpts: [] },
             }
-            if (!report) report = '### STATUT DE CONFORMITÉ\nLe règlement PLU n’a pas pu être lu automatiquement (document indisponible ou illisible). Une vérification manuelle du règlement est requise avant dépôt.'
+            if (!report) report = '### STATUT DE CONFORMITÉ\nL’analyse automatique n’a pas pu aboutir. Vérifiez la conformité directement à partir du règlement de la commune et des contraintes détectées ci-dessus.'
         }
 
         const evaluationResult = evaluateProject(travaux, extractedRules, plu?.overlays)
@@ -403,7 +434,11 @@ Le JSON doit respecter exactement ce schéma :
             if (typeof evaluationResult.status === 'string' && !evaluationResult.status.toUpperCase().includes('NON-CONFORME')) {
                 evaluationResult.status = 'CONFORMITÉ INCERTAINE'
             }
-            evaluationResult.warnings.push('Le règlement PLU n’a pas pu être analysé automatiquement : confirmez la conformité manuellement à partir du document officiel.')
+            evaluationResult.warnings.push(
+                unreadable
+                    ? 'Le règlement PLU n’a pas pu être analysé automatiquement : confirmez la conformité manuellement à partir du document officiel.'
+                    : 'Analyse ESTIMATIVE : le règlement écrit de la commune n’a pas pu être récupéré. Les règles ci-dessus sont une estimation fondée sur le type de zone et les règles nationales (art. R.111-27) ; les contraintes détectées (sismicité, inondation, SPR, Monuments Historiques) sont en revanche fiables. À confirmer avec le règlement officiel de la commune.'
+            )
         }
 
         return NextResponse.json({
@@ -412,6 +447,7 @@ Le JSON doit respecter exactement ce schéma :
             evaluationResult,
             pdfType,
             verified,
+            source,
             textLength: pdfText.length,
             extractedText: pdfText,
         }, { status: 200 })
