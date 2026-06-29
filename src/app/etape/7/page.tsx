@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import { validateDPForm, piecesChecklist, fatalIssues, warnIssues, ValidationIssue } from '@/lib/validation'
 
@@ -160,7 +159,7 @@ export default function Etape7() {
     }
 
     return (
-        <StepLayout>
+        <>
             <div className="animate-fadeIn">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white">Récapitulatif & Téléchargement</h2>
@@ -470,6 +469,6 @@ export default function Etape7() {
                     </div>
                 </div>
             </div>
-        </StepLayout>
+        </>
     )
 }

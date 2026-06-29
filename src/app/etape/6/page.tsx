@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import { generateAICroquis, buildAIAfterImagePrompt, buildAICroquisPrompt, buildAIAfterImagePrompt as buildDP6Prompt, resizeImageForOpenAI } from '@/lib/aiImageGenerator'
 import { DPFormData } from '@/lib/models'
@@ -1049,7 +1048,7 @@ export default function Etape6() {
     }
 
     return (
-        <StepLayout>
+        <>
             <div className="animate-fadeIn max-w-5xl mx-auto">
                 <div className="mb-8 flex items-center justify-between">
                     <div>
@@ -1531,7 +1530,7 @@ export default function Etape6() {
                     </button>
                 </div>
             </div>
-        </StepLayout>
+        </>
     )
 }
 

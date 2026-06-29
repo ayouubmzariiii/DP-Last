@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { issuesForStep, fatalIssues } from '@/lib/validation'
@@ -18,7 +17,6 @@ export default function Etape1() {
 
     const [loadingPLU, setLoadingPLU] = useState(false)
     const [pluError, setPluError] = useState<string | null>(null)
-    const [showPdfPreview, setShowPdfPreview] = useState(false)
 
     const fetchPLUForCoords = async (coords: { lat: number; lon: number }) => {
         setLoadingPLU(true)
@@ -88,7 +86,7 @@ export default function Etape1() {
     }
 
     return (
-        <StepLayout>
+        <>
             <div className="animate-fadeIn">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white">Vos informations personnelles</h2>
@@ -398,125 +396,6 @@ export default function Etape1() {
                             </div>
                         </div>
 
-                        {/* Diagnostic PLU */}
-                        {(d.coords || loadingPLU || pluError) && (
-                            <div className="p-4 bg-slate-900/40 border border-slate-800 rounded-xl mt-4 animate-fadeIn">
-                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                    <span>🔍</span> Diagnostic d'Urbanisme (PLU/Géoportail)
-                                </h4>
-                                
-                                {loadingPLU && (
-                                    <div className="flex flex-col items-center py-4">
-                                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
-                                        <p className="text-[11px] text-slate-400">Interrogation du Géoportail de l'Urbanisme...</p>
-                                    </div>
-                                )}
-
-                                {pluError && (
-                                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
-                                        ⚠️ {pluError}
-                                    </div>
-                                )}
-
-                                {!loadingPLU && !pluError && formData.terrain.plu && (
-                                    <div className="space-y-3">
-                                        {formData.terrain.plu.zone ? (
-                                            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1.5">
-                                                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-500 text-white uppercase">
-                                                            Zone {formData.terrain.plu.zone.libelle}
-                                                        </span>
-                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                                            ({formData.terrain.plu.zone.nomzone})
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-xs text-slate-300 font-medium">
-                                                        {formData.terrain.plu.zone.libelong || 'Description indisponible.'}
-                                                    </p>
-                                                </div>
-                                                {formData.terrain.plu.zone.url_doc && (
-                                                    <div className="flex gap-2 shrink-0">
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setShowPdfPreview(!showPdfPreview)}
-                                                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-400 text-[11px] font-bold rounded-lg transition-colors border border-slate-700 inline-flex items-center gap-1"
-                                                        >
-                                                            {showPdfPreview ? '👁️ Masquer' : '👁️ Consulter'}
-                                                        </button>
-                                                        <a 
-                                                            href={formData.terrain.plu.zone.url_doc} 
-                                                            target="_blank" 
-                                                            rel="noopener noreferrer" 
-                                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded-lg transition-colors inline-flex items-center gap-1"
-                                                        >
-                                                            📄 Ouvrir
-                                                        </a>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs">
-                                                ℹ️ Aucune zone PLU spécifique détectée sur Géoportail. Le Règlement National d'Urbanisme (RNU) s'applique par défaut.
-                                            </div>
-                                        )}
-
-                                        {!formData.terrain.plu.zone?.url_doc && (
-                                            <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                <p className="text-xs text-slate-400">
-                                                    Le document PDF officiel n'est pas publié sur le Géoportail de l'Urbanisme pour cette commune.
-                                                </p>
-                                                <a 
-                                                    href={`https://www.google.com/search?q=${encodeURIComponent(`PLU ${formData.terrain.commune || ''} reglement pdf`)}`}
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer" 
-                                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold rounded-lg transition-colors border border-slate-700 inline-flex items-center gap-1 shrink-0"
-                                                >
-                                                    🔍 Chercher sur Google
-                                                </a>
-                                            </div>
-                                        )}
-
-                                        {showPdfPreview && formData.terrain.plu?.zone?.url_doc && (
-                                            <div className="mt-3 border border-slate-750 rounded-xl overflow-hidden bg-slate-950/90">
-                                                <div className="bg-slate-900 px-3 py-2 border-b border-slate-750 flex justify-between items-center">
-                                                    <span className="text-[11px] text-slate-400">Aperçu du Règlement PDF</span>
-                                                </div>
-                                                <iframe 
-                                                    src={formData.terrain.plu.zone.url_doc} 
-                                                    className="w-full h-[450px] border-0" 
-                                                    title="Aperçu du règlement d'urbanisme (PLU)"
-                                                />
-                                            </div>
-                                        )}
-
-                                        <div className="mt-3 pt-3 border-t border-slate-800">
-                                            <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                                                <span>⚠️</span> Prescriptions & Contraintes (Servitudes)
-                                            </h5>
-                                            {formData.terrain.plu.prescriptions && formData.terrain.plu.prescriptions.length > 0 ? (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                    {formData.terrain.plu.prescriptions.map((p: any, idx: number) => (
-                                                        <div key={idx} className="p-2 bg-slate-800/60 border border-slate-700 rounded-lg flex items-start gap-1.5">
-                                                            <span className="text-amber-400 mt-0.5 text-xs">⚠️</span>
-                                                            <div>
-                                                                <p className="text-[10px] text-white font-semibold leading-tight">{p.libelle}</p>
-                                                                <p className="text-[8px] text-slate-500 font-mono mt-0.5">Type: {p.typepresc}</p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-[10px] text-slate-500 italic">
-                                                    Aucune prescription patrimoniale ou environnementale détectée pour ces coordonnées.
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
                             {/* Dematerialisation (Section 2 addition) */}
                             <div className="mt-6 pt-4 border-t border-slate-700/50">
                                 <label className="flex items-start gap-4 p-4 rounded-xl border border-slate-700 bg-slate-800/30 cursor-pointer hover:bg-slate-800/50 transition-colors">
@@ -563,6 +442,6 @@ export default function Etape1() {
                     </div>
                 </div>
             </div>
-        </StepLayout>
+        </>
     )
 }

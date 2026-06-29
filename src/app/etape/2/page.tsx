@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { issuesForStep, fatalIssues } from '@/lib/validation'
@@ -17,7 +16,6 @@ export default function Etape2() {
 
     const [loadingPLU, setLoadingPLU] = useState(false)
     const [pluError, setPluError] = useState<string | null>(null)
-    const [showPdfPreview, setShowPdfPreview] = useState(false)
 
     const fetchPLUForCoords = async (coords: { lat: number; lon: number }) => {
         setLoadingPLU(true)
@@ -114,7 +112,7 @@ export default function Etape2() {
     }
 
     return (
-        <StepLayout>
+        <>
             <div className="animate-fadeIn">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white">Informations sur le terrain</h2>
@@ -203,110 +201,15 @@ export default function Etape2() {
                         )}
                     </div>
 
-                    {/* Diagnostic PLU */}
-                    {(t.coords || loadingPLU || pluError) && (
-                        <div className="dp-card animate-fadeIn">
-                            <h3 className="dp-section-title flex items-center gap-2">
-                                <span>🔍</span> Diagnostic d'Urbanisme (PLU/Géoportail)
-                            </h3>
-                            
-                            {loadingPLU && (
-                                <div className="flex flex-col items-center py-6">
-                                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
-                                    <p className="text-xs text-slate-400">Interrogation du Géoportail de l'Urbanisme...</p>
-                                </div>
-                            )}
-
-                            {pluError && (
-                                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
-                                    ⚠️ {pluError}
-                                </div>
-                            )}
-
-                            {!loadingPLU && !pluError && t.plu && (
-                                <div className="space-y-4">
-                                    {t.plu.zone ? (
-                                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                    <span className="text-xs font-black px-2 py-0.5 rounded bg-blue-500 text-white uppercase">
-                                                        Zone {t.plu.zone.libelle}
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                                        ({t.plu.zone.nomzone})
-                                                    </span>
-                                                </div>
-                                                <p className="text-xs text-slate-300 font-medium">
-                                                    {t.plu.zone.libelong || 'Description indisponible.'}
-                                                </p>
-                                            </div>
-                                            {t.plu.zone.url_doc && (
-                                                 <div className="flex gap-2 shrink-0 self-start md:self-auto">
-                                                     <button 
-                                                         type="button"
-                                                         onClick={() => setShowPdfPreview(!showPdfPreview)}
-                                                         className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 text-xs font-bold rounded-lg transition-colors border border-slate-700 inline-flex items-center gap-1.5"
-                                                     >
-                                                         {showPdfPreview ? '👁️ Masquer le document' : '👁️ Consulter le Règlement'}
-                                                     </button>
-                                                     <a 
-                                                         href={t.plu.zone.url_doc} 
-                                                         target="_blank" 
-                                                         rel="noopener noreferrer" 
-                                                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors inline-flex items-center gap-1.5"
-                                                     >
-                                                         📄 Ouvrir
-                                                     </a>
-                                                 </div>
-                                             )}
-                                        </div>
-                                    ) : (
-                                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs">
-                                            ℹ️ Aucune zone PLU spécifique détectée sur Géoportail. Le Règlement National d'Urbanisme (RNU) s'applique par défaut.
-                                        </div>
-                                    )}
-
-                                    {/* PLU Regulation PDF Document Preview Panel */}
-                                    {showPdfPreview && t.plu?.zone?.url_doc && (
-                                         <div className="mt-4 border border-slate-700 rounded-xl overflow-hidden bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-                                             <div className="bg-slate-900/90 px-4 py-2.5 border-b border-slate-700 flex justify-between items-center">
-                                                 <span className="text-xs font-semibold text-slate-300 text-slate-200">Règlement d'urbanisme de la Zone {t.plu.zone.libelle}</span>
-                                                 <a href={t.plu.zone.url_doc} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-400 hover:underline">Plein écran ↗</a>
-                                             </div>
-                                             <iframe 
-                                                 src={t.plu.zone.url_doc} 
-                                                 className="w-full h-[550px] border-0" 
-                                                 title="Aperçu du règlement d'urbanisme (PLU)"
-                                             />
-                                         </div>
-                                     )}
-
-                                    <div>
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                            Prescriptions & Contraintes (Servitudes)
-                                        </h4>
-                                        {t.plu.prescriptions && t.plu.prescriptions.length > 0 ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                {t.plu.prescriptions.map((p: any, idx: number) => (
-                                                    <div key={idx} className="p-2.5 bg-slate-800/60 border border-slate-700 rounded-lg flex items-start gap-2">
-                                                        <span className="text-amber-400 mt-0.5 text-sm">⚠️</span>
-                                                        <div>
-                                                            <p className="text-xs text-white font-semibold leading-tight">{p.libelle}</p>
-                                                            <p className="text-[9px] text-slate-500 font-mono mt-0.5">Type: {p.typepresc}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-xs text-slate-500 italic">
-                                                Aucune prescription patrimoniale ou environnementale détectée pour cette coordonnée.
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+                    {/* Localisation confirmée — the PLU/urbanism analysis runs at l'étape 4 (Analyse PLU),
+                        after the works are declared, so the constraints can be checked against the project. */}
+                    {t.coords && (
+                        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl" style={{ background: '#E8F0EC', border: '1px solid #CFE0D8', color: '#2D5A4C' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                            <span className="text-sm font-medium">Localisation confirmée. L’analyse du règlement d’urbanisme (PLU) et de ses contraintes se fera à l’étape <strong>Analyse PLU</strong>, une fois vos travaux décrits.</span>
                         </div>
                     )}
+
                     {/* Cadastre */}
                     <div className="dp-card">
                         <h3 className="dp-section-title">Références cadastrales</h3>
@@ -421,6 +324,6 @@ export default function Etape2() {
                     </div>
                 </div>
             </div>
-        </StepLayout>
+        </>
     )
 }

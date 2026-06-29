@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import { TypeTravaux } from '@/lib/models'
 
@@ -64,7 +63,7 @@ export default function Etape3() {
     }
 
     return (
-        <StepLayout>
+        <>
             <div className="animate-fadeIn">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white">Type de travaux</h2>
@@ -393,6 +392,6 @@ export default function Etape3() {
                     </div>
                 </div>
             </div>
-        </StepLayout>
+        </>
     )
 }

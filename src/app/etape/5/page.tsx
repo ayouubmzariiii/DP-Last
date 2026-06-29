@@ -2,7 +2,6 @@
 
 import { useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 import { consoleLogAfterPrompt } from '@/lib/aiPromptBuilder'
 
@@ -170,7 +169,7 @@ export default function Etape5() {
     }
 
     return (
-        <StepLayout>
+        <>
             <div className="animate-fadeIn">
                 <div className="mb-8 flex items-start justify-between">
                     <div>
@@ -298,6 +297,6 @@ export default function Etape5() {
                     </div>
                 </div>
             </div>
-        </StepLayout>
+        </>
     )
 }
