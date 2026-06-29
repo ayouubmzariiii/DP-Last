@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import SealIcon from '@/components/SealIcon'
 
 const STEPS = [
     { num: '01', label: 'Demandeur' },
@@ -39,12 +40,6 @@ const DOCS = [
     { code: 'DP8', label: 'Vue lointaine' },
 ]
 
-const FileIcon = ({ size = 20 }: { size?: number }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" />
-    </svg>
-)
-
 export default function HomePage() {
     return (
         <div className="min-h-screen" style={{ background: '#F1ECE3', color: '#25221E' }}>
@@ -52,7 +47,7 @@ export default function HomePage() {
             <header style={{ borderBottom: '1px solid #E3DCCF', background: 'rgba(250,247,241,.7)', backdropFilter: 'blur(8px)', position: 'sticky', top: 0, zIndex: 40 }}>
                 <div style={{ maxWidth: 1120, margin: '0 auto', padding: '20px 32px' }} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center text-white" style={{ width: 38, height: 38, borderRadius: 10, background: '#2D5A4C' }}><FileIcon /></div>
+                        <div className="flex items-center justify-center text-white" style={{ width: 38, height: 38, borderRadius: 10, background: '#2D5A4C', boxShadow: '0 6px 16px -8px rgba(45,90,76,.6)' }}><SealIcon size={21} stroke="#fff" strokeWidth={1.5} /></div>
                         <div style={{ fontFamily: "var(--hf)", fontSize: 18, fontWeight: 600, letterSpacing: '.01em' }}>DP Travaux</div>
                     </div>
                     <div style={{ fontFamily: "var(--mf)", fontSize: 12, letterSpacing: '.06em', color: '#7A7468', textTransform: 'uppercase' }}>Dossier CERFA 13703*</div>

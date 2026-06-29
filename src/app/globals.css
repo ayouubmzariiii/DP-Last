@@ -177,6 +177,17 @@ h1, h2, h3, .font-serif { font-family: var(--hf); }
 .animate-fadeIn { animation: fadeIn 0.45s cubic-bezier(.2,.7,.2,1); }
 @keyframes dpSpin { to { transform: rotate(360deg); } }
 
+/* Step transition — replayed by app/etape/template.tsx on every step navigation, while the
+   header/stepper/progress (app/etape/layout.tsx) stay mounted for a fluid feel. */
+@keyframes dpStepEnter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.dp-step-enter { animation: dpStepEnter 0.4s cubic-bezier(.2,.7,.2,1); }
+@media (prefers-reduced-motion: reduce) { .dp-step-enter, .animate-fadeIn { animation: none; } }
+
+/* Stepper: keep labels visible but scroll horizontally on narrow screens without a visible bar. */
+.dp-stepper { scrollbar-width: none; -ms-overflow-style: none; }
+.dp-stepper::-webkit-scrollbar { display: none; }
+.dp-stepper button:disabled { opacity: 1; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: #EBE5DA; }
 ::-webkit-scrollbar-thumb { background: #CFC7B8; border-radius: 5px; border: 2px solid #EBE5DA; }
@@ -235,3 +246,9 @@ body .bg-violet-600:hover, body .hover\:bg-violet-700:hover { background-color: 
 
 /* All checkboxes/radios use the green accent (overrides accent-blue-500/accent-pink-500 etc.) */
 body input[type="checkbox"], body input[type="radio"] { accent-color: var(--ac); }
+
+/* Status text contrast: the light amber/green/red Tailwind shades are unreadable on the cream/
+   tinted backgrounds — remap to darker, readable tones (semantics preserved). */
+body .text-amber-200, body .text-amber-300, body .text-amber-400 { color: #8A6D1F !important; }
+body .text-green-300, body .text-green-400 { color: #2D5A4C !important; }
+body .text-red-300, body .text-red-400 { color: #B43A2E !important; }

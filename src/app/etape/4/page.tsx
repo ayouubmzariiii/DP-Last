@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
 
 export default function Etape4() {
@@ -186,7 +185,7 @@ export default function Etape4() {
     const verdict = getVerdictDetails()
 
     return (
-        <StepLayout>
+        <>
             <div className="animate-fadeIn">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white">Analyse PLU & Avertissements</h2>
@@ -413,6 +412,26 @@ export default function Etape4() {
                             </div>
                         )}
 
+                        {/* 2.55. Prescriptions / servitudes from the règlement (when the Géoportail returns any) */}
+                        {plu?.prescriptions && plu.prescriptions.length > 0 && (
+                            <div className="dp-card">
+                                <h3 className="dp-section-title flex items-center gap-2 text-white">
+                                    <span>📐</span> Prescriptions & servitudes du règlement
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {plu.prescriptions.map((p: any, idx: number) => (
+                                        <div key={idx} className="p-2.5 rounded-lg flex items-start gap-2" style={{ background: '#FBF1DC', border: '1px solid #EBD9A8' }}>
+                                            <span style={{ color: '#8A6D1F' }}>⚠️</span>
+                                            <div>
+                                                <p className="text-xs font-semibold leading-tight" style={{ color: '#25221E' }}>{p.libelle}</p>
+                                                <p className="text-[9px] font-mono mt-0.5" style={{ color: '#8A8378' }}>Type : {p.typepresc}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* 2.6. Technical Rules Checklist */}
                         {plu?.extractedRules && (
                             <div className="dp-card border-purple-500/10 bg-purple-950/5">
@@ -629,6 +648,6 @@ export default function Etape4() {
                     </div>
                 )}
             </div>
-        </StepLayout>
+        </>
     )
 }
