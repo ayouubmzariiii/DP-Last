@@ -329,6 +329,7 @@ export const defaultDemandeur: Demandeur = {
     lieu_dit: 'Les Acacias',
     code_postal: '38200',
     commune: 'Vienne',
+    coords: { lat: 45.5256, lon: 4.8743 },
     boite_postale: 'BP 123',
     cedex: '38201 Vienne Cedex',
     pays: 'France',
@@ -349,6 +350,7 @@ export const defaultTerrain: Terrain = {
     lieu_dit: 'Le Colombier',
     code_postal: '38200',
     commune: 'Vienne',
+    coords: { lat: 45.5256, lon: 4.8743 },
     prefixe_cadastral: '000',
     section_cadastrale: 'AB',
     numero_parcelle: '0124',
@@ -356,6 +358,41 @@ export const defaultTerrain: Terrain = {
     surface_plancher: '120',
     description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en aluminium anthracite. La maison est de plain-pied, construite en 1975.',
     meme_adresse: true,
+    // Pre-baked PLU result so TEST MODE is 100% consistent and never depends on live IGN/LLM
+    // calls (which is why the dummy Vienne address showed "Règlement de zone indisponible").
+    plu: {
+        zone: { libelle: 'UB', typezone: 'U', nomzone: 'Zone urbaine UB', libelong: 'Zone urbaine à dominante résidentielle (tissu pavillonnaire).', url_doc: 'https://www.geoportail-urbanisme.gouv.fr/' },
+        prescriptions: [],
+        fetchedAt: '2026-06-29T00:00:00.000Z',
+        isRnu: false,
+        verified: true,
+        pdfType: 'text',
+        textLength: 18420,
+        extractedText: "ZONE UB — DISPOSITIONS APPLICABLES\n\nArticle UB 11 — Aspect extérieur\nL'aspect extérieur des constructions ne doit pas porter atteinte au caractère ou à l'intérêt des lieux avoisinants. Les menuiseries pourront être en bois, aluminium ou PVC ; les teintes vives sont proscrites, les tons soutenus (gris, anthracite) sont admis dès lors qu'ils s'harmonisent avec le bâti environnant. Les toitures seront réalisées en tuiles de terre cuite de ton naturel, pente comprise entre 30° et 45°.\n\nArticle UB 9 — Emprise au sol\nL'emprise au sol des constructions ne peut excéder 50% de la superficie du terrain.\n\nArticle UB 10 — Hauteur\nLa hauteur des constructions est limitée à 9 mètres au faîtage.\n[EXTRAIT — DONNÉES DE DÉMONSTRATION]",
+        overlays: {
+            seismicZone: '3', seismicClass: '3 - MODEREE',
+            hasFloodRisk: false, floodRisks: [],
+            hasPPRN: false, pprnList: [],
+            hasPPRT: false, pprtList: [],
+            hasSPR: false, sprName: '',
+            monumentsWithin500m: [],
+        },
+        extractedRules: {
+            zone_code: 'UB',
+            facade: { allowed: true, allowed_materials: ['enduit', 'pierre', 'bois', 'aluminium', 'pvc'], forbidden_materials: ['tôle ondulée'], allowed_colors: [], forbidden_colors: ['couleurs vives'], color_restrictions: 'Teintes en harmonie avec le bâti environnant ; tons soutenus (gris, anthracite) admis.', excerpts: ["Article UB 11 — L'aspect extérieur ne doit pas porter atteinte au caractère des lieux avoisinants."] },
+            extension: { max_area_m2: 40, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: ['Article UB 9 — Emprise au sol limitée à 50%.'] },
+            roof: { max_height_m: 9, allowed_materials: ['tuile'], forbidden_materials: [], allowed_slopes: '30° à 45°', excerpts: ['Article UB 11 — Toitures en tuiles de terre cuite ton naturel.'] },
+            window_openings: { allowed: true, conditions: 'Proportions cohérentes avec le bâti existant.', excerpts: [] },
+            heritage_override: { ABF_review: false, excerpts: [] },
+        },
+        evaluationResult: {
+            status: 'PROBABLEMENT CONFORME',
+            decision: 'DECLARATION_PREALABLE_OK',
+            violations: [],
+            warnings: ["Vérifiez que la teinte RAL 7016 (gris anthracite) s'harmonise avec les menuiseries des constructions voisines (article UB 11)."],
+        },
+        analysisReport: "### STATUT DE CONFORMITÉ\nLe remplacement de menuiseries en aluminium gris anthracite (RAL 7016) en zone UB apparaît conforme aux règles d'aspect extérieur. Aucune servitude patrimoniale n'est relevée à proximité.\n\n### DÉCRYPTAGE DE LA ZONE D'URBANISME\nLa zone UB est une zone urbaine à dominante résidentielle (tissu pavillonnaire). Les travaux d'entretien et de remplacement de menuiseries y relèvent d'une simple déclaration préalable dès lors qu'ils respectent l'aspect extérieur.\n\n### RÈGLES PLU CLÉS À CONSEILLER\n- Aspect extérieur (art. UB 11) : harmonie avec le bâti voisin ; tons soutenus admis, teintes vives proscrites.\n- Toitures : tuiles de terre cuite, pente 30° à 45°.\n- Emprise au sol (art. UB 9) : ≤ 50% du terrain.\n- Hauteur (art. UB 10) : ≤ 9 m au faîtage.\n\n### RISQUES ET ALERTES PATRIMONIALES\nAucun monument historique ni site patrimonial remarquable (SPR) à proximité. Commune en zone de sismicité modérée (3) — sans incidence sur un simple remplacement de menuiseries.\n\n### RECOMMANDATIONS CONSTRUCTIVES\n- Joindre un nuancier précisant la teinte RAL 7016.\n- Conserver les proportions des baies existantes.\n- Préciser le maintien des coffres de volets et l'absence de modification des dimensions des ouvertures.",
+    },
 }
 
 export const defaultTravaux: Travaux = {
