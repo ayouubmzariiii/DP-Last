@@ -1,30 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
-import * as pdfParser from 'pdf-parse'
+import { acquirePluContent } from '@/lib/pluExtractor'
 
-export const maxDuration = 60
+export const maxDuration = 120
+export const dynamic = 'force-dynamic'
 
-async function extractTextFromPdfUrl(url: string): Promise<{ text: string; type: 'text' | 'scanned' | 'error' }> {
-    try {
-        console.log(`Downloading PDF from URL: ${url}`)
-        const response = await fetch(url)
-        if (!response.ok) {
-            console.error(`Failed to download PDF: ${response.statusText}`)
-            return { text: '', type: 'error' }
-        }
-        const arrayBuffer = await response.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
-        // @ts-ignore
-        const parseFunc = pdfParser.default || pdfParser
-        const data = await parseFunc(buffer)
-        const text = data.text || ''
-        if (text.trim().length < 200) {
-            return { text, type: 'scanned' }
-        }
-        return { text, type: 'text' }
-    } catch (error) {
-        console.error('Error parsing PDF:', error)
-        return { text: '', type: 'error' }
-    }
+// Models (override via env). Default to OpenRouter's free auto-router, which is vision-capable
+// and works with any OpenRouter key (no credits required). For higher accuracy on legal text /
+// scanned règlements, set OPENROUTER_PLU_MODEL (and optionally OPENROUTER_VISION_MODEL) to a
+// stronger model your key can access, e.g. 'google/gemini-3.5-flash'.
+const PLU_MODEL = process.env.OPENROUTER_PLU_MODEL || 'openrouter/free'
+const PLU_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || PLU_MODEL
+
+// In-memory extraction cache keyed by document URL + zone (règlements change rarely → big
+// reliability/latency/cost win for repeat addresses in the same zone).
+type CachedExtraction = { report: string; extractedRules: any; pdfType: string; at: number }
+const extractionCache = new Map<string, CachedExtraction>()
+const CACHE_TTL_MS = 24 * 3600 * 1000
+
+async function callOpenRouter(apiKey: string, model: string, content: any, maxTokens = 2400): Promise<string> {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
+            'X-Title': 'DP Travaux PLU Scanner',
+        },
+        body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content }],
+            temperature: 0.15,
+            max_tokens: maxTokens,
+            response_format: { type: 'json_object' },
+        }),
+    })
+    if (!res.ok) throw new Error(`OpenRouter Error: ${res.status} ${await res.text()}`)
+    const data = await res.json()
+    return data.choices?.[0]?.message?.content || ''
+}
+
+// Robust JSON extraction (handles ```json fences and surrounding prose).
+function parseRulesJson(raw: string): { report?: string; rules?: any } | null {
+    let clean = (raw || '').trim()
+    if (clean.startsWith('```')) clean = clean.replace(/^```(json)?/i, '').replace(/```$/, '').trim()
+    const first = clean.indexOf('{'), last = clean.lastIndexOf('}')
+    if (first !== -1 && last !== -1 && last > first) clean = clean.slice(first, last + 1)
+    try { return JSON.parse(clean) } catch { return null }
+}
+
+const RNU_RULES = {
+    zone_code: 'RNU',
+    facade: { allowed: true, allowed_materials: ['bois', 'aluminium', 'pvc', 'pierre'], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], color_restrictions: 'Harmonie paysagère locale requise.', excerpts: ["Article R. 111-27 du Code de l'Urbanisme"] },
+    extension: { max_area_m2: 20, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: ["Article L. 111-3 du Code de l'Urbanisme"] },
+    roof: { max_height_m: 9, allowed_materials: ['tuile', 'ardoise'], forbidden_materials: [], allowed_slopes: 'Respect des pentes locales', excerpts: ['Article R. 111-27'] },
+    window_openings: { allowed: true, conditions: "Respect de l'aspect général des baies existantes", excerpts: [] },
+    heritage_override: { ABF_review: false, excerpts: [] },
 }
 
 function evaluateProject(travaux: any, rules: any, overlays: any) {
@@ -167,15 +197,31 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'AI API key not configured' }, { status: 503 })
         }
 
+        const docUrl: string | undefined = plu?.zone?.url_doc
+        const zoneLibelle: string | undefined = plu?.zone?.libelle
+
+        // Fast path: serve a cached extraction (rules change rarely) WITHOUT re-downloading or
+        // re-OCR'ing the règlement. Only the deterministic evaluation re-runs (cheap).
+        const cacheKeyEarly = `${docUrl || 'rnu'}|${zoneLibelle || ''}`
+        const hit = !plu?.isRnu && extractionCache.get(cacheKeyEarly)
+        if (hit && (Date.now() - hit.at) < CACHE_TTL_MS) {
+            const evaluationResult = evaluateProject(travaux, hit.extractedRules, plu?.overlays)
+            return NextResponse.json({
+                report: (hit.report || '').trim(), extractedRules: hit.extractedRules, evaluationResult,
+                pdfType: hit.pdfType, verified: true, textLength: 0, extractedText: '', cached: true,
+            }, { status: 200 })
+        }
+
+        // Acquire the règlement content: clean text (text PDF) or page images (scanned PDF /
+        // image) for vision-OCR. Never invent rules if unreadable.
         let pdfType: 'text' | 'scanned' | 'missing' | 'error' = 'missing'
         let pdfText = ''
-        if (plu?.zone?.url_doc) {
-            const extractResult = await extractTextFromPdfUrl(plu.zone.url_doc)
-            pdfType = extractResult.type
-            pdfText = extractResult.text
-            if (pdfText.length > 150000) {
-                pdfText = pdfText.substring(0, 150000) + '\n[TEXT TRUNCATED DUE TO LENGTH]'
-            }
+        let pluImages: string[] = []
+        if (docUrl && !plu?.isRnu) {
+            const content = await acquirePluContent(docUrl, zoneLibelle)
+            if (content.kind === 'text') { pdfType = 'text'; pdfText = content.text }
+            else if (content.kind === 'images') { pdfType = 'scanned'; pluImages = content.images }
+            else { pdfType = 'error' }
         }
 
         // Format description
@@ -227,8 +273,7 @@ Tu dois te baser sur les règles nationales d'urbanisme (RNU), notamment l'artic
         } else if (pdfType === 'text') {
             pdfContextPrompt = `TEXTE DU RÈGLEMENT PLU DE LA ZONE EXTRAIT DU DOCUMENT PDF :\n${pdfText}\n`
         } else if (pdfType === 'scanned') {
-            pdfContextPrompt = `ATTENTION : Le document de règlement PDF de la zone est une image numérisée (scannée).
-Tu dois te baser sur le libellé de la zone (${plu?.zone?.libelle || 'inconnue'}), sur les prescriptions détectées, et sur tes connaissances expertes des règles d'urbanisme typiques en France pour ce type de zone pour formuler ton analyse.`
+            pdfContextPrompt = `IMPORTANT : Le règlement PLU est un document scanné — ses pages sont JOINTES EN IMAGES à ce message. Lis attentivement ces images (OCR), repère le chapitre de la zone ${plu?.zone?.libelle || ''}, et extrais-en les règles réelles (matériaux, couleurs, toiture, ouvertures). Ne te contente pas de généralités : cite les passages lus.`
         } else {
             pdfContextPrompt = `ATTENTION : Le document de règlement PDF n'est pas disponible.
 Tu dois te baser sur les informations du Géoportail (zonage, prescriptions) et sur tes connaissances d'expert des règlements d'urbanisme standards en France.`
@@ -302,106 +347,73 @@ Le JSON doit respecter exactement ce schéma :
   }
 }`
 
-        const openrouterUrl = 'https://openrouter.ai/api/v1/chat/completions'
-        const response = await fetch(openrouterUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
-                'X-Title': 'DP Travaux PLU Scanner'
-            },
-            body: JSON.stringify({
-                model: 'openrouter/free',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.2,
-                max_tokens: 2000
-            })
-        })
-
-        if (!response.ok) {
-            const errText = await response.text()
-            throw new Error(`OpenRouter Error: ${response.status} ${errText}`)
-        }
-
-        const data = await response.json()
-        const reportRaw = data.choices?.[0]?.message?.content || 'Erreur lors de la génération du rapport.'
-
-        let report = 'Erreur lors de la génération du rapport.'
+        // ── Run extraction (cached by document+zone), or use RNU template ───────
+        const cacheKey = `${docUrl || 'rnu'}|${zoneLibelle || ''}`
+        let report = ''
         let extractedRules: any = null
+        let verified = true
 
-        if (plu?.isRnu) {
-            extractedRules = {
-                zone_code: "RNU",
-                facade: {
-                    allowed: true,
-                    allowed_materials: ["bois", "aluminium", "pvc", "pierre"],
-                    forbidden_materials: [],
-                    allowed_colors: [],
-                    forbidden_colors: [],
-                    color_restrictions: "Harmonie paysagère locale requise.",
-                    excerpts: ["Article R. 111-21 du Code de l'Urbanisme"]
-                },
-                extension: {
-                    max_area_m2: 20,
-                    max_height_m: 9,
-                    allowed: true,
-                    permit_required_if_exceed: true,
-                    excerpts: ["Article L. 111-1-2 du Code de l'Urbanisme (Constructibilité limitée)"]
-                },
-                roof: {
-                    max_height_m: 9,
-                    allowed_materials: ["tuile", "ardoise"],
-                    forbidden_materials: [],
-                    allowed_slopes: "Respect des pentes locales",
-                    excerpts: ["Article R. 111-21"]
-                },
-                window_openings: {
-                    allowed: true,
-                    conditions: "Respect de l'aspect général des baies existantes",
-                    excerpts: []
-                },
-                heritage_override: {
-                    ABF_review: false,
-                    excerpts: []
-                }
-            }
-            report = reportRaw 
+        const cached = !plu?.isRnu && extractionCache.get(cacheKey)
+        if (cached && (Date.now() - cached.at) < CACHE_TTL_MS) {
+            report = cached.report
+            extractedRules = cached.extractedRules
+            pdfType = cached.pdfType as typeof pdfType
+        } else if (plu?.isRnu) {
+            extractedRules = RNU_RULES
+            try { report = parseRulesJson(await callOpenRouter(apiKey, PLU_MODEL, prompt))?.report || '' } catch (e) { console.error('RNU report failed:', e) }
+            if (!report) report = '### STATUT DE CONFORMITÉ\nCommune en RNU — analyse fondée sur le Règlement National d’Urbanisme (articles R.111-27 et L.111-3).'
         } else {
-            try {
-                let cleanText = reportRaw.trim()
-                if (cleanText.startsWith('```')) {
-                    cleanText = cleanText.replace(/^```(json)?/, '').replace(/```$/, '').trim()
-                }
-                const parsed = JSON.parse(cleanText)
-                report = parsed.report || reportRaw
-                extractedRules = parsed.rules || null
-            } catch (e) {
-                console.error('Failed to parse OpenRouter response as JSON, falling back:', e)
-                report = reportRaw
+            // Build the model content: prompt text, plus scanned pages as images when applicable.
+            const buildContent = (extra = '') => pluImages.length > 0
+                ? [{ type: 'text', text: prompt + extra }, ...pluImages.map(u => ({ type: 'image_url', image_url: { url: u } }))]
+                : prompt + extra
+            const model = pluImages.length > 0 ? PLU_VISION_MODEL : PLU_MODEL
+
+            let parsed: { report?: string; rules?: any } | null = null
+            try { parsed = parseRulesJson(await callOpenRouter(apiKey, model, buildContent())) }
+            catch (e) { console.error('PLU model call failed:', e) }
+            if (!parsed || !parsed.rules) {
+                // One retry with an explicit JSON-only nudge.
+                try { parsed = parseRulesJson(await callOpenRouter(apiKey, model, buildContent('\n\nRappel: réponds UNIQUEMENT avec l’objet JSON valide demandé, sans aucun texte autour.'))) }
+                catch (e) { console.error('PLU retry failed:', e) }
             }
+            if (parsed) {
+                report = parsed.report || ''
+                extractedRules = parsed.rules || null
+            }
+            if (extractedRules) extractionCache.set(cacheKey, { report, extractedRules, pdfType, at: Date.now() })
         }
 
+        // If extraction failed → DO NOT bless the project with permissive defaults; flag it.
         if (!extractedRules) {
+            verified = false
             extractedRules = {
-                zone_code: plu?.zone?.libelle || 'Inconnue',
-                facade: { allowed: true, allowed_materials: ["bois", "aluminium", "pvc"], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], color_restrictions: null, excerpts: [] },
+                zone_code: zoneLibelle || 'Inconnue', _unverified: true,
+                facade: { allowed: true, allowed_materials: [], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], color_restrictions: null, excerpts: [] },
                 extension: { max_area_m2: 20, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: [] },
-                roof: { max_height_m: 9, allowed_materials: ["tuile", "ardoise"], forbidden_materials: [], allowed_slopes: null, excerpts: [] },
+                roof: { max_height_m: 9, allowed_materials: [], forbidden_materials: [], allowed_slopes: null, excerpts: [] },
                 window_openings: { allowed: true, conditions: null, excerpts: [] },
-                heritage_override: { ABF_review: false, excerpts: [] }
+                heritage_override: { ABF_review: false, excerpts: [] },
             }
+            if (!report) report = '### STATUT DE CONFORMITÉ\nLe règlement PLU n’a pas pu être lu automatiquement (document indisponible ou illisible). Une vérification manuelle du règlement est requise avant dépôt.'
         }
 
         const evaluationResult = evaluateProject(travaux, extractedRules, plu?.overlays)
+        if (!verified) {
+            if (typeof evaluationResult.status === 'string' && !evaluationResult.status.toUpperCase().includes('NON-CONFORME')) {
+                evaluationResult.status = 'CONFORMITÉ INCERTAINE'
+            }
+            evaluationResult.warnings.push('Le règlement PLU n’a pas pu être analysé automatiquement : confirmez la conformité manuellement à partir du document officiel.')
+        }
 
         return NextResponse.json({
             report: report.trim(),
             extractedRules,
             evaluationResult,
             pdfType,
+            verified,
             textLength: pdfText.length,
-            extractedText: pdfText
+            extractedText: pdfText,
         }, { status: 200 })
 
     } catch (err: any) {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
+import { validateDPForm, piecesChecklist, fatalIssues, warnIssues, ValidationIssue } from '@/lib/validation'
 
 function RecapSection({ title, icon, items }: {
     title: string; icon: string;
@@ -28,7 +29,7 @@ function RecapSection({ title, icon, items }: {
 
 export default function Etape7() {
     const router = useRouter()
-    const { formData, resetForm, updateField } = useDPContext()
+    const { formData, resetForm, updateField, isTestMode } = useDPContext()
     const { demandeur, terrain, travaux, photos } = formData
 
     const [generatingCerfa, setGeneratingCerfa] = useState(false)
@@ -37,9 +38,28 @@ export default function Etape7() {
     const [dpDone, setDpDone] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const photosUploaded = Object.values(photos).filter(Boolean).length
+    // ── Completeness & validation gate ────────────────────────────────────
+    const issues = validateDPForm(formData)
+    const fatals = fatalIssues(issues)
+    const warns = warnIssues(issues)
+    const pieces = piecesChecklist(formData)
+    const missingFatalPieces = pieces.filter(p => !p.present && p.severity === 'fatal')
+    const blocked = isTestMode || fatals.length > 0 || missingFatalPieces.length > 0
+
+    // Surface server-side validation failures (safety-net bypass) cleanly.
+    const handleServerIssues = async (res: Response): Promise<boolean> => {
+        if (res.status === 422) {
+            const body = await res.json().catch(() => ({})) as { issues?: ValidationIssue[] }
+            const list = (body.issues || []).map(i => `• ${i.message}`).join('\n')
+            setError(`Dossier incomplet — corrigez les points suivants :\n${list}`)
+            return true
+        }
+        return false
+    }
 
     const downloadCerfa = async () => {
+        if (blocked) return
+        if (warns.length > 0 && !confirm(`${warns.length} avertissement(s) non bloquant(s) subsistent. Générer quand même le CERFA ?`)) return
         setGeneratingCerfa(true)
         setError(null)
         try {
@@ -48,6 +68,7 @@ export default function Etape7() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             })
+            if (await handleServerIssues(res)) return
             if (!res.ok) throw new Error('Erreur lors de la génération')
             const blob = await res.blob()
             const url = URL.createObjectURL(blob)
@@ -66,6 +87,8 @@ export default function Etape7() {
     }
 
     const downloadDP = async () => {
+        if (blocked) return
+        if (warns.length > 0 && !confirm(`${warns.length} avertissement(s) non bloquant(s) subsistent. Générer quand même le dossier DP ?`)) return
         setGeneratingDP(true)
         setError(null)
         try {
@@ -74,6 +97,7 @@ export default function Etape7() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             })
+            if (await handleServerIssues(res)) return
             if (!res.ok) throw new Error('Erreur lors de la génération')
             const blob = await res.blob()
             const url = URL.createObjectURL(blob)
@@ -144,6 +168,80 @@ export default function Etape7() {
                 </div>
 
                 <div className="space-y-6">
+                    {/* Completeness & conformity gate */}
+                    <div className="dp-card" style={{
+                        borderColor: blocked ? 'rgba(239,68,68,0.4)' : warns.length ? 'rgba(245,158,11,0.4)' : 'rgba(34,197,94,0.4)',
+                        background: blocked ? 'rgba(239,68,68,0.06)' : warns.length ? 'rgba(245,158,11,0.05)' : 'rgba(34,197,94,0.05)',
+                    }}>
+                        <h3 className="dp-section-title flex items-center gap-2">
+                            <span>{blocked ? '⛔' : warns.length ? '⚠️' : '✅'}</span>
+                            Contrôle de complétude du dossier
+                        </h3>
+
+                        {isTestMode && (
+                            <div className="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm font-semibold">
+                                Mode Test actif : la génération est désactivée tant que des données fictives sont chargées.
+                            </div>
+                        )}
+
+                        {/* Required fields */}
+                        {fatals.length > 0 ? (
+                            <div className="mb-4">
+                                <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-2">{fatals.length} information(s) obligatoire(s) manquante(s)</p>
+                                <ul className="space-y-1.5">
+                                    {fatals.map(i => (
+                                        <li key={i.id} className="flex items-start gap-2 text-sm text-red-300">
+                                            <span className="mt-0.5">✗</span>
+                                            <span><span className="text-slate-400 font-semibold">[{i.section}]</span> {i.message}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ) : (
+                            <p className="mb-4 text-sm text-green-300">✓ Toutes les informations obligatoires sont renseignées.</p>
+                        )}
+
+                        {/* Warnings */}
+                        {warns.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-xs font-bold text-amber-400 uppercase tracking-wide mb-2">{warns.length} recommandation(s) — à vérifier par l’expert</p>
+                                <ul className="space-y-1.5">
+                                    {warns.map(i => (
+                                        <li key={i.id} className="flex items-start gap-2 text-sm text-amber-200/90">
+                                            <span className="mt-0.5">⚠️</span>
+                                            <span><span className="text-slate-400 font-semibold">[{i.section}]</span> {i.message}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Pieces checklist */}
+                        <div className="pt-3 border-t border-white/5">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Pièces du dossier (DP1–DP8)</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {pieces.map(p => (
+                                    <div key={p.code} className="flex items-center gap-1.5 text-xs p-2 rounded-lg border"
+                                        style={p.present
+                                            ? { borderColor: 'rgba(34,197,94,0.25)', background: 'rgba(34,197,94,0.08)', color: '#86efac' }
+                                            : p.severity === 'fatal'
+                                                ? { borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#fca5a5' }
+                                                : { borderColor: 'rgba(148,163,184,0.2)', color: '#94a3b8' }}
+                                        title={p.note || ''}>
+                                        <span>{p.present ? '✅' : p.severity === 'fatal' ? '✗' : '⬜'}</span>
+                                        <span className="font-semibold">{p.code}</span>
+                                        <span className="truncate">{p.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            {missingFatalPieces.length > 0 && (
+                                <p className="mt-2 text-xs text-red-300">
+                                    Pièce(s) obligatoire(s) manquante(s) : {missingFatalPieces.map(p => p.code).join(', ')} — générez-les aux étapes Photos / Plans.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Résumé info */}
                     <RecapSection
                         title="Demandeur"
@@ -211,13 +309,13 @@ export default function Etape7() {
 
                     {/* Error */}
                     {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-300 whitespace-pre-line">
                             ⚠️ {error}
                         </div>
                     )}
 
                     {/* Engagement / Signature */}
-                    <div className="dp-card relative overflow-hidden" style={{ borderColor: 'rgba(236,72,153,0.3)', background: 'linear-gradient(180deg, rgba(236,72,153,0.05) 0%, transparent 100%)' }}>
+                    <div className="dp-card relative overflow-hidden" style={{ borderColor: 'rgba(45,90,76,0.3)', background: 'linear-gradient(180deg, rgba(45,90,76,0.05) 0%, transparent 100%)' }}>
                         <div className="absolute top-0 left-0 w-1 h-full bg-pink-500"></div>
                         <h3 className="font-bold text-white mb-5 text-lg">Engagement du Déclarant</h3>
                         <p className="text-sm text-slate-400 mb-5">J'atteste avoir pris connaissance des règles générales de construction et que les informations fournies sont exactes.</p>
@@ -245,7 +343,7 @@ export default function Etape7() {
 
                         <label className="flex items-start gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer"
                             style={formData.engagement?.signature
-                                ? { borderColor: '#ec4899', background: 'rgba(236,72,153,0.1)' }
+                                ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.1)' }
                                 : { borderColor: 'rgba(148,163,184,0.2)' }}>
                             <div className="pt-1">
                                 <input
@@ -271,9 +369,9 @@ export default function Etape7() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* CERFA */}
-                            <div className="rounded-2xl border p-5" style={{ background: 'rgba(59,130,246,0.08)', borderColor: 'rgba(59,130,246,0.2)' }}>
+                            <div className="rounded-2xl border p-5" style={{ background: 'rgba(45,90,76,0.08)', borderColor: 'rgba(45,90,76,0.2)' }}>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'rgba(59,130,246,0.15)' }}>📋</div>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'rgba(45,90,76,0.15)' }}>📋</div>
                                     <div>
                                         <div className="font-bold text-white">CERFA n°13703*</div>
                                         <div className="text-xs text-slate-400">Formulaire officiel rempli</div>
@@ -285,8 +383,8 @@ export default function Etape7() {
                                 </p>
                                 <button
                                     onClick={downloadCerfa}
-                                    disabled={generatingCerfa}
-                                    className="dp-btn-primary w-full justify-center"
+                                    disabled={generatingCerfa || blocked}
+                                    className="dp-btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {generatingCerfa ? (
                                         <>
@@ -298,9 +396,9 @@ export default function Etape7() {
                             </div>
 
                             {/* Dossier DP */}
-                            <div className="rounded-2xl border p-5" style={{ background: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.2)' }}>
+                            <div className="rounded-2xl border p-5" style={{ background: 'rgba(45,90,76,0.08)', borderColor: 'rgba(45,90,76,0.2)' }}>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'rgba(139,92,246,0.15)' }}>📁</div>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'rgba(45,90,76,0.15)' }}>📁</div>
                                     <div>
                                         <div className="font-bold text-white">Dossier DP Complet</div>
                                         <div className="text-xs text-slate-400">DP1 à DP8 – Document technique</div>
@@ -312,8 +410,8 @@ export default function Etape7() {
                                 </p>
                                 <button
                                     onClick={downloadDP}
-                                    disabled={generatingDP}
-                                    className="w-full justify-center inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm disabled:opacity-50"
+                                    disabled={generatingDP || blocked}
+                                    className="w-full justify-center inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {generatingDP ? (
                                         <>

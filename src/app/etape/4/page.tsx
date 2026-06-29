@@ -14,6 +14,7 @@ export default function Etape4() {
     const [analyzing, setAnalyzing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [showExtractedText, setShowExtractedText] = useState(false)
+    const [ack, setAck] = useState(false)
 
     const plu = terrain.plu
     const hasReport = !!plu?.analysisReport
@@ -46,6 +47,7 @@ export default function Etape4() {
                     extractedRules: data.extractedRules,
                     evaluationResult: data.evaluationResult,
                     pdfType: data.pdfType,
+                    verified: data.verified,
                     textLength: data.textLength,
                     extractedText: data.extractedText
                 }
@@ -205,7 +207,7 @@ export default function Etape4() {
                 ) : analyzing ? (
                     <div className="dp-card py-16 flex flex-col items-center justify-center text-center">
                         <div className="relative mb-6">
-                            <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin shadow-[0_0_20px_rgba(168,85,247,0.2)]" />
+                            <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin shadow-[0_0_20px_rgba(45,90,76,0.2)]" />
                             <div className="absolute inset-0 flex items-center justify-center font-bold text-purple-400">PLU</div>
                         </div>
                         <h3 className="font-bold text-white text-lg animate-pulse">Extraction et analyse du règlement en cours...</h3>
@@ -234,8 +236,8 @@ export default function Etape4() {
                 ) : (
                     <div className="space-y-6">
                         {/* 1. PDF Extractor & Scanner Disclaimer Box */}
-                        <div className="dp-card relative overflow-hidden" style={{ borderColor: plu.isRnu ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.2)', background: plu.isRnu ? 'linear-gradient(180deg, rgba(16,185,129,0.03) 0%, transparent 100%)' : 'linear-gradient(180deg, rgba(59,130,246,0.03) 0%, transparent 100%)' }}>
-                            <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: plu.isRnu ? '#10b981' : '#3b82f6' }}></div>
+                        <div className="dp-card relative overflow-hidden" style={{ borderColor: plu.isRnu ? 'rgba(16,185,129,0.3)' : 'rgba(45,90,76,0.2)', background: plu.isRnu ? 'linear-gradient(180deg, rgba(16,185,129,0.03) 0%, transparent 100%)' : 'linear-gradient(180deg, rgba(45,90,76,0.03) 0%, transparent 100%)' }}>
+                            <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: plu.isRnu ? '#10b981' : '#2D5A4C' }}></div>
                             
                             <div className="flex items-start gap-4">
                                 <div className="text-3xl">
@@ -245,7 +247,7 @@ export default function Etape4() {
                                     <h3 className="font-bold text-white text-base">
                                         {plu.isRnu ? 'Commune régie par le Règlement National d\'Urbanisme (RNU)' :
                                          plu.pdfType === 'text' ? 'Règlement PDF converti en texte' : 
-                                         plu.pdfType === 'scanned' ? 'Avertissement : Document PDF numérisé (image)' : 
+                                         plu.pdfType === 'scanned' ? 'Règlement scanné — lecture par vision IA (OCR)' :
                                          'Avertissement : Règlement de zone indisponible'}
                                     </h3>
                                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -254,7 +256,7 @@ export default function Etape4() {
                                         ) : plu.pdfType === 'text' ? (
                                             `Le règlement de la zone d'urbanisme (${plu.zone?.libelle || 'inconnue'}) a été téléchargé avec succès. Notre système a extrait ${plu.textLength || 0} caractères de texte brut pour l'analyse IA.`
                                         ) : plu.pdfType === 'scanned' ? (
-                                            `Le document de règlement fourni par la commune est un scan composé uniquement d'images d'archives. Aucune extraction de texte brut direct n'est possible. L'assistant a formulé son rapport sur la base du code d'urbanisme national (RNU) et des données de zonage.`
+                                            `Le règlement fourni par la commune est un document scanné (images). Ses pages ont été rasterisées et lues par un modèle de vision (OCR) afin d'en extraire les règles réelles de la zone ${plu.zone?.libelle || ''}.`
                                         ) : (
                                             `Le fichier de règlement n'a pas pu être téléchargé depuis les serveurs du Géoportail de l'Urbanisme. L'analyse s'appuie sur les prescriptions cadastrales globales et les règles générales en vigueur en France.`
                                         )}
@@ -573,6 +575,26 @@ export default function Etape4() {
                             Les informations et avis de conformité fournis par cet assistant sont générés de manière automatisée à partir de données extraites du Géoportail de l'Urbanisme et de modèles linguistiques d'intelligence artificielle. Ces analyses sont fournies à titre indicatif pour vous guider dans la rédaction de votre déclaration préalable (DP) et ne remplacent en aucun cas l'avis officiel du service urbanisme de votre mairie ou d'un architecte conseil.
                         </div>
 
+                        {/* Conformity gate: require explicit acknowledgement before continuing
+                            when the project is flagged (permit required / non-conforme / non vérifié). */}
+                        {(() => {
+                            const ev = plu?.evaluationResult
+                            const needsAck = !!ev && (
+                                ev.decision === 'PERMIS_CONSTRUIRE' ||
+                                (typeof ev.status === 'string' && ev.status.toUpperCase().includes('NON-CONFORME')) ||
+                                plu?.verified === false
+                            )
+                            if (!needsAck) return null
+                            return (
+                                <label className="flex items-start gap-3 p-4 rounded-xl border-2 border-amber-500/40 bg-amber-500/10 cursor-pointer">
+                                    <input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} className="w-5 h-5 mt-0.5 accent-amber-500" />
+                                    <span className="text-sm text-amber-200">
+                                        Je comprends que l’analyse signale un risque (non-conformité, permis de construire requis, ou règlement non vérifié) et je choisis de continuer en connaissance de cause. Une vérification par un professionnel est recommandée avant dépôt.
+                                    </span>
+                                </label>
+                            )
+                        })()}
+
                         {/* Navigation Buttons */}
                         <div className="flex justify-between items-center pt-4">
                             <button onClick={() => router.push('/etape/3')} className="dp-btn-secondary">
@@ -585,12 +607,23 @@ export default function Etape4() {
                                 <button onClick={runAnalysis} className="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-lg transition-colors">
                                     🔄 Réanalyser
                                 </button>
-                                <button onClick={() => router.push('/etape/5')} className="dp-btn-primary text-base">
-                                    Étape suivante
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </button>
+                                {(() => {
+                                    const ev = plu?.evaluationResult
+                                    const needsAck = !!ev && (
+                                        ev.decision === 'PERMIS_CONSTRUIRE' ||
+                                        (typeof ev.status === 'string' && ev.status.toUpperCase().includes('NON-CONFORME')) ||
+                                        plu?.verified === false
+                                    )
+                                    return (
+                                        <button onClick={() => router.push('/etape/5')} disabled={needsAck && !ack}
+                                            className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed">
+                                            Étape suivante
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                    )
+                                })()}
                             </div>
                         </div>
                     </div>

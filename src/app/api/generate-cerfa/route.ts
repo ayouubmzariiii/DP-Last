@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateCerfaPdf } from '@/lib/pdfGenerator'
 import { DPFormData } from '@/lib/models'
+import { validateDPForm, fatalIssues } from '@/lib/validation'
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
     try {
         const data: DPFormData = await req.json()
+
+        // Safety net: never emit a legally-invalid CERFA, even if the UI is bypassed.
+        const fatals = fatalIssues(validateDPForm(data))
+        if (fatals.length > 0) {
+            return NextResponse.json(
+                { error: 'Dossier incomplet', issues: fatals },
+                { status: 422 },
+            )
+        }
+
         const pdfBytes = await generateCerfaPdf(data)
 
         return new NextResponse(Buffer.from(pdfBytes), {

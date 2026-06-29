@@ -37,46 +37,57 @@ DESCRIPTION DU PROJET
 INTEGRATION DANS L'ENVIRONNEMENT
 [Ton texte ici...]`
 
-        const validPhotos = photos ? photos.filter((p: string) => p.startsWith('data:image')) : []
-        const content = validPhotos.length > 0
-            ? [{ type: "text", text: systemPrompt }, ...validPhotos.map((p: string) => ({ type: "image_url", image_url: { url: p } }))]
-            : systemPrompt
-
         const apiKey = process.env.OPENROUTER_API_KEY
         if (!apiKey) {
             return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 503 })
         }
+        const model = process.env.OPENROUTER_DP4_MODEL || 'openrouter/free'
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: 'POST',
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "HTTP-Referer": "https://github.com/ayouubmzariiii/DP-Last",
-                "X-Title": "DP Travaux DP4 Notice"
-            },
-            body: JSON.stringify({
-                "model": "openrouter/free",
-                "messages": [{ "role": "user", "content": content }],
-                "max_tokens": 2048,
-                "temperature": 0.15,
-                "top_p": 1.00,
-                "frequency_penalty": 0.00,
-                "presence_penalty": 0.00,
-                "stream": false
+        const validPhotos = photos ? photos.filter((p: string) => typeof p === 'string' && p.startsWith('data:image')) : []
+        const withImages = validPhotos.length > 0
+            ? [{ type: "text", text: systemPrompt }, ...validPhotos.map((p: string) => ({ type: "image_url", image_url: { url: p } }))]
+            : systemPrompt
+
+        // Call OpenRouter and robustly extract the text. Returns '' on any failure so the
+        // caller can fall back (e.g. retry text-only) instead of crashing on a missing `choices`.
+        const callModel = async (content: any): Promise<string> => {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: 'POST',
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "HTTP-Referer": "https://github.com/ayouubmzariiii/DP-Last",
+                    "X-Title": "DP Travaux DP4 Notice"
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [{ role: "user", content }],
+                    max_tokens: 2048,
+                    temperature: 0.15,
+                    stream: false
+                })
             })
-        })
-
-        if (!response.ok) {
-            const errBody = await response.text()
-            throw new Error(`OpenRouter API Error: ${response.status} ${errBody}`)
+            if (!response.ok) {
+                console.error(`[DP4] OpenRouter ${response.status}: ${(await response.text()).slice(0, 300)}`)
+                return ''
+            }
+            const data = await response.json().catch(() => ({}))
+            return (data?.choices?.[0]?.message?.content || '').trim()
         }
 
-        const data = await response.json()
-        const generatedText = data.choices[0]?.message?.content || ''
+        // Try with the photos (vision) first; free vision routing can be flaky, so fall back to
+        // a text-only request — that still produces a valid notice without paid models.
+        let generatedText = await callModel(withImages)
+        if (!generatedText && validPhotos.length > 0) {
+            console.warn('[DP4] vision call returned nothing — retrying text-only')
+            generatedText = await callModel(systemPrompt)
+        }
+        if (!generatedText) {
+            return NextResponse.json({ error: 'Le modèle n’a pas renvoyé de notice. Réessayez.' }, { status: 502 })
+        }
 
-        return NextResponse.json({ dp4: generatedText.trim() }, { status: 200 })
+        return NextResponse.json({ dp4: generatedText }, { status: 200 })
 
     } catch (err: any) {
         console.error('Error generating DP4 Text/Vision:', err)

@@ -33,18 +33,21 @@ const TRAVAUX_TYPES = [
 ]
 
 const COLOR_MAP_ACTIVE: Record<string, React.CSSProperties> = {
-    blue: { borderColor: '#3b82f6', background: 'rgba(59,130,246,0.18)', color: '#93c5fd' },
+    blue: { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.18)', color: '#2D5A4C' },
     emerald: { borderColor: '#10b981', background: 'rgba(16,185,129,0.18)', color: '#6ee7b7' },
     amber: { borderColor: '#f59e0b', background: 'rgba(245,158,11,0.18)', color: '#fcd34d' },
 }
 
 import React from 'react'
+import { issuesForStep, fatalIssues } from '@/lib/validation'
 
 export default function Etape3() {
     const router = useRouter()
-    const { formData, updateTravaux, updateTerrain } = useDPContext()
+    const { formData, updateTravaux, updateTerrain, updateField } = useDPContext()
     const t = formData.travaux
     const terrain = formData.terrain
+
+    const stepFatals = fatalIssues(issuesForStep(formData, 3))
 
     const selectType = (type: TypeTravaux) => {
         updateTravaux({ type })
@@ -139,7 +142,7 @@ export default function Etape3() {
                                                 onClick={() => updateMen({ remplacement: v })}
                                                 className="px-4 py-2 rounded-lg border-2 text-sm font-semibold transition-all"
                                                 style={t.menuiseries?.remplacement === v
-                                                    ? { borderColor: '#2563eb', background: 'rgba(37,99,235,0.2)', color: '#93c5fd' }
+                                                    ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.2)', color: '#2D5A4C' }
                                                     : { borderColor: 'rgba(148,163,184,0.25)', color: '#94a3b8' }}>
                                                 {v ? 'Oui' : 'Non, création'}
                                             </button>
@@ -271,7 +274,7 @@ export default function Etape3() {
 
                     {/* Section Commune: Projet & Surfaces */}
                     {t.type && (
-                        <div className="dp-card animate-fadeIn mt-6" style={{ borderColor: 'rgba(168,85,247,0.3)', background: 'linear-gradient(180deg, rgba(168,85,247,0.05) 0%, transparent 100%)' }}>
+                        <div className="dp-card animate-fadeIn mt-6" style={{ borderColor: 'rgba(45,90,76,0.3)', background: 'linear-gradient(180deg, rgba(45,90,76,0.05) 0%, transparent 100%)' }}>
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-purple-500/20 text-purple-400">📝</div>
                                 <div>
@@ -300,6 +303,25 @@ export default function Etape3() {
                                             'Décrivez succinctement les travaux envisagés...'
                                         }
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="dp-label mb-2 block">Destination du logement</label>
+                                    <div className="flex gap-3 mb-5">
+                                        {[
+                                            { val: 'principale', label: '🏡 Résidence principale' },
+                                            { val: 'secondaire', label: '🌅 Résidence secondaire' },
+                                        ].map(opt => (
+                                            <button key={opt.val} type="button"
+                                                onClick={() => updateField('projet_concerne', opt.val)}
+                                                className="flex-1 py-2.5 px-4 rounded-xl border-2 text-sm font-semibold transition-all"
+                                                style={formData.projet_concerne === opt.val
+                                                    ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.18)', color: '#2D5A4C' }
+                                                    : { borderColor: 'rgba(148,163,184,0.25)', color: '#94a3b8' }}>
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div>
@@ -338,6 +360,18 @@ export default function Etape3() {
                         </div>
                     )}
 
+                    {/* Validation summary */}
+                    {stepFatals.length > 0 && (
+                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                            <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-1.5">Informations requises avant de continuer</p>
+                            <ul className="space-y-1">
+                                {stepFatals.map(i => (
+                                    <li key={i.id} className="text-sm text-red-300 flex items-start gap-2"><span>✗</span>{i.message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
                         <button onClick={() => router.push('/etape/2')} className="dp-btn-secondary">
@@ -348,8 +382,8 @@ export default function Etape3() {
                         </button>
                         <button
                             onClick={() => router.push('/etape/4')}
-                            disabled={!t.type}
-                            className="dp-btn-primary text-base"
+                            disabled={!t.type || stepFatals.length > 0}
+                            className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Étape suivante
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,9 +1,6 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import { DPProvider } from '@/lib/context'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
     title: 'DP Travaux – Demande Préalable de Travaux',
@@ -17,7 +14,9 @@ export default function RootLayout({
 }) {
     return (
         <html lang="fr">
-            <body className={inter.className}>
+            {/* Fonts (Spectral / IBM Plex Sans / IBM Plex Mono) are loaded in globals.css.
+                Body font-family is set there so the warm-paper theme applies globally. */}
+            <body>
                 <DPProvider>
                     {children}
                 </DPProvider>

@@ -1,6 +1,8 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import Link from 'next/link'
+import { useDPContext } from '@/lib/context'
 
 const STEPS = [
     { num: 1, label: 'Demandeur', path: '/etape/1' },
@@ -11,8 +13,8 @@ const STEPS = [
     { num: 6, label: 'Plans', path: '/etape/6' },
     { num: 7, label: 'Génération', path: '/etape/7' },
 ]
-import { useDPContext } from '@/lib/context'
-import Link from 'next/link'
+
+const AC = '#2D5A4C'
 
 export default function StepLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
@@ -22,77 +24,74 @@ export default function StepLayout({ children }: { children: React.ReactNode }) 
     const progress = (currentStep / STEPS.length) * 100
 
     return (
-        <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #0f172a 60%, #1e1b4b 100%)' }}>
-            {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-white/10" style={{ background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(12px)' }}>
-                <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-3 group hover:opacity-80 transition-opacity">
-                        <div className="w-9 h-9 bg-blue-500 group-hover:bg-blue-400 rounded-xl flex items-center justify-center shadow-lg transition-colors">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+        <div className="min-h-screen" style={{ background: '#F1ECE3', color: '#25221E' }}>
+            <header style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(250,247,241,.82)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #E3DCCF' }}>
+                <div style={{ maxWidth: 1180, margin: '0 auto', padding: '14px 28px' }} className="flex items-center justify-between gap-5">
+                    {/* Logo */}
+                    <Link href="/" className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center justify-center text-white" style={{ width: 34, height: 34, borderRadius: 9, background: AC }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></svg>
                         </div>
-                        <div className="hidden sm:block">
-                            <h1 className="text-sm font-bold text-white leading-tight tracking-wide">DP Travaux</h1>
-                            <p className="text-xs text-blue-300 font-medium">Cerfa 13703*</p>
+                        <div>
+                            <div style={{ fontFamily: 'var(--hf)', fontSize: 15, fontWeight: 600, lineHeight: 1.1 }}>DP Travaux</div>
+                            <div style={{ fontFamily: 'var(--mf)', fontSize: 10, letterSpacing: '.05em', color: '#9A9286', textTransform: 'uppercase' }}>Cerfa 13703*</div>
                         </div>
                     </Link>
 
-                    {/* Desktop steps */}
-                    <div className="hidden md:flex items-center gap-1">
-                        {STEPS.map((step) => {
+                    {/* Steps */}
+                    <div className="hidden lg:flex items-center justify-center flex-1">
+                        {STEPS.map((step, i) => {
                             const isDone = step.num < currentStep
                             const isCurrent = step.num === currentStep
                             return (
                                 <div key={step.num} className="flex items-center">
-                                    <div className={`
-                    flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
-                    ${isCurrent ? 'bg-blue-600 text-white' : ''}
-                    ${isDone ? 'text-green-400' : ''}
-                    ${!isCurrent && !isDone ? 'text-slate-500' : ''}
-                  `} style={isDone ? { background: 'rgba(34,197,94,0.15)' } : {}}>
-                                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold`}>
-                                            {isDone ? '✓' : step.num}
-                                        </span>
-                                        <span className="hidden lg:inline">{step.label}</span>
+                                    {i > 0 && <div style={{ width: 18, height: 1, background: '#DAD2C4', margin: '0 4px' }} />}
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="flex items-center justify-center shrink-0" style={{
+                                            width: 24, height: 24, borderRadius: '50%', fontFamily: 'var(--mf)', fontSize: 11, fontWeight: 600,
+                                            ...(isDone || isCurrent
+                                                ? { background: AC, color: '#fff', ...(isCurrent ? { boxShadow: '0 0 0 4px rgba(45,90,76,.14)' } : {}) }
+                                                : { background: '#fff', border: '1px solid #D8D1C4', color: '#B5AEA2' }),
+                                        }}>
+                                            {isDone
+                                                ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                                                : step.num}
+                                        </div>
+                                        <span className="hidden xl:inline" style={{ fontSize: 12.5, fontWeight: 500, color: '#6B655B', whiteSpace: 'nowrap' }}>{step.label}</span>
                                     </div>
-                                    {step.num < STEPS.length && (
-                                        <div className="w-4 h-px mx-1" style={{ background: isDone ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)' }} />
-                                    )}
                                 </div>
                             )
                         })}
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className="md:hidden text-sm font-semibold text-slate-300">
+                    <div className="flex items-center gap-4 shrink-0">
+                        <div className="lg:hidden" style={{ fontFamily: 'var(--mf)', fontSize: 12, color: '#6B655B' }}>
                             Étape {currentStep}/{STEPS.length}
                         </div>
-
-                        {/* Test Mode Toggle */}
-                        <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-full border border-white/5">
-                            <span className="text-xs font-semibold text-slate-400">Test Mode</span>
-                            <button
-                                onClick={toggleTestMode}
-                                className={`w-9 h-5 rounded-full relative transition-colors ${isTestMode ? 'bg-amber-500' : 'bg-slate-600'}`}
-                            >
-                                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isTestMode ? 'translate-x-4' : ''}`} />
+                        {/* Test toggle */}
+                        <div className="flex items-center gap-2.5" style={{ background: '#F1ECE3', border: '1px solid #E3DCCF', padding: '6px 12px', borderRadius: 100 }}>
+                            <span style={{ fontFamily: 'var(--mf)', fontSize: 10.5, letterSpacing: '.05em', color: '#8A8378', textTransform: 'uppercase' }}>Test</span>
+                            <button onClick={toggleTestMode} aria-label="Mode test"
+                                style={{ width: 36, height: 20, borderRadius: 100, position: 'relative', border: 'none', cursor: 'pointer', transition: 'background .2s', background: isTestMode ? AC : '#CFC7B8' }}>
+                                <span style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'transform .2s', transform: isTestMode ? 'translateX(16px)' : 'translateX(0)' }} />
                             </button>
                         </div>
                     </div>
                 </div>
-
-                {/* Progress bar */}
-                <div className="h-0.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                    <div
-                        className="h-full progress-fill"
-                        style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }}
-                    />
+                {/* Progress */}
+                <div style={{ height: 3, background: '#E6DFD3' }}>
+                    <div className="progress-fill" style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${AC}, #244A3E)` }} />
                 </div>
             </header>
 
-            {/* Content */}
-            <main className="max-w-4xl mx-auto px-4 py-8">
+            {/* Test-mode banner */}
+            {isTestMode && (
+                <div style={{ position: 'sticky', top: 57, zIndex: 39, background: '#8A6D1F', color: '#FBF1DC', textAlign: 'center', fontSize: 12, fontWeight: 600, padding: '6px 16px' }}>
+                    Mode test — données fictives. La génération du dossier est désactivée. Désactivez le mode test pour un dossier réel.
+                </div>
+            )}
+
+            <main style={{ maxWidth: 880, margin: '0 auto', padding: '44px 32px 80px' }}>
                 {children}
             </main>
         </div>
