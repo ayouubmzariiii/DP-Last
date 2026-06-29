@@ -858,11 +858,13 @@ export default function Etape6() {
         }
     }
 
-    const handleGenerateAIFirst = async (facadeId?: string, customInstruction?: string) => {
-        const facadesToProcess = facadeId 
+    const handleGenerateAIFirst = async (facadeId?: string, customInstruction?: string, force = false) => {
+        // Cache by default: skip façades that already have a simulation. A per-façade regenerate
+        // (facadeId) or an explicit "Tout régénérer" (force) re-runs the generation.
+        const facadesToProcess = facadeId
             ? formData.photos.facades.filter(f => f.id === facadeId && f.before)
-            : formData.photos.facades.filter(f => selectedFacades.includes(f.id) && f.before && (!f.after || aiGenerated))
-            
+            : formData.photos.facades.filter(f => selectedFacades.includes(f.id) && f.before && (force || !f.after))
+
         if (facadesToProcess.length === 0) return
 
         setIsGeneratingAI(true)
@@ -1251,6 +1253,18 @@ export default function Etape6() {
                                             ) : <span className="text-xl">✨</span>}
                                             {isGeneratingAI ? 'Génération...' : `Lancer la simulation`}
                                         </button>
+                                        {formData.photos.facades.some(f => selectedFacades.includes(f.id) && f.after) && (
+                                            <button
+                                                onClick={() => handleGenerateAIFirst(undefined, undefined, true)}
+                                                disabled={isGeneratingAI}
+                                                className="w-full text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40"
+                                                title="Régénérer toutes les simulations (sinon les images déjà générées sont conservées)"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                Tout régénérer
+                                            </button>
+                                        )}
+                                        <p className="text-[10px] text-slate-600 text-center leading-snug">Les images générées sont conservées ; relancez seulement pour les façades sans simulation.</p>
                                     </div>
                                 </div>
                             </div>

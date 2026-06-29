@@ -47,6 +47,7 @@ export default function Etape4() {
                     evaluationResult: data.evaluationResult,
                     pdfType: data.pdfType,
                     verified: data.verified,
+                    source: data.source,
                     textLength: data.textLength,
                     extractedText: data.extractedText
                 }
@@ -243,11 +244,14 @@ export default function Etape4() {
                                     {plu.isRnu ? '🏛️' : plu.pdfType === 'text' ? '📄' : '⚠️'}
                                 </div>
                                 <div className="flex-1">
-                                    <h3 className="font-bold text-white text-base">
+                                    <h3 className="font-bold text-white text-base flex items-center gap-2">
                                         {plu.isRnu ? 'Commune régie par le Règlement National d\'Urbanisme (RNU)' :
-                                         plu.pdfType === 'text' ? 'Règlement PDF converti en texte' : 
+                                         plu.pdfType === 'text' ? 'Règlement PDF converti en texte' :
                                          plu.pdfType === 'scanned' ? 'Règlement scanné — lecture par vision IA (OCR)' :
-                                         'Avertissement : Règlement de zone indisponible'}
+                                         'Analyse estimative (règlement communal non récupéré)'}
+                                        {plu.source === 'estimation' && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FBF1DC', color: '#8A6D1F', border: '1px solid #EBD9A8' }}>ESTIMATION</span>
+                                        )}
                                     </h3>
                                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                                         {plu.isRnu ? (
@@ -257,7 +261,7 @@ export default function Etape4() {
                                         ) : plu.pdfType === 'scanned' ? (
                                             `Le règlement fourni par la commune est un document scanné (images). Ses pages ont été rasterisées et lues par un modèle de vision (OCR) afin d'en extraire les règles réelles de la zone ${plu.zone?.libelle || ''}.`
                                         ) : (
-                                            `Le fichier de règlement n'a pas pu être téléchargé depuis les serveurs du Géoportail de l'Urbanisme. L'analyse s'appuie sur les prescriptions cadastrales globales et les règles générales en vigueur en France.`
+                                            `Le règlement écrit de la commune n'a pas pu être récupéré. Cette analyse est une estimation fondée sur le type de zone détecté (${plu.zone?.libelle || 'zone urbaine'}), les règles nationales d'urbanisme (art. R.111-27) et les contraintes réellement détectées ci-dessous (sismicité, inondation, SPR, Monuments Historiques — fiables). À confirmer avec le règlement officiel de la commune.`
                                         )}
                                     </p>
 

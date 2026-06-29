@@ -76,10 +76,28 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json() as { prompt: string; imageBase64?: string }
-        const { prompt, imageBase64 } = body
+        const { prompt } = body
+        let { imageBase64 } = body
 
         if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
         if (prompt.length > 4000) return NextResponse.json({ error: 'Prompt too long' }, { status: 400 })
+
+        // Resolve a relative public asset (e.g. test photos at /test/...) to a data URL so it can
+        // be sent to the model and processed like an uploaded photo.
+        if (imageBase64 && imageBase64.startsWith('/')) {
+            try {
+                const fs = await import('node:fs/promises')
+                const path = await import('node:path')
+                const file = path.join(process.cwd(), 'public', imageBase64)
+                const buf = await fs.readFile(file)
+                const ext = (imageBase64.split('.').pop() || 'jpg').toLowerCase()
+                const mime = ext === 'png' ? 'image/png' : 'image/jpeg'
+                imageBase64 = `data:${mime};base64,${buf.toString('base64')}`
+            } catch (e) {
+                console.warn('[facade] could not resolve public image, generating without it:', imageBase64)
+                imageBase64 = undefined
+            }
+        }
 
         // ── OpenRouter Path ───────────────────────────────────────────────
         if (openRouterKey) {
