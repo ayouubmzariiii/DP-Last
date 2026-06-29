@@ -42,8 +42,9 @@ import React from 'react'
 
 export default function Etape3() {
     const router = useRouter()
-    const { formData, updateTravaux } = useDPContext()
+    const { formData, updateTravaux, updateTerrain } = useDPContext()
     const t = formData.travaux
+    const terrain = formData.terrain
 
     const selectType = (type: TypeTravaux) => {
         updateTravaux({ type })

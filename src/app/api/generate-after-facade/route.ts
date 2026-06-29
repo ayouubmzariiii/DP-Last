@@ -6,7 +6,7 @@ import { Readable } from 'stream'
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_build' })
 
 // ── Security: simple origin / referer guard ────────────────────────────────
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
@@ -67,7 +67,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Rate limit exceeded. Please wait a minute.' }, { status: 429 })
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    const openRouterKey = process.env.OPENROUTER_API_KEY
+    const openaiKey = process.env.OPENAI_API_KEY
+
+    if (!openRouterKey && !openaiKey) {
         return NextResponse.json({ error: 'Image generation not configured' }, { status: 503 })
     }
 
@@ -78,7 +81,55 @@ export async function POST(req: NextRequest) {
         if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
         if (prompt.length > 4000) return NextResponse.json({ error: 'Prompt too long' }, { status: 400 })
 
-        // ── With before image → images.edit() ─────────────────────────────
+        // ── OpenRouter Path ───────────────────────────────────────────────
+        if (openRouterKey) {
+            const contentArray: any[] = [{ type: 'text', text: prompt }]
+            
+            if (imageBase64) {
+                // For image editing/referencing, pass the image directly
+                contentArray.push({
+                    type: 'image_url',
+                    image_url: {
+                        url: imageBase64
+                    }
+                })
+            }
+
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${openRouterKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
+                    'X-Title': 'DP Travaux Facade Generator'
+                },
+                body: JSON.stringify({
+                    model: 'x-ai/grok-imagine-image-quality',
+                    messages: [{ role: 'user', content: contentArray }],
+                    modalities: ['image']
+                })
+            })
+
+            if (!response.ok) {
+                const errText = await response.text()
+                throw new Error(`OpenRouter Grok Imagine Error: ${response.status} ${errText}`)
+            }
+
+            const data = await response.json()
+            const msg = data.choices?.[0]?.message
+            const imageUrl = msg?.images?.[0]?.image_url?.url || msg?.content
+
+            if (imageUrl) {
+                if (imageUrl.startsWith('data:')) {
+                    return NextResponse.json({ imageBase64: imageUrl })
+                }
+                return NextResponse.json({ imageUrl })
+            }
+
+            throw new Error('No image returned from OpenRouter Grok Imagine')
+        }
+
+        // ── OpenAI Fallback Path ──────────────────────────────────────────
         if (imageBase64) {
             const pngBuffer = await base64ToPngBuffer(imageBase64)
             const nodeStream = Readable.from(pngBuffer)
@@ -103,7 +154,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'No image returned from edit' }, { status: 502 })
         }
 
-        // ── Without image → images.generate() ─────────────────────────────
         const response = await client.images.generate({
             model: 'gpt-image-1',
             prompt,

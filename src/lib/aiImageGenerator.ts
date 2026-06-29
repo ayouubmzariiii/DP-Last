@@ -145,64 +145,31 @@ export async function resizeImageForOpenAI(dataUrl: string): Promise<ResizedImag
     })
 }
 
-// ── Core API caller — runs entirely in the browser ────────────────────────────
+// ── Core API caller — redirects to server-side OpenRouter endpoint ────────────
 async function callOpenAIDirect(payload: {
     prompt: string
     imageBase64?: string   // data:image/... for edit, undefined for generate
 }): Promise<string> {
-    const apiKey = await fetchApiKey()
-
-    let responseData: { data?: Array<{ b64_json?: string; url?: string }> }
-
-    if (payload.imageBase64) {
-        // images.edit — multipart/form-data
-        const { base64, width, height } = await resizeImageForOpenAI(payload.imageBase64)
-        const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
-        const blob = new Blob([byteArray], { type: 'image/png' })
-
-        const form = new FormData()
-        form.append('model', 'gpt-image-1')
-        form.append('prompt', payload.prompt)
-        form.append('n', '1')
-        form.append('size', `${width}x${height}`)
-        form.append('image', blob, 'facade.png')
-
-        const res = await fetch('https://api.openai.com/v1/images/edits', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${apiKey}` },
-            body: form,
+    const res = await fetch('/api/generate-after-facade', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            prompt: payload.prompt,
+            imageBase64: payload.imageBase64
         })
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
-            throw new Error(err.error?.message || `OpenAI error ${res.status}`)
-        }
-        responseData = await res.json()
-    } else {
-        // images.generate — JSON
-        const res = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'gpt-image-1',
-                prompt: payload.prompt,
-                n: 1,
-                size: '1024x1024',
-            }),
-        })
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
-            throw new Error(err.error?.message || `OpenAI error ${res.status}`)
-        }
-        responseData = await res.json()
+    })
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(err.error || `Image generation failed (${res.status})`)
     }
 
-    const item = responseData.data?.[0]
-    if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`
-    if (item?.url) return item.url
-    throw new Error('No image returned from OpenAI')
+    const data = await res.json()
+    const imageUrl = data.imageBase64 || data.imageUrl
+    if (!imageUrl) throw new Error('No image returned from API')
+    return imageUrl
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

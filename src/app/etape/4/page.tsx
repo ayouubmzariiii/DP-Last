@@ -1,301 +1,600 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
-import { consoleLogAfterPrompt } from '@/lib/aiPromptBuilder'
-
-interface PhotoUploadProps {
-    label: string
-    sublabel: string
-    icon: string
-    value: string | null
-    onChange: (val: string | null) => void
-    required?: boolean
-    badge?: string
-}
-
-const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.6): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.readAsDataURL(file)
-        reader.onload = (event) => {
-            const img = new Image()
-            img.src = event.target?.result as string
-            img.onload = () => {
-                const canvas = document.createElement('canvas')
-                let width = img.width
-                let height = img.height
-
-                if (width > maxWidth) {
-                    height = (maxWidth / width) * height
-                    width = maxWidth
-                }
-
-                canvas.width = width
-                canvas.height = height
-                const ctx = canvas.getContext('2d')
-                if (!ctx) {
-                    resolve(event.target?.result as string)
-                    return
-                }
-                ctx.drawImage(img, 0, 0, width, height)
-                resolve(canvas.toDataURL('image/jpeg', quality))
-            }
-            img.onerror = () => resolve(event.target?.result as string)
-        }
-        reader.onerror = () => reject(new Error('Failed to read file'))
-    })
-}
-
-function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }: PhotoUploadProps) {
-    const inputRef = useRef<HTMLInputElement>(null)
-
-    const handleFile = async (file: File | null) => {
-        if (!file) return
-        try {
-            const compressed = await compressImage(file)
-            onChange(compressed)
-        } catch (err) {
-            console.error('Compression failed', err)
-            const reader = new FileReader()
-            reader.onload = e => onChange(e.target?.result as string)
-            reader.readAsDataURL(file)
-        }
-    }
-
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault()
-        const file = e.dataTransfer.files[0]
-        if (file && file.type.startsWith('image/')) handleFile(file)
-    }
-
-    return (
-        <div>
-            <div className="flex items-center gap-2 mb-2">
-                <label className="dp-label mb-0">
-                    {label}{required && <span className="text-red-400 ml-1">*</span>}
-                </label>
-                {badge && (
-                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }}>
-                        {badge}
-                    </span>
-                )}
-            </div>
-            <p className="text-xs mb-2" style={{ color: '#64748b' }}>{sublabel}</p>
-
-            <div
-                className={`upload-zone ${value ? 'has-file' : ''}`}
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleDrop}
-                onClick={() => inputRef.current?.click()}
-            >
-                <input
-                    ref={inputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => handleFile(e.target.files?.[0] || null)}
-                />
-                {value ? (
-                    <div className="relative inline-block">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={value} alt={label} className="max-h-48 mx-auto rounded-lg object-cover" />
-                        <button
-                            type="button"
-                            onClick={e => { e.stopPropagation(); onChange(null) }}
-                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors text-xs font-bold"
-                        >×</button>
-                    </div>
-                ) : (
-                    <div className="py-4">
-                        <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-3 border border-slate-700/50 group-hover:bg-slate-700/50 transition-colors">
-                            <span className="text-xl">{icon}</span>
-                        </div>
-                        <p className="text-[13px] font-medium text-slate-400 group-hover:text-slate-300 transition-colors">Glissez une photo ici</p>
-                        <p className="text-[11px] mt-1 text-slate-500">ou cliquez pour parcourir</p>
-                    </div>
-                )}
-            </div>
-        </div>
-    )
-}
 
 export default function Etape4() {
     const router = useRouter()
-    const { formData, updatePhotos } = useDPContext()
-    const p = formData.photos
+    const { formData, updateTerrain } = useDPContext()
+    const terrain = formData.terrain
+    const travaux = formData.travaux
 
-    const photosCount = Object.values(p).filter(Boolean).length
+    const [analyzing, setAnalyzing] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [showExtractedText, setShowExtractedText] = useState(false)
 
-    // 🤖 Log full AI prompt whenever we have enough info (at least one facade photo + work type)
+    const plu = terrain.plu
+    const hasReport = !!plu?.analysisReport
+
+    const runAnalysis = async () => {
+        if (!travaux.type) {
+            setError("Veuillez renseigner le type de travaux à l'étape précédente.")
+            return
+        }
+        setAnalyzing(true)
+        setError(null)
+        try {
+            const res = await fetch('/api/analyze-plu', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    plu: terrain.plu,
+                    travaux: travaux,
+                    description_projet: terrain.description_projet
+                })
+            })
+            if (!res.ok) throw new Error("Erreur lors de la communication avec l'assistant PLU.")
+            const data = await res.json()
+            if (data.error) throw new Error(data.error)
+
+            updateTerrain({
+                plu: {
+                    ...terrain.plu,
+                    analysisReport: data.report,
+                    extractedRules: data.extractedRules,
+                    evaluationResult: data.evaluationResult,
+                    pdfType: data.pdfType,
+                    textLength: data.textLength,
+                    extractedText: data.extractedText
+                }
+            })
+        } catch (err: any) {
+            console.error(err)
+            setError(err.message || "Une erreur est survenue lors de l'analyse PLU.")
+        } finally {
+            setAnalyzing(false)
+        }
+    }
+
+    // Auto-run analysis on mount if not already present
     useEffect(() => {
-        const hasAnyFacade = formData.photos.facades.some(f => f.before)
-        if (hasAnyFacade && formData.travaux.type) {
-            consoleLogAfterPrompt(formData, 'Etape 4 – Photos')
+        if (plu && !hasReport && !analyzing && !error) {
+            runAnalysis()
         }
-    }, [formData.photos.facades, formData.travaux.type, formData])
+    }, [plu, hasReport])
 
-    const addFacade = () => {
-        const newId = (formData.photos.facades.length + 1).toString()
-        const newFacades = [
-            ...formData.photos.facades,
-            { id: newId, label: `Façade ${newId}`, before: null, after: null, croquis: null, type: 'autre' as const }
-        ]
-        updatePhotos({ facades: newFacades })
+    const getParsedSections = () => {
+        if (!plu?.analysisReport) return {}
+        const sections = plu.analysisReport.split('### ').filter(Boolean)
+        const parsed: Record<string, string> = {}
+        sections.forEach(sec => {
+            const firstLineEnd = sec.indexOf('\n')
+            if (firstLineEnd === -1) return
+            const title = sec.substring(0, firstLineEnd).trim().toUpperCase()
+            const content = sec.substring(firstLineEnd).trim()
+            parsed[title] = content
+        })
+        return parsed
     }
 
-    const removeFacade = (id: string) => {
-        const newFacades = formData.photos.facades.filter(f => f.id !== id)
-        updatePhotos({ facades: newFacades })
-    }
+    const parsed = getParsedSections()
 
-    const updateFacadePhoto = (id: string, before: string | null) => {
-        const newFacades = formData.photos.facades.map(f =>
-            f.id === id ? { ...f, before } : f
-        )
-        // Also sync legacy fields for the first 4 if they match types
-        const update: Partial<typeof formData.photos> = { facades: newFacades }
-        const f = newFacades.find(fac => fac.id === id)
-        if (f) {
-            if (f.type === 'avant') update.facade_avant = before
-            else if (f.type === 'arriere') update.facade_arriere = before
-            else if (f.type === 'droite') update.facade_droite = before
-            else if (f.type === 'gauche') update.facade_gauche = before
+    const getVerdictDetails = () => {
+        const result = plu?.evaluationResult
+        if (!result) {
+            // Fallback to old parsing logic if evaluationResult doesn't exist
+            const txt = (parsed['STATUT DE CONFORMITÉ'] || '').toUpperCase()
+            if (txt.includes('NON-CONFORME')) {
+                return {
+                    bg: 'bg-red-500/10 border-red-500/30 text-red-400',
+                    badge: '❌ PROBABLEMENT NON-CONFORME',
+                    sub: 'Le projet semble en infraction avec certaines règles locales.',
+                    color: 'text-red-400',
+                    border: 'border-red-500/30',
+                    icon: '🔴'
+                }
+            }
+            if (txt.includes('INCERTAIN')) {
+                return {
+                    bg: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+                    badge: '⚠️ CONFORMITÉ INCERTAINE',
+                    sub: 'Des doutes subsistent quant à la conformité réglementaire.',
+                    color: 'text-amber-400',
+                    border: 'border-amber-500/30',
+                    icon: '🟡'
+                }
+            }
+            return {
+                bg: 'bg-green-500/10 border-green-500/30 text-green-400',
+                badge: '✅ PROBABLEMENT CONFORME',
+                sub: 'Le projet respecte les prescriptions générales identifiées.',
+                color: 'text-green-400',
+                border: 'border-green-500/30',
+                icon: '🟢'
+            }
         }
-        updatePhotos(update)
+
+        const { decision, status } = result
+
+        if (decision === 'PERMIS_CONSTRUIRE') {
+            return {
+                bg: 'bg-red-500/10 border-red-500/30 text-red-400',
+                badge: '❌ Permis de Construire Requis',
+                sub: 'Le projet dépasse les limites réglementaires de la Déclaration Préalable.',
+                color: 'text-red-400',
+                border: 'border-red-500/30',
+                icon: '🔴'
+            }
+        }
+        if (decision === 'DECLARATION_PREALABLE_ABF') {
+            return {
+                bg: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+                badge: '🏛️ Déclaration Préalable avec Avis ABF requis',
+                sub: 'Le terrain se situe en périmètre patrimonial (SPR ou abords MH). Instruction rallongée à 2 mois.',
+                color: 'text-amber-400',
+                border: 'border-amber-500/30',
+                icon: '🟡'
+            }
+        }
+        if (decision === 'DECLARATION_PREALABLE_RISQUES') {
+            return {
+                bg: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
+                badge: '⚠️ Déclaration Préalable (Zone Inondable)',
+                sub: 'Le projet est situé en zone de prévention des risques (PPRN). Respect des prescriptions requis.',
+                color: 'text-yellow-400',
+                border: 'border-yellow-500/30',
+                icon: '🟡'
+            }
+        }
+
+        if (status === 'PROBABLEMENT NON-CONFORME') {
+            return {
+                bg: 'bg-red-500/10 border-red-500/30 text-red-400',
+                badge: '❌ Probablement Non-Conforme',
+                sub: 'Le projet ne respecte pas certaines exigences réglementaires.',
+                color: 'text-red-400',
+                border: 'border-red-500/30',
+                icon: '🔴'
+            }
+        }
+
+        if (status === 'CONFORMITÉ INCERTAINE') {
+            return {
+                bg: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+                badge: '⚠️ Conformité Incertaine',
+                sub: 'Des pièces ou justifications supplémentaires peuvent être demandées.',
+                color: 'text-amber-400',
+                border: 'border-amber-500/30',
+                icon: '🟡'
+            }
+        }
+
+        return {
+            bg: 'bg-green-500/10 border-green-500/30 text-green-400',
+            badge: '✅ Probablement Conforme (DP Simple)',
+            sub: 'Le projet respecte les prescriptions d\'aspect et d\'implantation.',
+            color: 'text-green-400',
+            border: 'border-green-500/30',
+            icon: '🟢'
+        }
     }
+
+    const verdict = getVerdictDetails()
 
     return (
         <StepLayout>
             <div className="animate-fadeIn">
-                <div className="mb-8 flex items-start justify-between">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white">Photos de votre maison</h2>
-                        <p className="mt-1 text-sm" style={{ color: '#94a3b8' }}>
-                            Ces photos constituent les pièces DP5, DP7 et DP8 de votre dossier
-                        </p>
-                    </div>
-                    {photosCount > 0 && (
-                        <div className="text-sm font-semibold px-3 py-1.5 rounded-full"
-                            style={{ background: 'rgba(34,197,94,0.15)', color: '#86efac' }}>
-                            {photosCount} photo{photosCount > 1 ? 's' : ''} ajoutée{photosCount > 1 ? 's' : ''}
-                        </div>
-                    )}
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-white">Analyse PLU & Avertissements</h2>
+                    <p className="text-slate-500 mt-1">Analyse automatique du règlement d'urbanisme de votre zone</p>
                 </div>
 
-                <div className="space-y-6">
-                    {/* DP7 & DP8 */}
-                    <div className="dp-card">
-                        <h3 className="dp-section-title">Vues extérieures obligatoires</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <PhotoUpload
-                                label="Vue proche de la maison"
-                                sublabel="Photo prise depuis la voie publique, montrant clairement la façade concernée par les travaux"
-                                icon="📷"
-                                badge="DP7"
-                                value={p.dp7_vue_proche}
-                                onChange={v => updatePhotos({ dp7_vue_proche: v })}
-                                required
-                            />
-                            <PhotoUpload
-                                label="Vue lointaine / environnement"
-                                sublabel="Photo montrant la maison dans son environnement (depuis la rue, un peu plus loin)"
-                                icon="🌄"
-                                badge="DP8"
-                                value={p.dp8_vue_lointaine}
-                                onChange={v => updatePhotos({ dp8_vue_lointaine: v })}
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    {/* Façades */}
-                    <div className="dp-card">
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="dp-section-title mb-0 pb-0 border-0">Photos des façades (DP5 – Existant)</h3>
-                            <span className="ai-badge">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                                Vue Après générée par IA
-                            </span>
-                        </div>
-                        <p className="text-sm mb-5" style={{ color: '#94a3b8' }}>
-                            Uploadez les photos des façades existantes. La vue <strong className="text-white">après travaux</strong> sera générée automatiquement par IA
-                            en prenant en compte vos choix de matériaux et couleurs.
+                {!plu ? (
+                    <div className="dp-card text-center py-8">
+                        <span className="text-4xl">📍</span>
+                        <h3 className="font-bold text-white mt-4">Aucune coordonnée PLU</h3>
+                        <p className="text-xs text-slate-400 mt-2 max-w-sm mx-auto">
+                            Veuillez renseigner une adresse valide et récupérer les données cadastrales à l'étape 2 (Terrain).
                         </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {formData.photos.facades.map((f, idx) => (
-                                <div key={f.id} className="relative group">
-                                    <PhotoUpload
-                                        label={f.label}
-                                        sublabel={f.type === 'avant' ? "Photo de la façade principale visible depuis la rue" : `Photo de la façade ${f.label.toLowerCase()}`}
-                                        icon={f.type === 'avant' ? "🏠" : f.type === 'arriere' ? "🏡" : "📐"}
-                                        value={f.before}
-                                        onChange={v => updateFacadePhoto(f.id, v)}
-                                        required={f.type === 'avant'}
-                                    />
-                                    {idx > 0 && (
-                                        <button
-                                            onClick={() => removeFacade(f.id)}
-                                            className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 opacity-0 group-hover:opacity-100 transition-all z-10 shadow-lg"
-                                            title="Supprimer cette façade"
-                                        >
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-6 flex justify-center">
-                            <button
-                                onClick={addFacade}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all text-sm font-medium"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Ajouter une autre façade
-                            </button>
-                        </div>
+                        <button onClick={() => router.push('/etape/2')} className="dp-btn-primary mt-6 mx-auto">
+                            Retour à l'étape 2
+                        </button>
                     </div>
-
-                    {/* Info IA */}
-                    <div className="info-box info-box-violet rounded-2xl">
-                        <div className="flex items-start gap-3">
-                            <div className="text-2xl">🤖</div>
-                            <div>
-                                <h4 className="font-semibold mb-1" style={{ color: '#c4b5fd' }}>Génération IA de la vue après travaux</h4>
-                                <p className="text-sm" style={{ color: '#a78bfa' }}>
-                                    À l'étape suivante, notre IA (DALL-E 3) utilisera vos photos de façade et les détails de vos travaux
-                                    ({formData.travaux.type || 'travaux sélectionnés'}) pour générer une simulation réaliste de votre maison après rénovation.
-                                    Le prompt sera optimisé avec vos choix de matériaux et couleurs.
-                                </p>
+                ) : analyzing ? (
+                    <div className="dp-card py-16 flex flex-col items-center justify-center text-center">
+                        <div className="relative mb-6">
+                            <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin shadow-[0_0_20px_rgba(168,85,247,0.2)]" />
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-purple-400">PLU</div>
+                        </div>
+                        <h3 className="font-bold text-white text-lg animate-pulse">Extraction et analyse du règlement en cours...</h3>
+                        <p className="text-xs text-slate-400 mt-2 max-w-sm leading-relaxed">
+                            Nous téléchargeons le règlement PDF officiel du Géoportail, convertissons son contenu en texte et interrogeons l'intelligence artificielle pour identifier les contraintes réglementaires.
+                        </p>
+                    </div>
+                ) : error ? (
+                    <div className="dp-card border-red-500/20 bg-red-950/5 p-6">
+                        <div className="flex items-start gap-4">
+                            <span className="text-3xl">⚠️</span>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-white">Échec de l'analyse PLU</h3>
+                                <p className="text-sm text-red-400 mt-1">{error}</p>
+                                <div className="mt-4 flex gap-3">
+                                    <button onClick={runAnalysis} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-colors">
+                                        Réessayer l'analyse
+                                    </button>
+                                    <button onClick={() => router.push('/etape/3')} className="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-lg transition-colors">
+                                        Retour aux travaux
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* 1. PDF Extractor & Scanner Disclaimer Box */}
+                        <div className="dp-card relative overflow-hidden" style={{ borderColor: plu.isRnu ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.2)', background: plu.isRnu ? 'linear-gradient(180deg, rgba(16,185,129,0.03) 0%, transparent 100%)' : 'linear-gradient(180deg, rgba(59,130,246,0.03) 0%, transparent 100%)' }}>
+                            <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: plu.isRnu ? '#10b981' : '#3b82f6' }}></div>
+                            
+                            <div className="flex items-start gap-4">
+                                <div className="text-3xl">
+                                    {plu.isRnu ? '🏛️' : plu.pdfType === 'text' ? '📄' : '⚠️'}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-white text-base">
+                                        {plu.isRnu ? 'Commune régie par le Règlement National d\'Urbanisme (RNU)' :
+                                         plu.pdfType === 'text' ? 'Règlement PDF converti en texte' : 
+                                         plu.pdfType === 'scanned' ? 'Avertissement : Document PDF numérisé (image)' : 
+                                         'Avertissement : Règlement de zone indisponible'}
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                        {plu.isRnu ? (
+                                            `Le Géoportail de l'Urbanisme indique que cette commune n'a pas de document local d'urbanisme (PLU/POS/CC). Par conséquent, ce sont les règles nationales du Code de l'Urbanisme (RNU) qui s'appliquent directement à votre projet (constructibilité limitée, aspect extérieur, insertion paysagère).`
+                                        ) : plu.pdfType === 'text' ? (
+                                            `Le règlement de la zone d'urbanisme (${plu.zone?.libelle || 'inconnue'}) a été téléchargé avec succès. Notre système a extrait ${plu.textLength || 0} caractères de texte brut pour l'analyse IA.`
+                                        ) : plu.pdfType === 'scanned' ? (
+                                            `Le document de règlement fourni par la commune est un scan composé uniquement d'images d'archives. Aucune extraction de texte brut direct n'est possible. L'assistant a formulé son rapport sur la base du code d'urbanisme national (RNU) et des données de zonage.`
+                                        ) : (
+                                            `Le fichier de règlement n'a pas pu être téléchargé depuis les serveurs du Géoportail de l'Urbanisme. L'analyse s'appuie sur les prescriptions cadastrales globales et les règles générales en vigueur en France.`
+                                        )}
+                                    </p>
 
-                    {/* Navigation */}
-                    <div className="flex justify-between items-center pt-2">
-                        <button onClick={() => router.push('/etape/3')} className="dp-btn-secondary">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Retour
-                        </button>
-                        <button onClick={() => router.push('/etape/5')} className="dp-btn-primary text-base">
-                            Générer les plans
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
+                                    {plu.pdfType === 'text' && plu.extractedText && (
+                                        <div className="mt-3">
+                                            <button
+                                                onClick={() => setShowExtractedText(!showExtractedText)}
+                                                className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wider flex items-center gap-1.5"
+                                            >
+                                                {showExtractedText ? 'Masquer le texte extrait' : 'Voir un extrait du règlement d\'urbanisme'}
+                                                <svg className={`w-3 h-3 transition-transform ${showExtractedText ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            {showExtractedText && (
+                                                <div className="mt-2.5 p-3 bg-black/40 border border-slate-800 rounded-lg text-[11px] text-slate-400 font-mono max-h-40 overflow-y-auto whitespace-pre-wrap leading-normal scrollbar-thin">
+                                                    {plu.extractedText.slice(0, 8000)}
+                                                    {plu.extractedText.length > 8000 && '\n\n[... LE TEXTE DU DOCUMENT EST TRONQUÉ POUR LE PRÉVIEW ...]'}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. Verdict / Compliance Status Card */}
+                        <div className={`p-5 rounded-2xl border ${verdict.bg}`}>
+                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                                Verdict de conformité réglementaire (Moteur de Décision)
+                            </div>
+                            <div className="text-base font-bold flex items-center gap-2 mb-1">
+                                <span>{verdict.icon}</span>
+                                <span>{verdict.badge}</span>
+                            </div>
+                            <p className="text-xs opacity-90 leading-relaxed text-slate-300 mb-3">
+                                {verdict.sub}
+                            </p>
+
+                            {/* Violations List */}
+                            {plu?.evaluationResult?.violations && plu.evaluationResult.violations.length > 0 && (
+                                <div className="mt-3 p-3 bg-red-950/30 border border-red-500/20 rounded-xl space-y-2">
+                                    <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider flex items-center gap-1">
+                                        🛑 Non-conformités détectées
+                                    </div>
+                                    <ul className="list-disc list-inside text-xs text-red-300 space-y-1 pl-1">
+                                        {plu.evaluationResult.violations.map((violation: string, idx: number) => (
+                                            <li key={idx} className="leading-relaxed">{violation}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Warnings List */}
+                            {plu?.evaluationResult?.warnings && plu.evaluationResult.warnings.length > 0 && (
+                                <div className="mt-3 p-3 bg-amber-950/20 border border-amber-500/20 rounded-xl space-y-2">
+                                    <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                                        ⚠️ Points d'attention & Alertes
+                                    </div>
+                                    <ul className="list-disc list-inside text-xs text-amber-300 space-y-1 pl-1">
+                                        {plu.evaluationResult.warnings.map((warning: string, idx: number) => (
+                                            <li key={idx} className="leading-relaxed">{warning}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 2.5. Overlays (GeoRisques & Monuments Historiques) */}
+                        {plu?.overlays && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Natural Risks Card */}
+                                <div className="dp-card border-blue-500/10 bg-blue-950/5">
+                                    <h3 className="dp-section-title flex items-center gap-2 text-white">
+                                        <span>🌍</span> Surveillance des Risques
+                                    </h3>
+                                    <div className="space-y-3 text-xs">
+                                        <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                                            <span className="text-slate-400">Zone Sismique :</span>
+                                            <span className="font-bold text-slate-200">{plu.overlays.seismicClass || 'inconnue'}</span>
+                                        </div>
+                                        <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                                            <span className="text-slate-400">Zone Inondable :</span>
+                                            <span className={`font-bold ${plu.overlays.hasFloodRisk ? 'text-blue-400' : 'text-slate-300'}`}>
+                                                {plu.overlays.hasFloodRisk ? '⚠️ Oui' : 'Non détectée'}
+                                            </span>
+                                        </div>
+                                        
+                                        {plu.overlays.pprnList && plu.overlays.pprnList.length > 0 && (
+                                            <div className="mt-2">
+                                                <span className="text-slate-400 block mb-1">Plans de Prévention (PPRN) :</span>
+                                                <ul className="space-y-1 pl-2">
+                                                    {plu.overlays.pprnList.map((ppr: any, idx: number) => (
+                                                        <li key={idx} className="text-slate-300 text-[11px] font-mono leading-tight">
+                                                            • {ppr.libPpr} ({ppr.modeleProcedure})
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {plu.overlays.floodRisks && plu.overlays.floodRisks.length > 0 && (
+                                            <div className="mt-2">
+                                                <span className="text-slate-400 block mb-1">Historique des Inondations (CatNat) :</span>
+                                                <div className="max-h-24 overflow-y-auto space-y-1 pl-2 pr-1 scrollbar-thin">
+                                                    {plu.overlays.floodRisks.map((fn: any, idx: number) => (
+                                                        <div key={idx} className="text-slate-400 text-[10px] leading-tight flex justify-between">
+                                                            <span>• {fn.libelle}</span>
+                                                            <span className="text-[9px] text-slate-500">{fn.dateEvt}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Heritage & Monument Historique Card */}
+                                <div className="dp-card border-amber-500/10 bg-amber-950/5">
+                                    <h3 className="dp-section-title flex items-center gap-2 text-white">
+                                        <span>🏛️</span> Secteur Patrimoine & ABF
+                                    </h3>
+                                    <div className="space-y-3 text-xs">
+                                        <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+                                            <span className="text-slate-400">Site Patrimonial (SPR) :</span>
+                                            <span className={`font-bold ${plu.overlays.hasSPR ? 'text-amber-400' : 'text-slate-300'}`}>
+                                                {plu.overlays.hasSPR ? 'Oui' : 'Aucun'}
+                                            </span>
+                                        </div>
+                                        {plu.overlays.hasSPR && plu.overlays.sprName && (
+                                            <div className="text-[11px] text-amber-300/80 pl-2 leading-relaxed">
+                                                Nom : {plu.overlays.sprName}
+                                            </div>
+                                        )}
+                                        
+                                        <div>
+                                            <span className="text-slate-400 block mb-1">Monuments Historiques (rayon 500m) :</span>
+                                            {plu.overlays.monumentsWithin500m && plu.overlays.monumentsWithin500m.length > 0 ? (
+                                                <ul className="space-y-1.5 pl-2 max-h-28 overflow-y-auto scrollbar-thin">
+                                                    {plu.overlays.monumentsWithin500m.map((mh: any, idx: number) => (
+                                                        <li key={idx} className="text-slate-300 text-[11px] leading-snug">
+                                                            • <span className="font-bold">{mh.title}</span> <span className="text-slate-500">({mh.distance}m)</span> - <span className="text-amber-400/80 text-[10px]">{mh.protection}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <span className="text-slate-500 text-[11px] italic pl-2 block">Aucun monument répertorié à moins de 500m.</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 2.6. Technical Rules Checklist */}
+                        {plu?.extractedRules && (
+                            <div className="dp-card border-purple-500/10 bg-purple-950/5">
+                                <h3 className="dp-section-title flex items-center gap-2 text-white">
+                                    <span>📋</span> Comparatif des Règles PLU ({plu.extractedRules.zone_code || 'Zone U'})
+                                </h3>
+                                <div className="space-y-3 text-xs">
+                                    {/* Extension / Surfaces rule */}
+                                    {travaux.surfaces && parseFloat(travaux.surfaces.creee || '0') > 0 && (
+                                        <div className="flex flex-col gap-1 border-b border-slate-800/60 pb-2">
+                                            <div className="flex justify-between font-medium">
+                                                <span className="text-slate-400">Surface d'extension :</span>
+                                                <span className="text-slate-200">Max {plu.extractedRules.extension?.max_area_m2 ?? 20} m²</span>
+                                            </div>
+                                            <div className="flex justify-between text-[11px]">
+                                                <span className="text-slate-500">Votre projet :</span>
+                                                <span className={`font-bold ${parseFloat(travaux.surfaces.creee) > (plu.extractedRules.extension?.max_area_m2 ?? 20) ? 'text-red-400' : 'text-green-400'}`}>
+                                                    {travaux.surfaces.creee} m² ({parseFloat(travaux.surfaces.creee) > (plu.extractedRules.extension?.max_area_m2 ?? 20) ? 'Hors limites DP' : 'Conforme'})
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Menuiseries material rule */}
+                                    {travaux.type === 'menuiseries' && travaux.menuiseries && (
+                                        <div className="flex flex-col gap-1 border-b border-slate-800/60 pb-2">
+                                            <div className="flex justify-between font-medium">
+                                                <span className="text-slate-400">Matériaux Autorisés :</span>
+                                                <span className="text-slate-200">{plu.extractedRules.facade?.allowed_materials?.length > 0 ? plu.extractedRules.facade.allowed_materials.join(', ') : 'Non restreint'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[11px]">
+                                                <span className="text-slate-500">Proposé :</span>
+                                                <span className="font-bold text-purple-400">{travaux.menuiseries.materiau}</span>
+                                            </div>
+                                            {plu.extractedRules.facade?.forbidden_materials?.length > 0 && (
+                                                <div className="text-[10px] text-red-400/80">
+                                                    Interdits : {plu.extractedRules.facade.forbidden_materials.join(', ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Color / Aspects rule */}
+                                    {(travaux.menuiseries?.couleur || travaux.isolation?.couleur) && (
+                                        <div className="flex flex-col gap-1 border-b border-slate-800/60 pb-2">
+                                            <div className="flex justify-between font-medium">
+                                                <span className="text-slate-400">Teintes & Aspects :</span>
+                                                <span className="text-slate-200">
+                                                    {plu.extractedRules.facade?.color_restrictions || 
+                                                     (plu.extractedRules.facade?.allowed_colors?.length > 0 ? plu.extractedRules.facade.allowed_colors.join(', ') : 'Non restreint')}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-[11px]">
+                                                <span className="text-slate-500">Proposé :</span>
+                                                <span className="font-bold text-purple-400">
+                                                    {travaux.type === 'menuiseries' && travaux.menuiseries
+                                                        ? `${travaux.menuiseries.couleur} ${travaux.menuiseries.couleur_ral ? `(RAL ${travaux.menuiseries.couleur_ral})` : ''}`
+                                                        : travaux.isolation?.couleur}
+                                                </span>
+                                            </div>
+                                            {(plu.extractedRules.facade?.forbidden_colors?.length > 0) && (
+                                                <div className="text-[10px] text-red-400/80">
+                                                    Interdits : {plu.extractedRules.facade.forbidden_colors.join(', ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Photovoltaïque rule */}
+                                    {travaux.type === 'photovoltaique' && travaux.photovoltaique && (
+                                        <div className="flex flex-col gap-1 border-b border-slate-800/60 pb-2">
+                                            <div className="flex justify-between font-medium">
+                                                <span className="text-slate-400">Hauteur / Aspect Toiture :</span>
+                                                <span className="text-slate-200">Max {plu.extractedRules.roof?.max_height_m ?? 9} m de hauteur</span>
+                                            </div>
+                                            <div className="flex justify-between text-[11px]">
+                                                <span className="text-slate-500">Proposé :</span>
+                                                <span className="font-bold text-purple-400">{travaux.photovoltaique.integration} ({travaux.photovoltaique.puissance_kw} kWc)</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Excerpts / Citations */}
+                                    {((plu.extractedRules.facade?.excerpts && plu.extractedRules.facade.excerpts.length > 0) || 
+                                      (plu.extractedRules.extension?.excerpts && plu.extractedRules.extension.excerpts.length > 0)) && (
+                                        <div className="mt-2">
+                                            <span className="text-slate-500 block mb-1 text-[10px] uppercase font-bold">Extraits du règlement PLU associés :</span>
+                                            <div className="max-h-24 overflow-y-auto space-y-1 pl-2 pr-1 scrollbar-thin bg-black/20 p-2 rounded-lg font-mono text-[10px] text-slate-400">
+                                                {[
+                                                    ...(plu.extractedRules.facade?.excerpts || []),
+                                                    ...(plu.extractedRules.extension?.excerpts || []),
+                                                    ...(plu.extractedRules.roof?.excerpts || [])
+                                                ].map((exc: string, idx: number) => (
+                                                    <div key={idx} className="leading-snug mb-1 border-b border-slate-800/30 pb-1 last:border-b-0">
+                                                        {exc}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. Zone Decryptage Card */}
+                        {parsed["DÉCRYPTAGE DE LA ZONE D'URBANISME"] && (
+                            <div className="dp-card">
+                                <h3 className="dp-section-title flex items-center gap-2 text-white">
+                                    <span>🔍</span> Décryptage de la Zone
+                                </h3>
+                                <div className="text-xs text-slate-300 leading-relaxed">
+                                    {parsed["DÉCRYPTAGE DE LA ZONE D'URBANISME"]}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 4. PLU Rules Card */}
+                        {parsed["RÈGLES PLU CLÉS À CONSEILLER"] && (
+                            <div className="dp-card">
+                                <h3 className="dp-section-title flex items-center gap-2 text-white">
+                                    <span>📋</span> Règles PLU Clés à Respecter
+                                </h3>
+                                <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                                    {parsed["RÈGLES PLU CLÉS À CONSEILLER"]}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 5. Heritage Risks Card (AI-generated text fallback) */}
+                        {parsed["RISQUES ET ALERTES PATRIMONIALES"] && !plu.evaluationResult && (
+                            <div className={`p-6 rounded-2xl border ${
+                                parsed["RISQUES ET ALERTES PATRIMONIALES"].toLowerCase().includes('aucun risque')
+                                ? 'bg-slate-900/40 border-slate-800 text-slate-300'
+                                : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                            }`}>
+                                <h3 className="font-bold text-sm flex items-center gap-2 mb-3">
+                                    <span>⚠️</span> Alertes & Procédures (ABF / Mairie)
+                                </h3>
+                                <div className="text-xs leading-relaxed">
+                                    {parsed["RISQUES ET ALERTES PATRIMONIALES"]}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 6. Constructive Recommendations Card */}
+                        {parsed["RECOMMANDATIONS CONSTRUCTIVES"] && (
+                            <div className="dp-card border-purple-500/15 bg-purple-950/5">
+                                <h3 className="dp-section-title flex items-center gap-2 text-white">
+                                    <span>💡</span> Conseils de Rédaction du Dossier
+                                </h3>
+                                <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                                    {parsed["RECOMMANDATIONS CONSTRUCTIVES"]}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 7. Disclaimer Legal Notice */}
+                        <div className="rounded-2xl p-4 bg-slate-900/40 border border-slate-800 text-slate-500 text-[10px] leading-relaxed">
+                            <span className="font-bold text-slate-400 uppercase tracking-wide block mb-1">Avertissement Légal</span>
+                            Les informations et avis de conformité fournis par cet assistant sont générés de manière automatisée à partir de données extraites du Géoportail de l'Urbanisme et de modèles linguistiques d'intelligence artificielle. Ces analyses sont fournies à titre indicatif pour vous guider dans la rédaction de votre déclaration préalable (DP) et ne remplacent en aucun cas l'avis officiel du service urbanisme de votre mairie ou d'un architecte conseil.
+                        </div>
+
+                        {/* Navigation Buttons */}
+                        <div className="flex justify-between items-center pt-4">
+                            <button onClick={() => router.push('/etape/3')} className="dp-btn-secondary">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                                Retour
+                            </button>
+                            <div className="flex items-center gap-3">
+                                <button onClick={runAnalysis} className="px-4 py-2 border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-lg transition-colors">
+                                    🔄 Réanalyser
+                                </button>
+                                <button onClick={() => router.push('/etape/5')} className="dp-btn-primary text-base">
+                                    Étape suivante
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </StepLayout>
     )

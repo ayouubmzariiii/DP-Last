@@ -52,6 +52,56 @@ export interface Terrain {
     description_projet: string
     // Identique au demandeur ?
     meme_adresse: boolean
+        plu?: {
+            zone?: {
+                libelle?: string
+                typezone?: string
+                nomzone?: string
+                libelong?: string
+                url_doc?: string
+            }
+            prescriptions?: Array<{
+                libelle: string;
+                typepresc: string;
+            }>;
+            fetchedAt?: string
+            analysisReport?: string
+            pdfType?: 'text' | 'scanned' | 'missing' | 'error'
+            textLength?: number
+            extractedText?: string
+            isRnu?: boolean
+            overlays?: {
+                seismicZone?: string;
+                seismicClass?: string;
+                hasFloodRisk?: boolean;
+                floodRisks?: Array<{
+                    libelle: string;
+                    dateEvt?: string;
+                }>;
+                hasPPRN?: boolean;
+                pprnList?: Array<{
+                    idGaspar: string;
+                    libPpr: string;
+                    modeleProcedure: string;
+                }>;
+                hasPPRT?: boolean;
+                pprtList?: Array<{
+                    idGaspar: string;
+                    libPpr: string;
+                    modeleProcedure: string;
+                }>;
+                hasSPR?: boolean;
+                sprName?: string;
+                monumentsWithin500m?: Array<{
+                    reference: string;
+                    title: string;
+                    distance: number;
+                    protection: string;
+                }>;
+            };
+            extractedRules?: any;
+            evaluationResult?: any;
+        }
 }
 
 export interface TravauxMenuiseries {
@@ -414,6 +464,7 @@ export const emptyDemandeur: Demandeur = {
 export const emptyTerrain: Terrain = {
     adresse: '', lieu_dit: '', code_postal: '', commune: '', prefixe_cadastral: '', section_cadastrale: '', numero_parcelle: '',
     surface_terrain: '', surface_plancher: '', description_projet: '', meme_adresse: true,
+    plu: undefined,
 }
 
 export const emptyTravaux: Travaux = {

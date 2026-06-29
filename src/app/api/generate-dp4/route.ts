@@ -7,17 +7,17 @@ export async function POST(req: NextRequest) {
         const { formData, photos } = await req.json()
 
         let applicantInfo = ''
-        if (formData.demandeur.est_societe && formData.demandeur.nom_societe) {
-            applicantInfo = `Le demandeur est une société (${formData.demandeur.type_societe || 'SOCIÉTÉ'}) nommée "${formData.demandeur.nom_societe}", représentée par ${formData.demandeur.civilite} ${formData.demandeur.prenom} ${formData.demandeur.nom}.`
+        if (formData.demandeur.est_societe) {
+            applicantInfo = `Le demandeur est une société.`
         } else {
-            applicantInfo = `Le demandeur est un particulier : ${formData.demandeur.civilite} ${formData.demandeur.prenom} ${formData.demandeur.nom}.`
+            applicantInfo = `Le demandeur est un particulier.`
         }
 
         const systemPrompt = `Tu es un expert en urbanisme francais. Rédige une Notice Descriptive (DP4) pour un dossier de Demande Préalable de Travaux.
             
 CONTEXTE DU PROJET (Ne pas inclure ces infos mot pour mot dans la réponse) :
 ${applicantInfo}
-L'adresse du projet est située à: ${formData.terrain.adresse}, ${formData.terrain.code_postal} ${formData.terrain.commune}.
+La commune du projet est située à: ${formData.terrain.commune || ''} (${formData.terrain.code_postal || ''}).
 Le projet concerne: ${formData.travaux.type} (${formData.travaux.description_projet || 'Rénovation extérieure'}).
 
 CONSIGNES HYPER STRICTES ET IMPÉRATIVES (POUR L'INTÉGRATION PDF) :
@@ -37,30 +37,27 @@ DESCRIPTION DU PROJET
 INTEGRATION DANS L'ENVIRONNEMENT
 [Ton texte ici...]`
 
-        const content: any[] = [{ type: "text", text: systemPrompt }]
+        const validPhotos = photos ? photos.filter((p: string) => p.startsWith('data:image')) : []
+        const content = validPhotos.length > 0
+            ? [{ type: "text", text: systemPrompt }, ...validPhotos.map((p: string) => ({ type: "image_url", image_url: { url: p } }))]
+            : systemPrompt
 
-        if (photos && photos.length > 0) {
-            for (const photoDataUrl of photos) {
-                if (!photoDataUrl.startsWith('data:image')) continue
-                content.push({
-                    type: "image_url",
-                    image_url: {
-                        url: photoDataUrl
-                    }
-                })
-            }
+        const apiKey = process.env.OPENROUTER_API_KEY
+        if (!apiKey) {
+            return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 503 })
         }
 
-        const invoke_url = "https://integrate.api.nvidia.com/v1/chat/completions"
-        const response = await fetch(invoke_url, {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: 'POST',
             headers: {
-                "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
+                "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "HTTP-Referer": "https://github.com/ayouubmzariiii/DP-Last",
+                "X-Title": "DP Travaux DP4 Notice"
             },
             body: JSON.stringify({
-                "model": "mistralai/ministral-14b-instruct-2512",
+                "model": "openrouter/free",
                 "messages": [{ "role": "user", "content": content }],
                 "max_tokens": 2048,
                 "temperature": 0.15,
@@ -73,7 +70,7 @@ INTEGRATION DANS L'ENVIRONNEMENT
 
         if (!response.ok) {
             const errBody = await response.text()
-            throw new Error(`NVIDIA API Error: ${response.status} ${errBody}`)
+            throw new Error(`OpenRouter API Error: ${response.status} ${errBody}`)
         }
 
         const data = await response.json()

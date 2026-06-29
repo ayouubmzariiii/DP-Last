@@ -6,9 +6,10 @@ const STEPS = [
     { num: 1, label: 'Demandeur', path: '/etape/1' },
     { num: 2, label: 'Terrain', path: '/etape/2' },
     { num: 3, label: 'Travaux', path: '/etape/3' },
-    { num: 4, label: 'Photos', path: '/etape/4' },
-    { num: 5, label: 'Plans', path: '/etape/5' },
-    { num: 6, label: 'Génération', path: '/etape/6' },
+    { num: 4, label: 'Analyse PLU', path: '/etape/4' },
+    { num: 5, label: 'Photos', path: '/etape/5' },
+    { num: 6, label: 'Plans', path: '/etape/6' },
+    { num: 7, label: 'Génération', path: '/etape/7' },
 ]
 import { useDPContext } from '@/lib/context'
 import Link from 'next/link'

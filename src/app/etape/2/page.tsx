@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import StepLayout from '@/components/StepLayout'
 import { useDPContext } from '@/lib/context'
@@ -10,6 +11,70 @@ export default function Etape2() {
     const { formData, updateTerrain, updateField, updateDemandeur } = useDPContext()
     const t = formData.terrain
     const d = formData.demandeur
+
+    const [loadingPLU, setLoadingPLU] = useState(false)
+    const [pluError, setPluError] = useState<string | null>(null)
+    const [showPdfPreview, setShowPdfPreview] = useState(false)
+
+    const fetchPLUForCoords = async (coords: { lat: number; lon: number }) => {
+        setLoadingPLU(true)
+        setPluError(null)
+        try {
+            const res = await fetch(`/api/fetch-plu?lat=${coords.lat}&lon=${coords.lon}&commune=${encodeURIComponent(t.commune || d.commune || '')}`)
+            if (!res.ok) throw new Error("Erreur de récupération du PLU")
+            const data = await res.json()
+            updateTerrain({ plu: data })
+        } catch (err: any) {
+            console.error(err)
+            setPluError(err.message || "Impossible de récupérer les données PLU.")
+        } finally {
+            setLoadingPLU(false)
+        }
+    }
+
+    // Auto-geocode terrain address if address exists but coords do not
+    useEffect(() => {
+        const autoGeocodeTerrain = async () => {
+            if (t.adresse && !t.coords && !t.meme_adresse && !loadingPLU) {
+                setLoadingPLU(true)
+                setPluError(null)
+                try {
+                    const q = `${t.adresse}, ${t.code_postal} ${t.commune}`
+                    const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=1`)
+                    if (!response.ok) throw new Error("Erreur de géocodage de l'adresse du terrain")
+                    const data = await response.json()
+                    if (data.features && data.features.length > 0) {
+                        const feature = data.features[0]
+                        const coords = {
+                            lat: feature.geometry.coordinates[1],
+                            lon: feature.geometry.coordinates[0]
+                        }
+                        updateTerrain({ coords })
+                        // Now fetch PLU for these coords
+                        const res = await fetch(`/api/fetch-plu?lat=${coords.lat}&lon=${coords.lon}&commune=${encodeURIComponent(t.commune || d.commune || '')}`)
+                        if (!res.ok) throw new Error("Erreur de récupération du PLU")
+                        const pluData = await res.json()
+                        updateTerrain({ plu: pluData })
+                    } else {
+                        setPluError("Impossible de localiser l'adresse du terrain pour le PLU.")
+                    }
+                } catch (err: any) {
+                    console.error("Auto-geocode terrain failed:", err)
+                    setPluError(err.message || "Erreur lors de la localisation automatique du terrain.")
+                } finally {
+                    setLoadingPLU(false)
+                }
+            }
+        }
+        autoGeocodeTerrain()
+    }, [t.adresse, t.coords, t.meme_adresse])
+
+    // Auto-fetch PLU when coordinates are available but PLU is not yet loaded
+    useEffect(() => {
+        if (t.coords && !t.plu && !loadingPLU) {
+            fetchPLUForCoords(t.coords)
+        }
+    }, [t.coords, t.plu])
 
     // Dynamic Cadastre functions migrated from Etape 6
     const addCadastre = () => {
@@ -37,7 +102,11 @@ export default function Etape2() {
                 code_postal: d.code_postal,
                 commune: d.commune,
                 coords: d.coords,
+                plu: undefined // reset to trigger auto-fetch for new coords
             })
+            if (d.coords) {
+                fetchPLUForCoords(d.coords)
+            }
         }
     }
 
@@ -82,8 +151,11 @@ export default function Etape2() {
                                                  adresse: addr.adresse,
                                                  code_postal: addr.code_postal,
                                                  commune: addr.commune,
-                                                 coords: addr.coords
+                                                 coords: addr.coords,
+                                                 plu: undefined
                                              })
+                                             // Fetch PLU immediately
+                                             fetchPLUForCoords(addr.coords)
                                          }}
                                     />
                                     <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">Recherche certifiée par l'API Adresse du Gouvernement</p>
@@ -128,6 +200,110 @@ export default function Etape2() {
                         )}
                     </div>
 
+                    {/* Diagnostic PLU */}
+                    {(t.coords || loadingPLU || pluError) && (
+                        <div className="dp-card animate-fadeIn">
+                            <h3 className="dp-section-title flex items-center gap-2">
+                                <span>🔍</span> Diagnostic d'Urbanisme (PLU/Géoportail)
+                            </h3>
+                            
+                            {loadingPLU && (
+                                <div className="flex flex-col items-center py-6">
+                                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
+                                    <p className="text-xs text-slate-400">Interrogation du Géoportail de l'Urbanisme...</p>
+                                </div>
+                            )}
+
+                            {pluError && (
+                                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
+                                    ⚠️ {pluError}
+                                </div>
+                            )}
+
+                            {!loadingPLU && !pluError && t.plu && (
+                                <div className="space-y-4">
+                                    {t.plu.zone ? (
+                                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <span className="text-xs font-black px-2 py-0.5 rounded bg-blue-500 text-white uppercase">
+                                                        Zone {t.plu.zone.libelle}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                        ({t.plu.zone.nomzone})
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-slate-300 font-medium">
+                                                    {t.plu.zone.libelong || 'Description indisponible.'}
+                                                </p>
+                                            </div>
+                                            {t.plu.zone.url_doc && (
+                                                 <div className="flex gap-2 shrink-0 self-start md:self-auto">
+                                                     <button 
+                                                         type="button"
+                                                         onClick={() => setShowPdfPreview(!showPdfPreview)}
+                                                         className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 text-xs font-bold rounded-lg transition-colors border border-slate-700 inline-flex items-center gap-1.5"
+                                                     >
+                                                         {showPdfPreview ? '👁️ Masquer le document' : '👁️ Consulter le Règlement'}
+                                                     </button>
+                                                     <a 
+                                                         href={t.plu.zone.url_doc} 
+                                                         target="_blank" 
+                                                         rel="noopener noreferrer" 
+                                                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors inline-flex items-center gap-1.5"
+                                                     >
+                                                         📄 Ouvrir
+                                                     </a>
+                                                 </div>
+                                             )}
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs">
+                                            ℹ️ Aucune zone PLU spécifique détectée sur Géoportail. Le Règlement National d'Urbanisme (RNU) s'applique par défaut.
+                                        </div>
+                                    )}
+
+                                    {/* PLU Regulation PDF Document Preview Panel */}
+                                    {showPdfPreview && t.plu?.zone?.url_doc && (
+                                         <div className="mt-4 border border-slate-700 rounded-xl overflow-hidden bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+                                             <div className="bg-slate-900/90 px-4 py-2.5 border-b border-slate-700 flex justify-between items-center">
+                                                 <span className="text-xs font-semibold text-slate-300 text-slate-200">Règlement d'urbanisme de la Zone {t.plu.zone.libelle}</span>
+                                                 <a href={t.plu.zone.url_doc} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-400 hover:underline">Plein écran ↗</a>
+                                             </div>
+                                             <iframe 
+                                                 src={t.plu.zone.url_doc} 
+                                                 className="w-full h-[550px] border-0" 
+                                                 title="Aperçu du règlement d'urbanisme (PLU)"
+                                             />
+                                         </div>
+                                     )}
+
+                                    <div>
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                            Prescriptions & Contraintes (Servitudes)
+                                        </h4>
+                                        {t.plu.prescriptions && t.plu.prescriptions.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                {t.plu.prescriptions.map((p: any, idx: number) => (
+                                                    <div key={idx} className="p-2.5 bg-slate-800/60 border border-slate-700 rounded-lg flex items-start gap-2">
+                                                        <span className="text-amber-400 mt-0.5 text-sm">⚠️</span>
+                                                        <div>
+                                                            <p className="text-xs text-white font-semibold leading-tight">{p.libelle}</p>
+                                                            <p className="text-[9px] text-slate-500 font-mono mt-0.5">Type: {p.typepresc}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 italic">
+                                                Aucune prescription patrimoniale ou environnementale détectée pour cette coordonnée.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {/* Cadastre */}
                     <div className="dp-card">
                         <h3 className="dp-section-title">Références cadastrales</h3>
