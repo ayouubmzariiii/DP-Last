@@ -70,10 +70,11 @@ export function buildAICroquisPrompt(data: DPFormData, customInstruction?: strin
 
     return `Convert the attached photograph of a French house into a clean, professional 2D ARCHITECTURAL FAÇADE ELEVATION drawing (un plan de façade). Reproduce the exact same building — same number of floors, windows, doors, roof shape and proportions as in the photo.
 
-FRAMING (very important — the drawing must be clear and close):
-- Strictly FRONTAL, head-on orthographic elevation (no perspective, no angle, no vanishing points).
-- The building must FILL the frame: it should occupy roughly 90% of the image, large and centred. Do NOT draw it small or far away. Crop out streets, distant context, neighbouring plots and foreground — show only the building façade.
-- Large enough that every window, door and material is clearly legible.
+FRAMING (must stay ALIGNED with the attached image):
+- Keep the SAME composition, proportions and viewpoint as the attached photo so the drawing lines up with it one-to-one. Same relative position and size of every window, door, roof line and wall.
+- Show the building head-on as a clean FRONTAL orthographic elevation. If the photo is slightly angled, gently straighten it to frontal WITHOUT changing the layout or proportions.
+- Frame the COMPLETE façade, centred, with only a small even margin. Do NOT crop off any part of the building, and do NOT zoom out so far that it looks small/distant. Drop only the surrounding street/sky/neighbours, keeping the building at the same scale it has in the photo.
+- Large and crisp enough that every window, door and material is clearly legible.
 
 VISUAL STYLE (MANDATORY):
 - Clean 2D technical CAD elevation (not a photo, not a loose sketch).
