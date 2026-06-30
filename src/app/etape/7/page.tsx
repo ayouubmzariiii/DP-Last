@@ -17,8 +17,8 @@ function RecapSection({ title, icon, items }: {
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                 {items.filter(i => i.value).map((item) => (
                     <div key={item.label}>
-                        <dt className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{item.label}</dt>
-                        <dd className="text-sm font-medium text-slate-100 mt-0.5">{item.value}</dd>
+                        <dt className="dp-meta">{item.label}</dt>
+                        <dd className="text-sm font-medium t-ink mt-1">{item.value}</dd>
                     </div>
                 ))}
             </dl>
@@ -161,16 +161,18 @@ export default function Etape7() {
     return (
         <>
             <div className="animate-fadeIn">
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-white">Récapitulatif & Téléchargement</h2>
-                    <p className="text-slate-500 mt-1">Vérifiez vos informations, puis téléchargez vos documents</p>
+                <div className="dp-page-head">
+                    <span className="dp-eyebrow">Étape 07 / 07 · Génération</span>
+                    <h2 className="dp-page-title">Récapitulatif & <span className="accent">téléchargement</span></h2>
+                    <p className="dp-page-sub">Vérifiez vos informations, puis téléchargez vos documents.</p>
+                    <div className="dp-rule" />
                 </div>
 
                 <div className="space-y-6">
                     {/* Completeness & conformity gate */}
                     <div className="dp-card" style={{
-                        borderColor: blocked ? 'rgba(239,68,68,0.4)' : warns.length ? 'rgba(245,158,11,0.4)' : 'rgba(34,197,94,0.4)',
-                        background: blocked ? 'rgba(239,68,68,0.06)' : warns.length ? 'rgba(245,158,11,0.05)' : 'rgba(34,197,94,0.05)',
+                        borderColor: blocked ? '#EBC3BB' : warns.length ? '#EBD9A8' : 'var(--acb)',
+                        background: blocked ? '#FBEAE6' : warns.length ? '#FBF1DC' : 'var(--act)',
                     }}>
                         <h3 className="dp-section-title flex items-center gap-2">
                             <span>{blocked ? '⛔' : warns.length ? '⚠️' : '✅'}</span>
@@ -178,7 +180,7 @@ export default function Etape7() {
                         </h3>
 
                         {isTestMode && (
-                            <div className="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm font-semibold">
+                            <div className="dp-alert is-warn mb-4 font-semibold">
                                 Mode Test actif : la génération est désactivée tant que des données fictives sont chargées.
                             </div>
                         )}
@@ -186,29 +188,29 @@ export default function Etape7() {
                         {/* Required fields */}
                         {fatals.length > 0 ? (
                             <div className="mb-4">
-                                <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-2">{fatals.length} information(s) obligatoire(s) manquante(s)</p>
+                                <p className="dp-meta t-error mb-2">{fatals.length} information(s) obligatoire(s) manquante(s)</p>
                                 <ul className="space-y-1.5">
                                     {fatals.map(i => (
-                                        <li key={i.id} className="flex items-start gap-2 text-sm text-red-300">
+                                        <li key={i.id} className="flex items-start gap-2 text-sm t-error">
                                             <span className="mt-0.5">✗</span>
-                                            <span><span className="text-slate-400 font-semibold">[{i.section}]</span> {i.message}</span>
+                                            <span><span className="t-muted font-semibold">[{i.section}]</span> {i.message}</span>
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                         ) : (
-                            <p className="mb-4 text-sm text-green-300">✓ Toutes les informations obligatoires sont renseignées.</p>
+                            <p className="mb-4 text-sm t-ok">✓ Toutes les informations obligatoires sont renseignées.</p>
                         )}
 
                         {/* Warnings */}
                         {warns.length > 0 && (
                             <div className="mb-4">
-                                <p className="text-xs font-bold text-amber-400 uppercase tracking-wide mb-2">{warns.length} recommandation(s) — à vérifier par l’expert</p>
+                                <p className="dp-meta t-warn mb-2">{warns.length} recommandation(s) — à vérifier par l’expert</p>
                                 <ul className="space-y-1.5">
                                     {warns.map(i => (
-                                        <li key={i.id} className="flex items-start gap-2 text-sm text-amber-200/90">
+                                        <li key={i.id} className="flex items-start gap-2 text-sm t-warn">
                                             <span className="mt-0.5">⚠️</span>
-                                            <span><span className="text-slate-400 font-semibold">[{i.section}]</span> {i.message}</span>
+                                            <span><span className="t-muted font-semibold">[{i.section}]</span> {i.message}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -216,25 +218,20 @@ export default function Etape7() {
                         )}
 
                         {/* Pieces checklist */}
-                        <div className="pt-3 border-t border-white/5">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Pièces du dossier (DP1–DP8)</p>
+                        <div className="pt-3" style={{ borderTop: '1px solid var(--line-2)' }}>
+                            <p className="dp-meta mb-2">Pièces du dossier (DP1–DP8)</p>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                 {pieces.map(p => (
-                                    <div key={p.code} className="flex items-center gap-1.5 text-xs p-2 rounded-lg border"
-                                        style={p.present
-                                            ? { borderColor: 'rgba(34,197,94,0.25)', background: 'rgba(34,197,94,0.08)', color: '#86efac' }
-                                            : p.severity === 'fatal'
-                                                ? { borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#fca5a5' }
-                                                : { borderColor: 'rgba(148,163,184,0.2)', color: '#94a3b8' }}
+                                    <div key={p.code} className={`dp-chip ${p.present ? 'is-ok' : p.severity === 'fatal' ? 'is-missing' : ''}`}
                                         title={p.note || ''}>
                                         <span>{p.present ? '✅' : p.severity === 'fatal' ? '✗' : '⬜'}</span>
-                                        <span className="font-semibold">{p.code}</span>
+                                        <span className="code">{p.code}</span>
                                         <span className="truncate">{p.label}</span>
                                     </div>
                                 ))}
                             </div>
                             {missingFatalPieces.length > 0 && (
-                                <p className="mt-2 text-xs text-red-300">
+                                <p className="mt-2 text-xs t-error">
                                     Pièce(s) obligatoire(s) manquante(s) : {missingFatalPieces.map(p => p.code).join(', ')} — générez-les aux étapes Photos / Plans.
                                 </p>
                             )}
@@ -294,10 +291,10 @@ export default function Etape7() {
                                     ? !!formData.plans[item.key as keyof typeof formData.plans]
                                     : !!formData.photos[item.key as keyof typeof formData.photos]
                                 return (
-                                    <div key={item.key} className="rounded-xl p-3 text-center text-sm font-semibold border-2"
+                                    <div key={item.key} className="rounded-xl p-3 text-center text-sm font-semibold border"
                                         style={has
-                                            ? { borderColor: 'rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.1)', color: '#86efac' }
-                                            : { borderColor: 'rgba(148,163,184,0.15)', background: 'rgba(148,163,184,0.06)', color: '#64748b' }}>
+                                            ? { borderColor: 'var(--acb)', background: 'var(--act)', color: 'var(--acd)' }
+                                            : { borderColor: 'var(--line)', background: 'var(--surface-2)', color: 'var(--muted)' }}>
                                         <div className="text-xl mb-1">{has ? '✅' : '⬜'}</div>
                                         {item.label}
                                     </div>
@@ -308,18 +305,18 @@ export default function Etape7() {
 
                     {/* Error */}
                     {error && (
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-300 whitespace-pre-line">
+                        <div className="dp-alert is-error whitespace-pre-line">
                             ⚠️ {error}
                         </div>
                     )}
 
                     {/* Engagement / Signature */}
-                    <div className="dp-card relative overflow-hidden" style={{ borderColor: 'rgba(45,90,76,0.3)', background: 'linear-gradient(180deg, rgba(45,90,76,0.05) 0%, transparent 100%)' }}>
-                        <div className="absolute top-0 left-0 w-1 h-full bg-pink-500"></div>
-                        <h3 className="font-bold text-white mb-5 text-lg">Engagement du Déclarant</h3>
-                        <p className="text-sm text-slate-400 mb-5">J'atteste avoir pris connaissance des règles générales de construction et que les informations fournies sont exactes.</p>
+                    <div className="dp-card dp-spec relative overflow-hidden" style={{ borderColor: 'var(--acb)' }}>
+                        <div className="absolute top-0 left-0 w-1 h-full" style={{ background: 'var(--ac)' }}></div>
+                        <h3 className="dp-section-title">Engagement du Déclarant</h3>
+                        <p className="text-sm t-ink2 mb-5">J'atteste avoir pris connaissance des règles générales de construction et que les informations fournies sont exactes.</p>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 p-5 bg-white/[0.03] border border-white/5 rounded-xl">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 p-5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
                             <div className="dp-form-group">
                                 <label className="dp-label">Fait à (Lieu) *</label>
                                 <input
@@ -340,21 +337,15 @@ export default function Etape7() {
                             </div>
                         </div>
 
-                        <label className="flex items-start gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer"
-                            style={formData.engagement?.signature
-                                ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.1)' }
-                                : { borderColor: 'rgba(148,163,184,0.2)' }}>
-                            <div className="pt-1">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.engagement?.signature || false}
-                                    onChange={e => updateField('engagement', { ...formData.engagement, signature: e.target.value === 'on' ? true : e.target.checked })}
-                                    className="w-5 h-5 rounded border-slate-600 text-pink-500 focus:ring-0 focus:ring-offset-0 bg-slate-800"
-                                />
-                            </div>
+                        <label className={`dp-check-card ${formData.engagement?.signature ? 'selected' : ''}`}>
+                            <input
+                                type="checkbox"
+                                checked={formData.engagement?.signature || false}
+                                onChange={e => updateField('engagement', { ...formData.engagement, signature: e.target.value === 'on' ? true : e.target.checked })}
+                            />
                             <div>
-                                <div className="text-white font-semibold">Je signe cette déclaration</div>
-                                <p className="text-xs text-slate-400 mt-1">Cochez cette case pour attester de votre signature sur le formulaire CERFA officiel généré.</p>
+                                <div className="t-ink font-semibold">Je signe cette déclaration</div>
+                                <p className="text-xs t-ink2 mt-1">Cochez cette case pour attester de votre signature sur le formulaire CERFA officiel généré.</p>
                             </div>
                         </label>
                     </div>
@@ -362,22 +353,22 @@ export default function Etape7() {
                     {/* Download buttons */}
                     <div className="dp-card">
                         <h3 className="dp-section-title">📥 Télécharger vos documents</h3>
-                        <p className="text-sm text-slate-400 mb-6">
+                        <p className="text-sm t-ink2 mb-6">
                             Les documents sont générés directement dans votre navigateur. Aucune donnée n'est transmise à un serveur externe.
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* CERFA */}
-                            <div className="rounded-2xl border p-5" style={{ background: 'rgba(45,90,76,0.08)', borderColor: 'rgba(45,90,76,0.2)' }}>
+                            <div className="rounded-2xl border p-5" style={{ background: 'var(--act)', borderColor: 'var(--acb)' }}>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'rgba(45,90,76,0.15)' }}>📋</div>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--acb)' }}>📋</div>
                                     <div>
-                                        <div className="font-bold text-white">CERFA n°13703*</div>
-                                        <div className="text-xs text-slate-400">Formulaire officiel rempli</div>
+                                        <div className="font-bold t-ink">CERFA n°13703*</div>
+                                        <div className="text-xs t-ink2">Formulaire officiel rempli</div>
                                     </div>
-                                    {cerfaDone && <span className="ml-auto text-green-400 text-xl">✅</span>}
+                                    {cerfaDone && <span className="ml-auto t-ok text-xl">✅</span>}
                                 </div>
-                                <p className="text-xs text-slate-400 mb-4">
+                                <p className="text-xs t-ink2 mb-4">
                                     Formulaire officiel de demande préalable, pré-rempli avec vos informations.
                                 </p>
                                 <button
@@ -387,7 +378,7 @@ export default function Etape7() {
                                 >
                                     {generatingCerfa ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <div className="dp-spinner dp-spinner-sm on-accent" />
                                             Génération en cours...
                                         </>
                                     ) : cerfaDone ? '📥 Re-télécharger le CERFA' : '📥 Télécharger le CERFA'}
@@ -395,26 +386,26 @@ export default function Etape7() {
                             </div>
 
                             {/* Dossier DP */}
-                            <div className="rounded-2xl border p-5" style={{ background: 'rgba(45,90,76,0.08)', borderColor: 'rgba(45,90,76,0.2)' }}>
+                            <div className="rounded-2xl border p-5" style={{ background: 'var(--act)', borderColor: 'var(--acb)' }}>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'rgba(45,90,76,0.15)' }}>📁</div>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--acb)' }}>📁</div>
                                     <div>
-                                        <div className="font-bold text-white">Dossier DP Complet</div>
-                                        <div className="text-xs text-slate-400">DP1 à DP8 – Document technique</div>
+                                        <div className="font-bold t-ink">Dossier DP Complet</div>
+                                        <div className="text-xs t-ink2">DP1 à DP8 – Document technique</div>
                                     </div>
-                                    {dpDone && <span className="ml-auto text-green-400 text-xl">✅</span>}
+                                    {dpDone && <span className="ml-auto t-ok text-xl">✅</span>}
                                 </div>
-                                <p className="text-xs text-slate-400 mb-4">
+                                <p className="text-xs t-ink2 mb-4">
                                     PDF complet avec plans de situation, notice descriptive, photos et simulation façades.
                                 </p>
                                 <button
                                     onClick={downloadDP}
                                     disabled={generatingDP || blocked}
-                                    className="w-full justify-center inline-flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="dp-btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {generatingDP ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <div className="dp-spinner dp-spinner-sm on-accent" />
                                             Génération en cours...
                                         </>
                                     ) : dpDone ? '📁 Re-télécharger le dossier DP' : '📁 Télécharger le dossier DP'}
@@ -423,7 +414,7 @@ export default function Etape7() {
                         </div>
 
                         {(cerfaDone || dpDone) && (
-                            <div className="mt-5 rounded-xl px-4 py-3 text-sm text-center" style={{ background: '#E8F0EC', border: '1px solid #CFE0D8', color: '#244A3E' }}>
+                            <div className="dp-alert is-ok mt-5 text-center">
                                 ✅ Documents générés ! Déposez-les en mairie avec votre dossier complet.
                             </div>
                         )}
@@ -462,7 +453,7 @@ export default function Etape7() {
                         </button>
                         <button
                             onClick={() => { if (confirm('Êtes-vous sûr de vouloir réinitialiser le formulaire ?')) { resetForm(); router.push('/') } }}
-                            className="text-sm text-slate-400 hover:text-red-500 transition-colors"
+                            className="text-sm t-ink2 hover:text-red-500 transition-colors"
                         >
                             🗑️ Nouveau dossier
                         </button>

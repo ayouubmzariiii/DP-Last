@@ -88,9 +88,11 @@ export default function Etape1() {
     return (
         <>
             <div className="animate-fadeIn">
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-white">Vos informations personnelles</h2>
-                    <p className="text-slate-500 mt-1">Ces informations figureront sur le formulaire CERFA 13703*</p>
+                <div className="dp-page-head">
+                    <span className="dp-eyebrow">Étape 01 / 07 · Demandeur</span>
+                    <h2 className="dp-page-title">Vos informations <span className="accent">personnelles</span></h2>
+                    <p className="dp-page-sub">Ces informations figureront sur le formulaire CERFA 13703*.</p>
+                    <div className="dp-rule" />
                 </div>
 
                 <div className="space-y-6">
@@ -109,12 +111,7 @@ export default function Etape1() {
                                             civilite: civ as 'M' | 'Mme' | 'Société',
                                             est_societe: civ === 'Société'
                                         })}
-                                        className="toggle-btn"
-                                        style={d.civilite === civ ? {
-                                            borderColor: '#2D5A4C',
-                                            background: 'rgba(45,90,76,0.2)',
-                                            color: '#2D5A4C'
-                                        } : {}}
+                                        className={`toggle-btn ${d.civilite === civ ? 'active' : ''}`}
                                     >
                                         {civ === 'M' ? 'Monsieur' : civ === 'Mme' ? 'Madame' : '🏢 Société'}
                                     </button>
@@ -124,7 +121,7 @@ export default function Etape1() {
 
                         {d.est_societe && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 rounded-xl"
-                                style={{ background: 'rgba(45,90,76,0.1)', border: '1px solid rgba(45,90,76,0.2)' }}>
+                                style={{ background: 'var(--act)', border: '1px solid var(--acb)' }}>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Dénomination sociale *</label>
                                     <input
@@ -241,13 +238,14 @@ export default function Etape1() {
                         <label className="flex items-center gap-3 cursor-pointer mb-1">
                             <input
                                 type="checkbox"
-                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 accent-blue-500 cursor-pointer"
+                                className="w-5 h-5 rounded cursor-pointer"
+                                style={{ accentColor: 'var(--ac)' }}
                                 checked={!!co?.actif}
                                 onChange={e => updateCoDemandeur({ actif: e.target.checked })}
                             />
-                            <span className="dp-section-title !mb-0">Ajouter un co-déclarant</span>
+                            <span className="dp-section-title !mb-0 !pb-0 !border-0">Ajouter un co-déclarant</span>
                         </label>
-                        <p className="text-xs text-slate-500 mb-4">Pour un bien en indivision ou un couple co-propriétaire (rubrique 2BIS du CERFA).</p>
+                        <p className="text-xs t-muted mb-4">Pour un bien en indivision ou un couple co-propriétaire (rubrique 2BIS du CERFA).</p>
 
                         {co?.actif && (
                             <div className="space-y-4 animate-fadeIn">
@@ -257,8 +255,7 @@ export default function Etape1() {
                                             key={civ}
                                             type="button"
                                             onClick={() => updateCoDemandeur({ civilite: civ as 'M' | 'Mme' | 'Société', est_societe: civ === 'Société' })}
-                                            className="toggle-btn"
-                                            style={co.civilite === civ ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.2)', color: '#2D5A4C' } : {}}
+                                            className={`toggle-btn ${co.civilite === civ ? 'active' : ''}`}
                                         >
                                             {civ === 'M' ? 'Monsieur' : civ === 'Mme' ? 'Madame' : '🏢 Société'}
                                         </button>
@@ -338,7 +335,7 @@ export default function Etape1() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="dp-form-group">
                                 <label className="dp-label">Voie (extraite)</label>
-                                <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={d.adresse} />
+                                <input className="dp-input" readOnly value={d.adresse} />
                             </div>
                             <div className="dp-form-group">
                                 <label className="dp-label">Lieu-dit</label>
@@ -360,11 +357,11 @@ export default function Etape1() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="dp-form-group">
                                     <label className="dp-label">Code postal</label>
-                                    <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={d.code_postal} />
+                                    <input className="dp-input" readOnly value={d.code_postal} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Commune</label>
-                                    <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={d.commune} />
+                                    <input className="dp-input" readOnly value={d.commune} />
                                 </div>
                             </div>
                         </div>
@@ -397,19 +394,16 @@ export default function Etape1() {
                         </div>
 
                             {/* Dematerialisation (Section 2 addition) */}
-                            <div className="mt-6 pt-4 border-t border-slate-700/50">
-                                <label className="flex items-start gap-4 p-4 rounded-xl border border-slate-700 bg-slate-800/30 cursor-pointer hover:bg-slate-800/50 transition-colors">
-                                    <div className="mt-1">
-                                        <input
-                                            type="checkbox"
-                                            className="w-5 h-5 rounded border-slate-600 bg-slate-800 accent-blue-500 cursor-pointer"
-                                            checked={formData.accord_dematerialisation || false}
-                                            onChange={(e) => updateField('accord_dematerialisation', e.target.checked)}
-                                        />
-                                    </div>
+                            <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--line-2)' }}>
+                                <label className={`dp-check-card ${formData.accord_dematerialisation ? 'selected' : ''}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.accord_dematerialisation || false}
+                                        onChange={(e) => updateField('accord_dematerialisation', e.target.checked)}
+                                    />
                                     <div className="space-y-1">
-                                        <span className="text-sm font-medium text-slate-200 block">Accord de communication électronique</span>
-                                        <span className="text-sm text-slate-400 block max-w-2xl leading-relaxed">
+                                        <span className="text-sm font-medium t-ink block">Accord de communication électronique</span>
+                                        <span className="text-sm t-ink2 block max-w-2xl leading-relaxed">
                                             J’accepte de recevoir à l’adresse électronique communiquée les réponses de l’administration et notamment par lettre recommandée électronique ou par un autre procédé électronique équivalent les documents habituellement notifiés par lettre recommandée avec accusé de réception.
                                         </span>
                                     </div>
@@ -420,11 +414,11 @@ export default function Etape1() {
 
                     {/* Validation summary */}
                     {stepFatals.length > 0 && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                            <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-1.5">Informations requises avant de continuer</p>
+                        <div className="dp-alert is-error">
+                            <span className="dp-alert-title">Informations requises avant de continuer</span>
                             <ul className="space-y-1">
                                 {stepFatals.map(i => (
-                                    <li key={i.id} className="text-sm text-red-300 flex items-start gap-2"><span>✗</span>{i.message}</li>
+                                    <li key={i.id} className="flex items-start gap-2"><span>✗</span>{i.message}</li>
                                 ))}
                             </ul>
                         </div>

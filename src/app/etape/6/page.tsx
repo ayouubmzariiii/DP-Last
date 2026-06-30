@@ -79,8 +79,8 @@ function MapCard({
                 <span className="w-10 h-10 font-bold text-sm rounded-xl flex items-center justify-center"
                     style={{ background: codeColor, color: iconColor }}>{code}</span>
                 <div className="flex flex-col">
-                    <h3 className="font-semibold text-white leading-tight">{title}</h3>
-                    {savedImage && <span className="text-[10px] text-green-400 font-medium">✓ Plan capturé pour le PDF</span>}
+                    <h3 className="font-semibold t-ink leading-tight">{title}</h3>
+                    {savedImage && <span className="text-[10px] t-ok font-medium">✓ Plan capturé pour le PDF</span>}
                 </div>
                 <button
                     onClick={handleCapture}
@@ -108,20 +108,21 @@ function MapCard({
             </div>
 
             {code === 'DP1' && onZoomChange && (
-                <div className="px-5 pb-4 flex items-center gap-4 bg-white/5 mx-4 mb-4 rounded-xl border border-white/10 py-3">
+                <div className="px-5 pb-4 flex items-center gap-4 bg-[var(--surface-2)] mx-4 mb-4 rounded-xl border border-white/10 py-3">
                     <div className="flex-1">
                         <div className="flex justify-between mb-1.5">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Échelle du plan (Zoom)</span>
-                            <span className="text-[10px] font-mono text-blue-400">{zoom}m</span>
+                            <span className="text-[10px] font-bold t-ink2 uppercase tracking-wider">Échelle du plan (Zoom)</span>
+                            <span className="text-[10px] font-mono t-accent">{zoom}m</span>
                         </div>
-                        <input 
-                            type="range" 
-                            min="200" 
-                            max="2000" 
+                        <input
+                            type="range"
+                            min="200"
+                            max="2000"
                             step="100"
-                            value={zoom} 
+                            value={zoom}
                             onChange={(e) => onZoomChange(parseInt(e.target.value))}
-                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            className="w-full h-1.5 bg-[var(--line-3)] rounded-lg appearance-none cursor-pointer"
+                            style={{ accentColor: 'var(--ac)' }}
                         />
                     </div>
                 </div>
@@ -130,8 +131,8 @@ function MapCard({
             <div ref={mapRef} className="relative aspect-video bg-white flex items-center justify-center">
                 {loading ? (
                     <div className="text-center">
-                        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                        <p className="text-xs text-slate-500">Chargement de la carte IGN...</p>
+                        <div className="dp-spinner dp-spinner-lg mx-auto mb-2" />
+                        <p className="text-xs t-muted">Chargement de la carte IGN...</p>
                     </div>
                 ) : mapUrl ? (
                     <>
@@ -152,7 +153,7 @@ function MapCard({
                 ) : (
                     <div className="text-center p-6 grayscale opacity-40">
                         <div className="text-4xl mb-2">🗺️</div>
-                        <p className="text-xs text-slate-400 max-w-[200px] leading-relaxed">
+                        <p className="text-xs t-ink2 max-w-[200px] leading-relaxed">
                             {error ? "Erreur de chargement des cartes IGN" : "Renseignez l'adresse pour générer les plans"}
                         </p>
                     </div>
@@ -478,15 +479,15 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
             <div className="flex items-center gap-3 mb-4 px-4 pt-4">
                 <span className="w-10 h-10 font-bold text-sm rounded-xl flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)', color: '#10b981' }}>DP2</span>
                 <div className="flex flex-col">
-                    <h3 className="font-semibold text-white leading-tight">Plan de masse des constructions</h3>
-                    {savedImage && <span className="text-[10px] text-green-400 font-medium">✓ Plan capturé pour le PDF</span>}
+                    <h3 className="font-semibold t-ink leading-tight">Plan de masse des constructions</h3>
+                    {savedImage && <span className="text-[10px] t-ok font-medium">✓ Plan capturé pour le PDF</span>}
                 </div>
-                <button onClick={handleCapture} disabled={loading || !geoData || capturing} className={`ml-auto px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${savedImage ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30' : 'bg-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-900/20'}`}>
+                <button onClick={handleCapture} disabled={loading || !geoData || capturing} className={`ml-auto px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${savedImage ? 'bg-[var(--act)] t-ok border border-[color:var(--acb)] hover:bg-green-500/30' : 'bg-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-900/20'}`}>
                     {capturing ? (<><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Capture...</>) : (<><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 011.664.89l.812 1.22A2 2 0 0010.07 10H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{savedImage ? 'Actualiser capture' : 'Capturer plan PDF'}</>)}
                 </button>
             </div>
             <div ref={mapRef} className="relative aspect-video bg-[#e0e0e0] flex items-center justify-center overflow-hidden">
-                {loading ? (<div className="text-center"><div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" /><p className="text-xs" style={{ color: '#666' }}>Chargement BD TOPO...</p></div>) : geoData ? renderMap() : (<div className="text-center p-6 grayscale opacity-40"><div className="text-4xl mb-2">🗺️</div><p className="text-xs text-slate-400 max-w-[200px] leading-relaxed">{error ? 'Erreur de chargement BD TOPO' : "Renseignez l'adresse pour générer le plan"}</p></div>)}
+                {loading ? (<div className="text-center"><div className="dp-spinner dp-spinner-lg mx-auto mb-2" /><p className="text-xs" style={{ color: '#666' }}>Chargement BD TOPO...</p></div>) : geoData ? renderMap() : (<div className="text-center p-6 grayscale opacity-40"><div className="text-4xl mb-2">🗺️</div><p className="text-xs t-ink2 max-w-[200px] leading-relaxed">{error ? 'Erreur de chargement BD TOPO' : "Renseignez l'adresse pour générer le plan"}</p></div>)}
             </div>
         </div>
     )
@@ -520,12 +521,12 @@ function FacadeCard({
             <div 
                 onClick={() => onSelect?.(!isSelected)}
                 className={`dp-card flex flex-col gap-4 cursor-pointer transition-all duration-300 border-2 ${
-                    isSelected ? 'border-blue-500 bg-blue-500/5' : 'border-slate-800 hover:border-slate-700'
+                    isSelected ? 'border-[color:var(--acb)] bg-[var(--act)]' : 'border-[color:var(--line)] hover:border-[color:var(--line-3)]'
                 }`}
             >
                 <div className="flex items-center gap-3">
                     <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                        isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-700 bg-slate-900'
+                        isSelected ? 'bg-[var(--ac)] border-[color:var(--ac)]' : 'border-[color:var(--line-3)] bg-[var(--surface-2)]'
                     }`}>
                         {isSelected && (
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -533,15 +534,15 @@ function FacadeCard({
                             </svg>
                         )}
                     </div>
-                    <span className="px-2 py-1 bg-slate-800 text-slate-400 font-bold text-[10px] rounded uppercase tracking-wider">{badge}</span>
-                    <h3 className="font-bold text-slate-200 text-sm">{label}</h3>
+                    <span className="px-2 py-1 bg-[var(--surface-2)] t-ink2 font-bold text-[10px] rounded uppercase tracking-wider">{badge}</span>
+                    <h3 className="font-bold t-ink text-sm">{label}</h3>
                 </div>
 
-                <div className="rounded-xl overflow-hidden bg-slate-100 aspect-[3/2] border border-slate-200/5">
+                <div className="rounded-xl overflow-hidden bg-[var(--surface-2)] aspect-[3/2] border border-[color:var(--line)]">
                     {before ? (
                         <img src={before} alt="Avant" className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-600 italic text-xs">Pas de photo</div>
+                        <div className="w-full h-full flex items-center justify-center bg-[var(--surface-2)] t-ink2 italic text-xs">Pas de photo</div>
                     )}
                 </div>
             </div>
@@ -549,19 +550,20 @@ function FacadeCard({
     }
 
     return (
-        <div className={`dp-card flex flex-col gap-5 transition-all duration-300 ${onSelect ? (isSelected ? 'border-violet-500/50 bg-violet-500/5' : 'border-slate-800 hover:border-slate-700 opacity-80 hover:opacity-100') : ''}`}>
+        <div className={`dp-card flex flex-col gap-5 transition-all duration-300 ${onSelect ? (isSelected ? 'border-[color:var(--acb)] bg-[var(--act)]' : 'border-[color:var(--line)] hover:border-[color:var(--line-3)] opacity-80 hover:opacity-100') : ''}`}>
             {/* Header */}
             <div className="flex items-center gap-3">
                 {onSelect && (
-                    <input 
-                        type="checkbox" 
-                        checked={isSelected} 
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
                         onChange={(e) => onSelect?.(e.target.checked)}
-                        className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-violet-500 transition-all cursor-pointer mr-2"
+                        className="w-5 h-5 rounded border-[color:var(--line-3)] bg-[var(--surface-2)] focus:ring-2 transition-all cursor-pointer mr-2"
+                        style={{ accentColor: 'var(--ac)' }}
                     />
                 )}
-                <span className="px-3 min-w-[3rem] h-10 bg-violet-100 text-violet-700 font-bold text-sm rounded-xl flex items-center justify-center whitespace-nowrap">{badge}</span>
-                <h3 className="font-semibold text-slate-100">{label}</h3>
+                <span className="px-3 min-w-[3rem] h-10 bg-[var(--act)] t-accent font-bold text-sm rounded-xl flex items-center justify-center whitespace-nowrap">{badge}</span>
+                <h3 className="font-semibold t-ink">{label}</h3>
                 <span className="ai-badge ml-auto">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -572,7 +574,7 @@ function FacadeCard({
                     <button
                         onClick={onDelete}
                         title="Supprimer cette façade"
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                        className="p-1.5 rounded-lg t-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -585,37 +587,36 @@ function FacadeCard({
             <div className={`grid gap-4 ${hideBefore ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-2'}`}>
                 {!hideBefore && (
                     <div>
-                        <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Photo Avant</p>
-                        <div className="rounded-xl overflow-hidden bg-slate-100 aspect-[3/2] flex items-center justify-center border border-slate-200/5">
+                        <p className="text-xs font-semibold t-muted mb-2 uppercase tracking-wide">Photo Avant</p>
+                        <div className="rounded-xl overflow-hidden bg-[var(--surface-2)] aspect-[3/2] flex items-center justify-center border border-[color:var(--line)]">
                             {before ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={before} alt="Avant" className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-slate-300 text-sm">Pas de photo</span>
+                                <span className="t-ink2 text-sm">Pas de photo</span>
                             )}
                         </div>
                     </div>
                 )}
                 <div>
-                    <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${hideBefore ? 'text-blue-500' : 'text-violet-500'}`}>{hideBefore ? 'Croquis Architectural' : 'Simulation Après'}</p>
+                    <p className={`text-xs font-semibold mb-2 uppercase tracking-wide ${hideBefore ? 't-accent' : 't-accent'}`}>{hideBefore ? 'Croquis Architectural' : 'Simulation Après'}</p>
                     {isGenerating ? (
                         <div className="rounded-xl overflow-hidden aspect-[3/2] flex flex-col items-center justify-center relative shadow-inner" style={{ background: 'rgba(45,90,76,0.04)', border: '1px dashed rgba(45,90,76,0.2)' }}>
                             <div className="text-center" style={{ color: '#2D5A4C' }}>
-                                <div className="w-8 h-8 border-2 border-violet-300 border-t-violet-500 rounded-full animate-spin mx-auto mb-3 shadow-[0_0_15px_rgba(45,90,76,0.3)]" />
+                                <div className="dp-spinner dp-spinner-lg mx-auto mb-3 shadow-[0_0_15px_rgba(45,90,76,0.3)]" />
                                 <span className="text-xs font-medium tracking-wide animate-pulse">Création de l'image en cours...</span>
                             </div>
                         </div>
                     ) : after ? (
                         <div className="flex flex-col gap-3">
-                            <div className="rounded-xl overflow-hidden aspect-[3/2] flex items-center justify-center relative shadow-inner" style={{ background: '#0f0f0f' }}>
+                            <div className="rounded-xl overflow-hidden aspect-[3/2] flex items-center justify-center relative shadow-inner" style={{ background: 'var(--surface-2)' }}>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={after} alt="Après" className="w-full h-full object-cover" />
                                 <div className="absolute bottom-3 right-3 flex items-center gap-2">
                                     <button
                                         onClick={() => downloadImage(after, `${badge}-simulation.png`)}
                                         title="Télécharger l'image"
-                                        className="px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-semibold transition-all hover:bg-black/80 text-white"
-                                        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                        className="dp-tool-btn px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-semibold transition-all"
                                     >
                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -626,8 +627,7 @@ function FacadeCard({
                                         <button
                                             onClick={onRemove}
                                             title="Supprimer cette image"
-                                            className="px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-semibold transition-all hover:bg-red-500/80 text-white"
-                                            style={{ background: 'rgba(239,68,68,0.4)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                            className="dp-tool-btn is-danger px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-semibold transition-all"
                                         >
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -641,9 +641,9 @@ function FacadeCard({
                                 <button
                                     onClick={() => setShowEditPanel(!showEditPanel)}
                                     title="Regénérer l'image"
-                                    className="px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-semibold transition-all text-white border border-violet-500/30"
+                                    className="px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-semibold transition-all text-white border border-[color:var(--acb)]"
                                     style={{
-                                        background: showEditPanel ? 'linear-gradient(135deg, #2D5A4C, #7c3aed)' : 'rgba(45,90,76,0.1)',
+                                        background: showEditPanel ? 'var(--ac)' : 'rgba(45,90,76,0.1)',
                                         boxShadow: showEditPanel ? '0 0 15px rgba(45,90,76,0.3)' : 'none'
                                     }}
                                 >
@@ -656,14 +656,14 @@ function FacadeCard({
                         </div>
                     ) : (
                         <div className="flex flex-col gap-3">
-                            <div className="rounded-xl overflow-hidden aspect-[3/2] flex flex-col items-center justify-center p-6 text-center relative border-2 border-dashed border-slate-800 bg-slate-900/40">
-                                <div className="w-10 h-10 rounded-full border border-slate-800/50 flex items-center justify-center mb-3">
-                                    <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="rounded-xl overflow-hidden aspect-[3/2] flex flex-col items-center justify-center p-6 text-center relative border-2 border-dashed border-[color:var(--line)] bg-[var(--surface-2)]">
+                                <div className="w-10 h-10 rounded-full border border-[color:var(--line)] flex items-center justify-center mb-3">
+                                    <svg className="w-5 h-5 t-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Simulation IA</p>
-                                <p className="text-[9px] text-slate-600 mt-1 max-w-[150px]">En attente de génération</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest t-muted">Simulation IA</p>
+                                <p className="text-[9px] t-ink2 mt-1 max-w-[150px]">En attente de génération</p>
                             </div>
                         </div>
                     )}
@@ -676,9 +676,9 @@ function FacadeCard({
             >
                 <div className="rounded-xl p-5 relative" style={{ background: 'linear-gradient(135deg, rgba(45,90,76,0.05), rgba(45,90,76,0.02))', border: '1px solid rgba(45,90,76,0.2)' }}>
                     <div className="absolute top-0 right-10 flex space-x-1 -translate-y-1/2">
-                        <div className="w-2 h-2 rounded-full bg-violet-400 opacity-50 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse" />
-                        <div className="w-2 h-2 rounded-full bg-violet-500 opacity-80 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse delay-75" />
-                        <div className="w-2 h-2 rounded-full bg-violet-600 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse delay-150" />
+                        <div className="w-2 h-2 rounded-full bg-[var(--acb)] opacity-50 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse" />
+                        <div className="w-2 h-2 rounded-full bg-[var(--ac)] opacity-80 shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse delay-75" />
+                        <div className="w-2 h-2 rounded-full bg-[var(--acd)] shadow-[0_0_5px_rgba(45,90,76,0.5)] animate-pulse delay-150" />
                     </div>
 
                     <p className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: '#2D5A4C' }}>
@@ -687,7 +687,7 @@ function FacadeCard({
                     </p>
                     <div className="flex gap-3 items-stretch">
                         <textarea
-                            className="dp-input flex-1 min-h-[60px] resize-none text-[13px] text-slate-200 placeholder-slate-500 !bg-black/30 mx-0 border-x-0 border-t-0 !border-b-2 !border-b-violet-500/30 focus:!bg-black/50 focus:!border-b-violet-400 focus:!ring-0 rounded-none rounded-t-xl px-4 py-3"
+                            className="dp-input flex-1 min-h-[60px] resize-none text-[13px] t-ink placeholder-[color:var(--faint)] !bg-[var(--field-ro)] mx-0 border-x-0 border-t-0 !border-b-2 !border-b-[color:var(--acb)] focus:!bg-[var(--field)] focus:!border-b-[color:var(--ac)] focus:!ring-0 rounded-none rounded-t-xl px-4 py-3"
                             placeholder="Ex : Remplace la porte par une grande baie vitrée."
                             value={prompt}
                             onChange={e => setPrompt(e.target.value)}
@@ -705,7 +705,7 @@ function FacadeCard({
                             style={{ background: 'linear-gradient(135deg, #2D5A4C, #244A3E)', color: 'white', boxShadow: '0 4px 15px rgba(45,90,76,0.3)' }}
                         >
                             {isGenerating ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <div className="dp-spinner dp-spinner-sm on-accent" />
                             ) : (
                                 <>
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1031,24 +1031,24 @@ export default function Etape6() {
             <div className="mb-12">
                 <div className="flex items-center justify-between relative px-2">
                     {/* Background Line */}
-                    <div className="absolute top-5 left-0 w-full h-[1px] bg-slate-800 -translate-y-1/2 z-0" />
-                    
+                    <div className="absolute top-5 left-0 w-full h-[1px] bg-[var(--line)] -translate-y-1/2 z-0" />
+
                     {steps.map((s, idx) => (
                         <div key={s.id} className="relative z-10 flex flex-col items-center gap-2 group cursor-pointer" onClick={() => (s.id < subStep || aiGenerated) && setSubStep(s.id)}>
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 border ${
-                                subStep === s.id ? 'bg-blue-600 border-blue-400 scale-110 shadow-[0_0_20px_rgba(45,90,76,0.4)]' :
-                                subStep > s.id ? 'bg-green-500/20 border-green-500/50' : 'bg-slate-900 border-slate-700'
+                            <div className={`dp-substep ${
+                                subStep === s.id ? 'is-current scale-110 shadow-[0_0_20px_rgba(45,90,76,0.4)]' :
+                                subStep > s.id ? 'is-done' : ''
                             }`}>
                                 {subStep > s.id ? (
-                                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 t-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                     </svg>
                                 ) : (
-                                    <span className={`text-xs font-bold ${subStep === s.id ? 'text-white' : 'text-slate-500'}`}>{s.id}</span>
+                                    <span className={`text-xs font-bold ${subStep === s.id ? 'text-white' : 't-muted'}`}>{s.id}</span>
                                 )}
                             </div>
                             <span className={`text-[9px] font-bold uppercase tracking-widest text-center max-w-[80px] leading-tight transition-colors ${
-                                subStep === s.id ? 'text-blue-400' : 'text-slate-600'
+                                subStep === s.id ? 't-accent' : 't-ink2'
                             }`}>
                                 {s.label}
                             </span>
@@ -1063,9 +1063,11 @@ export default function Etape6() {
         <>
             <div className="animate-fadeIn max-w-5xl mx-auto">
                 <div className="mb-8 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-3xl font-black text-white tracking-tight">PIÈCES GRAPHIQUES</h2>
-                        <p className="text-slate-500 mt-1.5 font-medium">Finalisation et génération du dossier administratif</p>
+                    <div className="dp-page-head">
+                        <div className="dp-eyebrow">Étape 06 / 07 · Plans</div>
+                        <h2 className="dp-page-title">Pièces <span className="accent">graphiques</span></h2>
+                        <p className="dp-page-sub">Finalisation et génération du dossier administratif</p>
+                        <div className="dp-rule" />
                     </div>
                 </div>
 
@@ -1075,9 +1077,9 @@ export default function Etape6() {
                     {/* SUB-STEP 1: DP1 */}
                     {subStep === 1 && (
                         <div className="space-y-8 animate-slideUp">
-                            <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6 mb-2">
-                                <h3 className="text-lg font-bold text-white mb-2">Plan de situation du terrain (DP1)</h3>
-                                <p className="text-sm text-slate-400 leading-relaxed">
+                            <div className="bg-[var(--act)] border border-[color:var(--acb)] rounded-2xl p-6 mb-2">
+                                <h3 className="text-lg font-bold t-ink mb-2">Plan de situation du terrain (DP1)</h3>
+                                <p className="text-sm t-ink2 leading-relaxed">
                                     Ce plan permet de situer précisément votre terrain dans la commune. Utilisez le curseur pour ajuster le zoom si nécessaire.
                                 </p>
                             </div>
@@ -1107,9 +1109,9 @@ export default function Etape6() {
                     {/* SUB-STEP 2: DP2 */}
                     {subStep === 2 && (
                         <div className="space-y-8 animate-slideUp">
-                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 mb-2">
-                                <h3 className="text-lg font-bold text-white mb-2">Plan de masse (DP2)</h3>
-                                <p className="text-sm text-slate-400 leading-relaxed">
+                            <div className="bg-[var(--act)] border border-[color:var(--acb)] rounded-2xl p-6 mb-2">
+                                <h3 className="text-lg font-bold t-ink mb-2">Plan de masse (DP2)</h3>
+                                <p className="text-sm t-ink2 leading-relaxed">
                                     Représentation graphique de l'emprise au sol des constructions et des limites du terrain. Les dimensions sont calculées automatiquement.
                                 </p>
                             </div>
@@ -1138,24 +1140,24 @@ export default function Etape6() {
                         <div className="space-y-6 animate-slideUp">
                             <div className="dp-card">
                                 <div className="flex items-center gap-3 mb-6">
-                                    <span className="w-12 h-12 bg-violet-500/10 text-violet-400 font-bold text-base rounded-2xl flex items-center justify-center border border-violet-500/20">DP4</span>
+                                    <span className="w-12 h-12 bg-[var(--act)] t-accent font-bold text-base rounded-2xl flex items-center justify-center border border-[color:var(--acb)]">DP4</span>
                                     <div>
-                                        <h3 className="font-bold text-white">Notice descriptive du projet</h3>
-                                        <p className="text-xs text-slate-500">Décrit l'état initial et les modifications projetées</p>
+                                        <h3 className="font-bold t-ink">Notice descriptive du projet</h3>
+                                        <p className="text-xs t-muted">Décrit l'état initial et les modifications projetées</p>
                                     </div>
                                     <button
                                         onClick={handleGenerateDP4}
                                         disabled={isGeneratingDP4}
-                                        className="ml-auto px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-violet-900/20"
+                                        className="dp-btn-primary ml-auto px-5 py-2.5 text-xs"
                                     >
                                         {isGeneratingDP4 ? (
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <div className="dp-spinner dp-spinner-sm on-accent" />
                                         ) : <span className="text-base">✨</span>}
                                         {isGeneratingDP4 ? 'Rédaction IA...' : 'Rédiger avec l\'IA'}
                                     </button>
                                 </div>
                                 <textarea
-                                    className="dp-input min-h-[400px] resize-y font-mono text-xs p-6 !bg-slate-900/30 border-slate-800"
+                                    className="dp-input min-h-[400px] resize-y font-mono text-xs p-6 !bg-[var(--field-ro)] border-[color:var(--line)]"
                                     value={dp4Notice}
                                     disabled={isGeneratingDP4}
                                     onChange={e => {
@@ -1179,14 +1181,14 @@ export default function Etape6() {
                     {/* SUB-STEP 4: SELECTION */}
                     {subStep === 4 && (
                         <div className="space-y-8 animate-slideUp">
-                            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 mb-4">
+                            <div className="bg-[var(--surface-2)] border border-[color:var(--line)] rounded-3xl p-8 mb-4">
                                 <div className="flex items-center gap-4 mb-3">
-                                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                    <div className="w-10 h-10 rounded-full bg-[var(--act)] flex items-center justify-center t-accent">
                                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                     </div>
-                                    <h3 className="text-xl font-bold text-white tracking-tight">Quelles façades souhaitez-vous transformer ?</h3>
+                                    <h3 className="text-xl font-bold t-ink tracking-tight">Quelles façades souhaitez-vous transformer ?</h3>
                                 </div>
-                                <p className="text-sm text-slate-400 leading-relaxed max-w-2xl">
+                                <p className="text-sm t-ink2 leading-relaxed max-w-2xl">
                                     Sélectionnez les photos pour lesquelles vous souhaitez générer une simulation IA (DP6). Toutes les simulations générées seront automatiquement converties en plans techniques (DP5).
                                 </p>
                             </div>
@@ -1212,7 +1214,7 @@ export default function Etape6() {
                                 ))}
                             </div>
 
-                            <div className="flex justify-between pt-8 border-t border-slate-800/50">
+                            <div className="flex justify-between pt-8 border-t border-[color:var(--line)]">
                                 <button onClick={() => setSubStep(3)} className="dp-btn-secondary">Retour</button>
                                 <button 
                                     onClick={() => setSubStep(5)} 
@@ -1232,34 +1234,34 @@ export default function Etape6() {
                     {subStep === 5 && (
                         <div className="space-y-12 animate-slideUp">
                             {/* Simple Generation Board */}
-                            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
+                            <div className="bg-[var(--surface-2)] border border-[color:var(--line)] rounded-3xl p-8">
                                 <div className="flex flex-col lg:flex-row gap-8 items-start">
                                     <div className="flex-1 space-y-4">
                                         <div>
-                                            <h3 className="text-xl font-bold text-white mb-1">SIMULATION IA (DP6)</h3>
-                                            <p className="text-slate-500 text-xs">Décrivez les modifications pour générer l'insertion paysagère</p>
+                                            <h3 className="text-xl font-bold t-ink mb-1">SIMULATION IA (DP6)</h3>
+                                            <p className="t-muted text-xs">Décrivez les modifications pour générer l'insertion paysagère</p>
                                         </div>
                                         <textarea
-                                            className="w-full min-h-[120px] bg-black/30 border border-slate-700 focus:border-blue-500 rounded-2xl p-5 text-white placeholder-slate-600 transition-all outline-none text-sm"
+                                            className="w-full min-h-[120px] bg-[var(--field)] border border-[color:var(--line-3)] focus:border-[color:var(--ac)] rounded-2xl p-5 t-ink placeholder-[color:var(--faint)] transition-all outline-none text-sm"
                                             placeholder="Ex: Remplacer le portail actuel par un modèle en aluminium noir..."
                                             value={aiInstruction}
                                             onChange={e => setAiInstruction(e.target.value)}
                                         />
                                     </div>
                                     <div className="w-full lg:w-[280px] space-y-4">
-                                        <div className="bg-white/5 rounded-2xl p-5 border border-white/5 space-y-2">
+                                        <div className="bg-[var(--surface-2)] rounded-2xl p-5 border border-[color:var(--line)] space-y-2">
                                             <div className="flex justify-between text-[11px] font-medium">
-                                                <span className="text-slate-500 uppercase tracking-widest">Photos sélectionnées</span>
-                                                <span className="text-white font-bold">{selectedFacades.length}</span>
+                                                <span className="t-muted uppercase tracking-widest">Photos sélectionnées</span>
+                                                <span className="t-ink font-bold">{selectedFacades.length}</span>
                                             </div>
                                         </div>
                                         <button
                                             onClick={() => handleGenerateAIFirst()}
                                             disabled={isGeneratingAI || selectedFacades.length === 0}
-                                            className="w-full h-14 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-40"
+                                            className="dp-btn-primary w-full h-14 justify-center active:scale-95 disabled:opacity-40"
                                         >
                                             {isGeneratingAI ? (
-                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                <div className="dp-spinner dp-spinner-sm on-accent" />
                                             ) : <span className="text-xl">✨</span>}
                                             {isGeneratingAI ? 'Génération...' : `Lancer la simulation`}
                                         </button>
@@ -1267,14 +1269,14 @@ export default function Etape6() {
                                             <button
                                                 onClick={() => handleGenerateAIFirst(undefined, undefined, true)}
                                                 disabled={isGeneratingAI}
-                                                className="w-full text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40"
+                                                className="w-full text-xs font-semibold t-muted hover:t-ink2 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40"
                                                 title="Régénérer toutes les simulations (sinon les images déjà générées sont conservées)"
                                             >
                                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                                 Tout régénérer
                                             </button>
                                         )}
-                                        <p className="text-[10px] text-slate-600 text-center leading-snug">Les images générées sont conservées ; relancez seulement pour les façades sans simulation.</p>
+                                        <p className="text-[10px] t-ink2 text-center leading-snug">Les images générées sont conservées ; relancez seulement pour les façades sans simulation.</p>
                                     </div>
                                 </div>
                             </div>
@@ -1284,33 +1286,33 @@ export default function Etape6() {
                                 {formData.photos.facades.filter(f => selectedFacades.includes(f.id)).map((f) => (
                                     <div key={f.id} className="group">
                                         <div className="flex items-center gap-4 mb-6">
-                                            <div className="h-8 w-[2px] bg-blue-500" />
-                                            <h4 className="text-xl font-bold text-white tracking-tight">{f.label}</h4>
+                                            <div className="h-8 w-[2px] bg-[var(--acb)]" />
+                                            <h4 className="text-xl font-bold t-ink tracking-tight">{f.label}</h4>
                                         </div>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                                             {/* Before */}
                                             <div className="space-y-3">
                                                 <div className="flex justify-between items-center px-1">
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">État Actuel</span>
+                                                    <span className="text-[10px] font-black t-muted uppercase tracking-widest">État Actuel</span>
                                                 </div>
-                                                <div className="aspect-[3/2] rounded-[2rem] overflow-hidden border border-slate-800 bg-slate-900/50">
+                                                <div className="aspect-[3/2] rounded-[2rem] overflow-hidden border border-[color:var(--line)] bg-[var(--surface-2)]">
                                                     {f.before && <img src={f.before} className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-700" alt="Avant" />}
                                                 </div>
                                             </div>
                                             {/* After */}
                                             <div className="space-y-3">
                                                 <div className="flex justify-between items-center px-1">
-                                                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Projet (Simulation DP6)</span>
-                                                    {f.after && <span className="text-[10px] font-bold text-green-400 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Prêt</span>}
+                                                    <span className="text-[10px] font-black t-accent uppercase tracking-widest">Projet (Simulation DP6)</span>
+                                                    {f.after && <span className="text-[10px] font-bold t-ok flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Prêt</span>}
                                                 </div>
                                                 <div className="relative aspect-[3/2] rounded-[2rem] overflow-hidden transition-all duration-500">
                                                     {generatingFacades.includes(f.id) ? (
-                                                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 border-2 border-slate-800 rounded-[2rem] animate-pulse">
-                                                            <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-                                                            <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Génération IA...</span>
+                                                        <div className="w-full h-full flex flex-col items-center justify-center bg-[var(--surface-2)] border-2 border-[color:var(--line)] rounded-[2rem] animate-pulse">
+                                                            <div className="dp-spinner dp-spinner-lg mb-4" />
+                                                            <span className="text-xs font-bold t-accent uppercase tracking-widest">Génération IA...</span>
                                                         </div>
                                                     ) : f.after ? (
-                                                        <div className="relative w-full h-full group/res overflow-hidden rounded-[2rem] border-2 border-blue-500/30">
+                                                        <div className="relative w-full h-full group/res overflow-hidden rounded-[2rem] border-2 border-[color:var(--acb)]">
                                                             <img src={f.after} className="w-full h-full object-cover" alt="Après" />
                                                             
                                                             {/* Result Controls Overlay */}
@@ -1318,14 +1320,14 @@ export default function Etape6() {
                                                                 <div className="flex flex-wrap gap-2 justify-center">
                                                                     <button
                                                                         onClick={() => downloadImage(f.after!, `${f.label}-resultat.png`)}
-                                                                        className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-xl text-[10px] font-bold border border-white/20 transition-all flex items-center gap-2"
+                                                                        className="dp-tool-btn px-4 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center gap-2"
                                                                     >
                                                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                                                         Télécharger
                                                                     </button>
                                                                     <button
                                                                         onClick={() => setShowModifyInput({[f.id]: 'dp6'})}
-                                                                        className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/60 backdrop-blur-md text-white rounded-xl text-[10px] font-bold border border-blue-500/30 transition-all flex items-center gap-2"
+                                                                        className="dp-tool-btn px-4 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center gap-2"
                                                                     >
                                                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                                                         Modifier
@@ -1335,7 +1337,7 @@ export default function Etape6() {
                                                                             const newFacades = formData.photos.facades.map(nf => nf.id === f.id ? { ...nf, after: null, croquis: null } : nf)
                                                                             updatePhotos({ facades: newFacades })
                                                                         }}
-                                                                        className="px-4 py-2 bg-red-500/20 hover:bg-red-500/60 backdrop-blur-md text-white rounded-xl text-[10px] font-bold border border-red-500/30 transition-all flex items-center gap-2"
+                                                                        className="dp-tool-btn is-danger px-4 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center gap-2"
                                                                     >
                                                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                                         Supprimer
@@ -1345,25 +1347,25 @@ export default function Etape6() {
 
                                                             {/* Inline Modification Input */}
                                                             {showModifyInput[f.id] === 'dp6' && (
-                                                                <div className="absolute inset-x-4 bottom-4 bg-slate-900/95 backdrop-blur-xl border border-blue-500/50 rounded-2xl p-4 animate-slideUp shadow-2xl z-20">
+                                                                <div className="absolute inset-x-4 bottom-4 backdrop-blur-xl border border-[color:var(--acb)] rounded-2xl p-4 animate-slideUp shadow-2xl z-20" style={{ background: 'var(--surface)' }}>
                                                                     <div className="flex flex-col gap-3">
                                                                         <div className="flex justify-between items-center">
-                                                                            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Modification Simulation</span>
-                                                                            <button onClick={() => setShowModifyInput({})} className="text-slate-500 hover:text-white transition-colors">
+                                                                            <span className="text-[10px] font-black t-accent uppercase tracking-widest">Modification Simulation</span>
+                                                                            <button onClick={() => setShowModifyInput({})} className="t-muted hover:t-ink transition-colors">
                                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                                                             </button>
                                                                         </div>
-                                                                        <textarea 
+                                                                        <textarea
                                                                             autoFocus
                                                                             value={aiInstruction}
                                                                             onChange={(e) => setAiInstruction(e.target.value)}
-                                                                            className="bg-black/40 border border-slate-800 focus:border-blue-500 rounded-xl px-3 py-2 text-xs text-white outline-none resize-none transition-all"
+                                                                            className="bg-[var(--field)] border border-[color:var(--line)] focus:border-[color:var(--ac)] rounded-xl px-3 py-2 text-xs t-ink outline-none resize-none transition-all"
                                                                             rows={2}
                                                                             placeholder="Décrivez les changements..."
                                                                         />
                                                                         <button
                                                                             onClick={() => handleGenerateAIFirst(f.id, aiInstruction)}
-                                                                            className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                                                                            className="dp-btn-primary w-full py-2 text-[10px] justify-center"
                                                                         >
                                                                             <span className="text-xs">✨</span> Régénérer Simulation
                                                                         </button>
@@ -1372,15 +1374,15 @@ export default function Etape6() {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-[2rem] bg-slate-900/40 text-slate-600 transition-colors">
+                                                        <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-[color:var(--line)] rounded-[2rem] bg-[var(--surface-2)] t-ink2 transition-colors">
                                                             {isGeneratingAI && selectedFacades.includes(f.id) ? (
                                                                 <div className="flex flex-col items-center">
-                                                                    <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+                                                                    <div className="dp-spinner dp-spinner-lg mb-4" />
                                                                     <span className="text-[10px] font-black uppercase tracking-widest">Initialisation...</span>
                                                                 </div>
                                                             ) : (
                                                                 <>
-                                                                    <div className="w-12 h-12 rounded-full border border-slate-800/50 flex items-center justify-center mb-4">
+                                                                    <div className="w-12 h-12 rounded-full border border-[color:var(--line)] flex items-center justify-center mb-4">
                                                                         <svg className="w-6 h-6 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                                                     </div>
                                                                     <span className="text-[10px] font-black uppercase tracking-[0.25em]">En attente de génération</span>
@@ -1395,7 +1397,7 @@ export default function Etape6() {
                                 ))}
                             </div>
 
-                            <div className="flex justify-between pt-12 border-t border-slate-800">
+                            <div className="flex justify-between pt-12 border-t border-[color:var(--line)]">
                                 <button onClick={() => setSubStep(4)} className="dp-btn-secondary">Retour à la sélection</button>
                                 <button 
                                     onClick={() => setSubStep(6)} 
@@ -1414,20 +1416,20 @@ export default function Etape6() {
                     {/* SUB-STEP 6: DP5 (CROQUIS) */}
                     {subStep === 6 && (
                         <div className="space-y-12 animate-slideUp">
-                            <div className="bg-blue-600/10 border border-blue-500/30 rounded-[2rem] p-10 flex flex-col lg:flex-row items-center justify-between gap-10">
+                            <div className="bg-[var(--act)] border border-[color:var(--acb)] rounded-[2rem] p-10 flex flex-col lg:flex-row items-center justify-between gap-10">
                                 <div className="max-w-xl">
-                                    <h3 className="text-2xl font-black text-white mb-3 tracking-tight uppercase">PLANS DES FAÇADES (DP5)</h3>
-                                    <p className="text-blue-200/70 text-sm leading-relaxed">
+                                    <h3 className="text-2xl font-black t-ink mb-3 tracking-tight uppercase">PLANS DES FAÇADES (DP5)</h3>
+                                    <p className="t-ink2 text-sm leading-relaxed">
                                         Conversion automatique de vos simulations IA en croquis techniques 2D conformes aux exigences administratives.
                                     </p>
                                 </div>
                                 <button
                                     onClick={() => handleGenerateAICroquis()}
                                     disabled={isGeneratingCroquis}
-                                    className="px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-900/40 transition-all flex items-center gap-3 whitespace-nowrap"
+                                    className="dp-btn-primary px-10 py-5 whitespace-nowrap"
                                 >
                                     {isGeneratingCroquis ? (
-                                        <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <div className="dp-spinner dp-spinner-sm on-accent" />
                                     ) : <span className="text-xl">🎨</span>}
                                     {isGeneratingCroquis ? 'Conversion...' : 'Régénérer les croquis'}
                                 </button>
@@ -1436,17 +1438,17 @@ export default function Etape6() {
                             <div className="grid grid-cols-1 gap-16">
                                 {formData.photos.facades.filter(f => f.after).map((f) => (
                                     <div key={f.id} className="space-y-8">
-                                        <h4 className="text-xl font-bold text-white border-l-4 border-blue-500 pl-4">{f.label}</h4>
+                                        <h4 className="text-xl font-bold t-ink border-l-4 border-[color:var(--acb)] pl-4">{f.label}</h4>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                            <div className="aspect-[3/2] rounded-[2rem] overflow-hidden border border-slate-800 relative bg-slate-900">
+                                            <div className="aspect-[3/2] rounded-[2rem] overflow-hidden border border-[color:var(--line)] relative bg-[var(--surface-2)]">
                                                 <img src={f.after!} className="w-full h-full object-cover opacity-40 grayscale" alt="Base Simulation" />
                                                 <div className="absolute top-6 left-6 px-3 py-1 bg-black/40 backdrop-blur-md rounded-lg text-[10px] font-bold text-white uppercase tracking-widest border border-white/10">Base IA</div>
                                             </div>
-                                            <div className="aspect-[3/2] rounded-[2rem] overflow-hidden border-2 border-blue-500/30 relative bg-white flex items-center justify-center p-8 group/res">
+                                            <div className="aspect-[3/2] rounded-[2rem] overflow-hidden border-2 border-[color:var(--acb)] relative bg-white flex items-center justify-center p-8 group/res">
                                                 {generatingFacades.includes(f.id) ? (
                                                     <div className="text-center">
-                                                        <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-                                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rendu Vectoriel...</span>
+                                                        <div className="dp-spinner dp-spinner-lg mx-auto mb-4" />
+                                                        <span className="text-xs font-bold t-ink2 uppercase tracking-widest">Rendu Vectoriel...</span>
                                                     </div>
                                                 ) : f.croquis ? (
                                                     <>
@@ -1457,14 +1459,14 @@ export default function Etape6() {
                                                             <div className="flex flex-wrap gap-2 justify-center">
                                                                 <button
                                                                     onClick={() => downloadImage(f.croquis!, `${f.label}-croquis.png`)}
-                                                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-xl text-[10px] font-bold border border-white/20 transition-all flex items-center gap-2"
+                                                                    className="dp-tool-btn px-4 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center gap-2"
                                                                 >
                                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                                                     Télécharger
                                                                 </button>
                                                                 <button
                                                                     onClick={() => setShowModifyInput({[f.id]: 'dp5'})}
-                                                                    className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/60 backdrop-blur-md text-white rounded-xl text-[10px] font-bold border border-blue-500/30 transition-all flex items-center gap-2"
+                                                                    className="dp-tool-btn px-4 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center gap-2"
                                                                 >
                                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                                                     Modifier
@@ -1474,7 +1476,7 @@ export default function Etape6() {
                                                                         const newFacades = formData.photos.facades.map(nf => nf.id === f.id ? { ...nf, croquis: null } : nf)
                                                                         updatePhotos({ facades: newFacades })
                                                                     }}
-                                                                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/60 backdrop-blur-md text-white rounded-xl text-[10px] font-bold border border-red-500/30 transition-all flex items-center gap-2"
+                                                                    className="dp-tool-btn is-danger px-4 py-2 rounded-xl text-[10px] font-bold transition-all flex items-center gap-2"
                                                                 >
                                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                                     Supprimer
@@ -1484,25 +1486,25 @@ export default function Etape6() {
 
                                                         {/* Inline Modification Input for DP5 */}
                                                         {showModifyInput[f.id] === 'dp5' && (
-                                                            <div className="absolute inset-x-4 bottom-4 bg-slate-900/95 backdrop-blur-xl border border-blue-500/50 rounded-2xl p-4 animate-slideUp shadow-2xl z-20">
+                                                            <div className="absolute inset-x-4 bottom-4 backdrop-blur-xl border border-[color:var(--acb)] rounded-2xl p-4 animate-slideUp shadow-2xl z-20" style={{ background: 'var(--surface)' }}>
                                                                 <div className="flex flex-col gap-3">
                                                                     <div className="flex justify-between items-center">
-                                                                        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Affinage croquis (DP5)</span>
-                                                                        <button onClick={() => setShowModifyInput({})} className="text-slate-500 hover:text-white transition-colors">
+                                                                        <span className="text-[10px] font-black t-accent uppercase tracking-widest">Affinage croquis (DP5)</span>
+                                                                        <button onClick={() => setShowModifyInput({})} className="t-muted hover:t-ink transition-colors">
                                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                                                         </button>
                                                                     </div>
-                                                                    <input 
+                                                                    <input
                                                                         autoFocus
                                                                         type="text"
                                                                         placeholder="Ex: Préciser 'RAL 7016' sur le texte..."
-                                                                        className="bg-black/40 border border-slate-800 focus:border-blue-500 rounded-xl px-3 py-2 text-xs text-white outline-none transition-all"
+                                                                        className="bg-[var(--field)] border border-[color:var(--line)] focus:border-[color:var(--ac)] rounded-xl px-3 py-2 text-xs t-ink outline-none transition-all"
                                                                         value={croquisInstructions[f.id] || ''}
                                                                         onChange={(e) => setCroquisInstructions({...croquisInstructions, [f.id]: e.target.value})}
                                                                     />
                                                                     <button
                                                                         onClick={() => handleGenerateAICroquis(f.id, croquisInstructions[f.id])}
-                                                                        className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                                                                        className="dp-btn-primary w-full py-2 text-[10px] justify-center"
                                                                     >
                                                                         <span className="text-xs">🎨</span> Régénérer Croquis
                                                                     </button>
@@ -1511,21 +1513,21 @@ export default function Etape6() {
                                                         )}
                                                     </>
                                                 ) : (
-                                                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-8 w-full h-full bg-slate-50">
+                                                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-[color:var(--line-2)] rounded-2xl p-8 w-full h-full bg-[var(--surface-2)]">
                                                         {(isGeneratingCroquis || isGeneratingAI) && selectedFacades.includes(f.id) ? (
                                                             <div className="text-center">
-                                                                <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">En attente...</span>
+                                                                <div className="dp-spinner dp-spinner-lg mx-auto mb-4" />
+                                                                <span className="text-[10px] font-bold t-ink2 uppercase tracking-widest">En attente...</span>
                                                             </div>
                                                         ) : (
                                                             <>
-                                                                <svg className="w-10 h-10 text-slate-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Croquis en attente</span>
+                                                                <svg className="w-10 h-10 t-faint mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                                <span className="text-[10px] font-black t-faint uppercase tracking-widest">Croquis en attente</span>
                                                             </>
                                                         )}
                                                     </div>
                                                 )}
-                                                <div className="absolute top-6 right-6 px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest">DP5</div>
+                                                <div className="absolute top-6 right-6 px-3 py-1 bg-[var(--ac)] text-white rounded-lg text-[10px] font-black uppercase tracking-widest">DP5</div>
                                             </div>
                                         </div>
                                         
@@ -1533,9 +1535,9 @@ export default function Etape6() {
                                 ))}
                             </div>
 
-                            <div className="flex justify-between pt-12 border-t border-slate-800">
+                            <div className="flex justify-between pt-12 border-t border-[color:var(--line)]">
                                 <button onClick={() => setSubStep(5)} className="dp-btn-secondary">Retour</button>
-                                <button onClick={() => router.push('/etape/7')} className="group px-12 py-5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-green-900/40 transition-all flex items-center gap-3">
+                                <button onClick={() => router.push('/etape/7')} className="dp-btn-primary group px-12 py-5">
                                     Finaliser le dossier
                                     <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7-7 7" />
@@ -1547,8 +1549,8 @@ export default function Etape6() {
                 </div>
 
                 {/* Return navigation */}
-                <div className="flex justify-start mt-16 pt-8 border-t border-slate-900">
-                    <button onClick={() => router.push('/etape/5')} className="text-slate-600 hover:text-slate-400 text-sm font-bold flex items-center gap-3 transition-colors uppercase tracking-widest">
+                <div className="flex justify-start mt-16 pt-8 border-t border-[color:var(--line)]">
+                    <button onClick={() => router.push('/etape/5')} className="t-ink2 hover:t-ink text-sm font-bold flex items-center gap-3 transition-colors uppercase tracking-widest">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
                         Retour aux photos
                     </button>

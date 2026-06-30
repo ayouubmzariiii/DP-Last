@@ -32,9 +32,9 @@ const TRAVAUX_TYPES = [
 ]
 
 const COLOR_MAP_ACTIVE: Record<string, React.CSSProperties> = {
-    blue: { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.18)', color: '#2D5A4C' },
-    emerald: { borderColor: '#10b981', background: 'rgba(16,185,129,0.18)', color: '#6ee7b7' },
-    amber: { borderColor: '#f59e0b', background: 'rgba(245,158,11,0.18)', color: '#8A6D1F' },
+    blue: { borderColor: 'var(--ac)', background: 'var(--act)', color: 'var(--ac)' },
+    emerald: { borderColor: 'var(--ac)', background: 'var(--act)', color: 'var(--acd)' },
+    amber: { borderColor: 'var(--ac)', background: 'var(--act)', color: 'var(--acd)' },
 }
 
 import React from 'react'
@@ -65,9 +65,11 @@ export default function Etape3() {
     return (
         <>
             <div className="animate-fadeIn">
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-white">Type de travaux</h2>
-                    <p className="text-slate-500 mt-1">Sélectionnez le type de travaux concernés par votre demande</p>
+                <div className="dp-page-head">
+                    <div className="dp-eyebrow">Étape 03 / 07 · Travaux</div>
+                    <h2 className="dp-page-title">Type de <span className="accent">travaux</span></h2>
+                    <p className="dp-page-sub">Sélectionnez le type de travaux concernés par votre demande</p>
+                    <div className="dp-rule" />
                 </div>
 
                 <div className="space-y-6">
@@ -82,16 +84,16 @@ export default function Etape3() {
                                 style={t.type === item.id ? COLOR_MAP_ACTIVE[item.color] : {}}
                             >
                                 {t.type === item.id && (
-                                    <div className="absolute top-3 right-3 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                                        <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'var(--ac)' }}>
+                                        <svg className="w-3.5 h-3.5" style={{ color: 'var(--surface)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                         </svg>
                                     </div>
                                 )}
                                 <div className="text-3xl mb-3">{item.icon}</div>
-                                <div className="font-bold text-white mb-1">{item.title}</div>
-                                <div className="text-xs font-semibold text-slate-400 mb-2">{item.subtitle}</div>
-                                <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
+                                <div className="font-bold t-ink mb-1">{item.title}</div>
+                                <div className="text-xs font-semibold t-ink2 mb-2">{item.subtitle}</div>
+                                <p className="text-xs t-ink2 leading-relaxed">{item.desc}</p>
                             </button>
                         ))}
                     </div>
@@ -139,10 +141,7 @@ export default function Etape3() {
                                         {[true, false].map(v => (
                                             <button key={String(v)} type="button"
                                                 onClick={() => updateMen({ remplacement: v })}
-                                                className="px-4 py-2 rounded-lg border-2 text-sm font-semibold transition-all"
-                                                style={t.menuiseries?.remplacement === v
-                                                    ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.2)', color: '#2D5A4C' }
-                                                    : { borderColor: 'rgba(148,163,184,0.25)', color: '#94a3b8' }}>
+                                                className={`toggle-btn ${t.menuiseries?.remplacement === v ? 'active' : ''}`}>
                                                 {v ? 'Oui' : 'Non, création'}
                                             </button>
                                         ))}
@@ -152,7 +151,7 @@ export default function Etape3() {
                                     <label className="dp-label">Dimensions (largeur × hauteur en cm)</label>
                                     <div className="flex gap-3">
                                         <input className="dp-input" placeholder="Largeur (cm)" type="number" value={t.menuiseries?.largeur || ''} onChange={e => updateMen({ largeur: e.target.value })} />
-                                        <span className="flex items-center text-slate-400 font-semibold">×</span>
+                                        <span className="flex items-center t-ink2 font-semibold">×</span>
                                         <input className="dp-input" placeholder="Hauteur (cm)" type="number" value={t.menuiseries?.hauteur || ''} onChange={e => updateMen({ hauteur: e.target.value })} />
                                     </div>
                                 </div>
@@ -199,10 +198,7 @@ export default function Etape3() {
                                                         const existing = t.isolation?.facades_concernees || []
                                                         updateIso({ facades_concernees: selected ? existing.filter(x => x !== f) : [...existing, f] })
                                                     }}
-                                                    className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
-                                                    style={selected
-                                                        ? { borderColor: '#10b981', background: 'rgba(16,185,129,0.18)', color: '#6ee7b7' }
-                                                        : { borderColor: 'rgba(148,163,184,0.25)', color: '#94a3b8' }}>
+                                                    className={`toggle-btn ${selected ? 'active' : ''}`}>
                                                     {f}
                                                 </button>
                                             )
@@ -257,12 +253,9 @@ export default function Etape3() {
                                         ].map(opt => (
                                             <button key={opt.val} type="button"
                                                 onClick={() => updatePV({ integration: opt.val as 'surimposition' | 'integration' })}
-                                                className="p-4 rounded-xl border-2 text-left transition-all"
-                                                style={t.photovoltaique?.integration === opt.val
-                                                    ? { borderColor: '#f59e0b', background: 'rgba(245,158,11,0.18)' }
-                                                    : { borderColor: 'rgba(148,163,184,0.25)' }}>
-                                                <div className="font-semibold text-sm text-white">{opt.label}</div>
-                                                <div className="text-xs text-slate-400 mt-0.5">{opt.desc}</div>
+                                                className={`toggle-btn text-left ${t.photovoltaique?.integration === opt.val ? 'active' : ''}`}>
+                                                <div className="font-semibold text-sm t-ink">{opt.label}</div>
+                                                <div className="text-xs t-ink2 mt-0.5">{opt.desc}</div>
                                             </button>
                                         ))}
                                     </div>
@@ -273,12 +266,12 @@ export default function Etape3() {
 
                     {/* Section Commune: Projet & Surfaces */}
                     {t.type && (
-                        <div className="dp-card animate-fadeIn mt-6" style={{ borderColor: 'rgba(45,90,76,0.3)', background: 'linear-gradient(180deg, rgba(45,90,76,0.05) 0%, transparent 100%)' }}>
+                        <div className="dp-card animate-fadeIn mt-6" style={{ borderColor: 'var(--acb)' }}>
                             <div className="flex items-center gap-3 mb-5">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-purple-500/20 text-purple-400">📝</div>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: 'var(--act)', color: 'var(--ac)' }}>📝</div>
                                 <div>
-                                    <h3 className="font-bold text-white text-lg">Description & Surfaces</h3>
-                                    <p className="text-xs text-slate-400">Informations générales sur le projet</p>
+                                    <h3 className="font-bold t-ink text-lg">Description & Surfaces</h3>
+                                    <p className="text-xs t-ink2">Informations générales sur le projet</p>
                                 </div>
                             </div>
 
@@ -294,7 +287,7 @@ export default function Etape3() {
                                         value={t.description_projet || ''}
                                         onChange={e => updateTravaux({ description_projet: e.target.value })}
                                         rows={4}
-                                        className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 focus:bg-slate-800 transition-all outline-none"
+                                        className="dp-input"
                                         placeholder={
                                             t.type === 'menuiseries' ? 'Ex: Remplacement des 4 fenêtres bois par du PVC blanc RAL 9016. Pose en rénovation.' :
                                             t.type === 'isolation' ? 'Ex: Application d\'un enduit grésé ton pierre. Pose de bardage bois naturel sur le pignon droit.' :
@@ -313,10 +306,7 @@ export default function Etape3() {
                                         ].map(opt => (
                                             <button key={opt.val} type="button"
                                                 onClick={() => updateField('projet_concerne', opt.val)}
-                                                className="flex-1 py-2.5 px-4 rounded-xl border-2 text-sm font-semibold transition-all"
-                                                style={formData.projet_concerne === opt.val
-                                                    ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.18)', color: '#2D5A4C' }
-                                                    : { borderColor: 'rgba(148,163,184,0.25)', color: '#94a3b8' }}>
+                                                className={`toggle-btn flex-1 ${formData.projet_concerne === opt.val ? 'active' : ''}`}>
                                                 {opt.label}
                                             </button>
                                         ))}
@@ -326,28 +316,28 @@ export default function Etape3() {
                                 <div>
                                     <label className="dp-label mb-3 block">Surfaces de plancher (en m²)</label>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
-                                            <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Existante avant travaux</label>
+                                        <div className="rounded-xl p-3" style={{ background: 'var(--field)', border: '1px solid var(--line-3)' }}>
+                                            <label className="text-xs t-ink2 font-semibold mb-1.5 block">Existante avant travaux</label>
                                             <input
-                                                className="w-full bg-transparent border-b border-slate-700 focus:border-purple-500 text-white pb-1 outline-none transition-colors"
+                                                className="dp-input"
                                                 type="number"
                                                 value={t.surfaces?.existante || ''}
                                                 onChange={e => updateTravaux({ surfaces: { ...t.surfaces, existante: e.target.value } as any })}
                                             />
                                         </div>
-                                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
-                                            <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Créée</label>
+                                        <div className="rounded-xl p-3" style={{ background: 'var(--field)', border: '1px solid var(--line-3)' }}>
+                                            <label className="text-xs t-ink2 font-semibold mb-1.5 block">Créée</label>
                                             <input
-                                                className="w-full bg-transparent border-b border-slate-700 focus:border-purple-500 text-white pb-1 outline-none transition-colors"
+                                                className="dp-input"
                                                 type="number"
                                                 value={t.surfaces?.creee || ''}
                                                 onChange={e => updateTravaux({ surfaces: { ...t.surfaces, creee: e.target.value } as any })}
                                             />
                                         </div>
-                                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
-                                            <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Supprimée</label>
+                                        <div className="rounded-xl p-3" style={{ background: 'var(--field)', border: '1px solid var(--line-3)' }}>
+                                            <label className="text-xs t-ink2 font-semibold mb-1.5 block">Supprimée</label>
                                             <input
-                                                className="w-full bg-transparent border-b border-slate-700 focus:border-purple-500 text-white pb-1 outline-none transition-colors"
+                                                className="dp-input"
                                                 type="number"
                                                 value={t.surfaces?.supprimee || ''}
                                                 onChange={e => updateTravaux({ surfaces: { ...t.surfaces, supprimee: e.target.value } as any })}
@@ -361,11 +351,11 @@ export default function Etape3() {
 
                     {/* Validation summary */}
                     {stepFatals.length > 0 && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                            <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-1.5">Informations requises avant de continuer</p>
+                        <div className="dp-alert is-error">
+                            <p className="dp-alert-title">Informations requises avant de continuer</p>
                             <ul className="space-y-1">
                                 {stepFatals.map(i => (
-                                    <li key={i.id} className="text-sm text-red-300 flex items-start gap-2"><span>✗</span>{i.message}</li>
+                                    <li key={i.id} className="text-sm t-error flex items-start gap-2"><span>✗</span>{i.message}</li>
                                 ))}
                             </ul>
                         </div>

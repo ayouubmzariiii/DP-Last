@@ -114,9 +114,11 @@ export default function Etape2() {
     return (
         <>
             <div className="animate-fadeIn">
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-white">Informations sur le terrain</h2>
-                    <p className="text-slate-500 mt-1">Localisation et références cadastrales du terrain objet des travaux</p>
+                <div className="dp-page-head">
+                    <span className="dp-eyebrow">Étape 02 / 07 · Terrain</span>
+                    <h2 className="dp-page-title">Informations sur le terrain</h2>
+                    <p className="dp-page-sub">Localisation et références cadastrales du terrain objet des travaux</p>
+                    <div className="dp-rule" />
                 </div>
 
                 <div className="space-y-6">
@@ -130,10 +132,7 @@ export default function Etape2() {
                                     key={String(val)}
                                     type="button"
                                     onClick={() => handleSameAddress(val)}
-                                    className="flex-1 py-3 px-4 rounded-xl border-2 text-sm font-semibold transition-all"
-                                    style={t.meme_adresse === val
-                                        ? { borderColor: '#2D5A4C', background: 'rgba(45,90,76,0.2)', color: '#2D5A4C' }
-                                        : { borderColor: 'rgba(148,163,184,0.3)', color: '#94a3b8' }}
+                                    className={`toggle-btn flex-1 ${t.meme_adresse === val ? 'active' : ''}`}
                                 >
                                     {val ? '📍 Identique à mon adresse' : '🗺️ Adresse différente'}
                                 </button>
@@ -159,13 +158,13 @@ export default function Etape2() {
                                              fetchPLUForCoords(addr.coords)
                                          }}
                                     />
-                                    <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">Recherche certifiée par l'API Adresse du Gouvernement</p>
+                                    <p className="dp-meta mt-1">Recherche certifiée par l'API Adresse du Gouvernement</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="dp-form-group">
                                         <label className="dp-label">Voie (extraite)</label>
-                                        <input className="dp-input bg-slate-900/50 text-slate-400" readOnly value={t.adresse} />
+                                        <input className="dp-input" readOnly value={t.adresse} />
                                     </div>
                                     <div className="dp-form-group">
                                         <label className="dp-label">Lieu-dit</label>
@@ -177,7 +176,7 @@ export default function Etape2() {
                                     <div className="dp-form-group">
                                         <label className="dp-label">Code postal</label>
                                         <input
-                                            className="dp-input bg-slate-900/50 text-slate-400"
+                                            className="dp-input"
                                             readOnly
                                             value={t.code_postal}
                                         />
@@ -185,7 +184,7 @@ export default function Etape2() {
                                     <div className="dp-form-group md:col-span-2">
                                         <label className="dp-label">Commune</label>
                                         <input
-                                            className="dp-input bg-slate-900/50 text-slate-400"
+                                            className="dp-input"
                                             readOnly
                                             value={t.commune}
                                         />
@@ -195,7 +194,7 @@ export default function Etape2() {
                         )}
 
                         {t.meme_adresse && d.adresse && (
-                            <div className="rounded-xl px-4 py-3 text-sm font-medium" style={{ background: 'rgba(45,90,76,0.15)', color: '#2D5A4C', border: '1px solid rgba(45,90,76,0.3)' }}>
+                            <div className="info-box info-box-green">
                                 📍 {d.adresse}, {d.code_postal} {d.commune}
                             </div>
                         )}
@@ -204,7 +203,7 @@ export default function Etape2() {
                     {/* Localisation confirmée — the PLU/urbanism analysis runs at l'étape 4 (Analyse PLU),
                         after the works are declared, so the constraints can be checked against the project. */}
                     {t.coords && (
-                        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl" style={{ background: '#E8F0EC', border: '1px solid #CFE0D8', color: '#2D5A4C' }}>
+                        <div className="dp-alert is-ok flex items-center gap-2.5">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                             <span className="text-sm font-medium">Localisation confirmée. L’analyse du règlement d’urbanisme (PLU) et de ses contraintes se fera à l’étape <strong>Analyse PLU</strong>, une fois vos travaux décrits.</span>
                         </div>
@@ -248,21 +247,21 @@ export default function Etape2() {
                         </div>
 
                         {/* Multi-Parcelles (Section 3 addition) */}
-                        <div className="mt-4 pt-4 border-t border-slate-700">
-                            <label className="text-sm font-medium text-slate-300 block mb-3">Parcelles supplémentaires (si le projet s'étend sur plusieurs parcelles)</label>
+                        <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--line)' }}>
+                            <label className="text-sm font-medium t-ink2 block mb-3">Parcelles supplémentaires (si le projet s'étend sur plusieurs parcelles)</label>
                             <div className="space-y-3 mb-4">
                                 {formData.cadastrales_multiparcelles?.map((parcelle, index) => (
-                                    <div key={index} className="flex flex-wrap md:flex-nowrap gap-3 items-end p-3 rounded-lg bg-slate-800/50 border border-slate-700 animate-fadeIn">
+                                    <div key={index} className="flex flex-wrap md:flex-nowrap gap-3 items-end p-3 rounded-lg animate-fadeIn" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', borderWidth: '1px', borderStyle: 'solid' }}>
                                         <div className="flex-1 min-w-[100px]">
-                                            <label className="text-xs text-slate-400 mb-1 block">Préfixe</label>
+                                            <label className="text-xs t-ink2 mb-1 block">Préfixe</label>
                                             <input className="dp-input text-sm py-2" placeholder="Ex: 000" value={parcelle.prefixe} onChange={e => updateCadastre(index, 'prefixe', e.target.value)} />
                                         </div>
                                         <div className="flex-1 min-w-[100px]">
-                                            <label className="text-xs text-slate-400 mb-1 block">Section</label>
+                                            <label className="text-xs t-ink2 mb-1 block">Section</label>
                                             <input className="dp-input text-sm py-2" placeholder="AB" value={parcelle.section} onChange={e => updateCadastre(index, 'section', e.target.value.toUpperCase())} />
                                         </div>
                                         <div className="flex-2 min-w-[150px]">
-                                            <label className="text-xs text-slate-400 mb-1 block">Numéro</label>
+                                            <label className="text-xs t-ink2 mb-1 block">Numéro</label>
                                             <input className="dp-input text-sm py-2" placeholder="0123" value={parcelle.numero} onChange={e => updateCadastre(index, 'numero', e.target.value)} />
                                         </div>
                                         <button type="button" onClick={() => removeCadastre(index)} className="p-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors">
@@ -273,22 +272,23 @@ export default function Etape2() {
                                     </div>
                                 ))}
                             </div>
-                            <button type="button" onClick={addCadastre} className="text-sm px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 font-medium transition-colors border border-slate-700 flex items-center gap-2">
+                            <button type="button" onClick={addCadastre} className="dp-btn-secondary text-sm flex items-center gap-2">
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                                 Ajouter une parcelle
                             </button>
                         </div>
 
                         {/* Lotissement Toggle (Section 3) */}
-                        <div className="mt-5 p-4 rounded-xl border border-slate-700 bg-slate-800/30">
+                        <div className={`dp-check-card mt-5 ${formData.terrain_lotissement ? 'selected' : ''}`}>
                             <label className="flex items-center gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
-                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 accent-blue-500 cursor-pointer"
+                                    className="w-5 h-5 rounded cursor-pointer"
+                                    style={{ accentColor: 'var(--ac)' }}
                                     checked={formData.terrain_lotissement || false}
                                     onChange={(e) => updateField('terrain_lotissement', e.target.checked)}
                                 />
-                                <span className="text-sm font-medium text-slate-200">
+                                <span className="text-sm font-medium t-ink">
                                     Le terrain est situé dans un lotissement
                                 </span>
                             </label>
@@ -297,11 +297,11 @@ export default function Etape2() {
 
                     {/* Validation summary */}
                     {stepFatals.length > 0 && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                            <p className="text-xs font-bold text-red-400 uppercase tracking-wide mb-1.5">Informations requises avant de continuer</p>
+                        <div className="dp-alert is-error">
+                            <span className="dp-alert-title">Informations requises avant de continuer</span>
                             <ul className="space-y-1">
                                 {stepFatals.map(i => (
-                                    <li key={i.id} className="text-sm text-red-300 flex items-start gap-2"><span>✗</span>{i.message}</li>
+                                    <li key={i.id} className="text-sm t-error flex items-start gap-2"><span>✗</span>{i.message}</li>
                                 ))}
                             </ul>
                         </div>

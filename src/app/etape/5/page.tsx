@@ -84,7 +84,7 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }
                     </span>
                 )}
             </div>
-            <p className="text-xs mb-2" style={{ color: '#64748b' }}>{sublabel}</p>
+            <p className="text-xs mb-2 t-muted">{sublabel}</p>
 
             <div
                 className={`upload-zone ${value ? 'has-file' : ''}`}
@@ -111,11 +111,11 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }
                     </div>
                 ) : (
                     <div className="py-4">
-                        <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-3 border border-slate-700/50 group-hover:bg-slate-700/50 transition-colors">
+                        <div className="w-12 h-12 rounded-full t-faint flex items-center justify-center mx-auto mb-3 transition-colors group-hover:bg-[var(--act)]" style={{ border: '1px solid var(--line-3)' }}>
                             <span className="text-xl">{icon}</span>
                         </div>
-                        <p className="text-[13px] font-medium text-slate-400 group-hover:text-slate-300 transition-colors">Glissez une photo ici</p>
-                        <p className="text-[11px] mt-1 text-slate-500">ou cliquez pour parcourir</p>
+                        <p className="text-[13px] font-medium t-ink2 transition-colors">Glissez une photo ici</p>
+                        <p className="text-[11px] mt-1 t-muted">ou cliquez pour parcourir</p>
                     </div>
                 )}
             </div>
@@ -171,20 +171,22 @@ export default function Etape5() {
     return (
         <>
             <div className="animate-fadeIn">
-                <div className="mb-8 flex items-start justify-between">
+                <div className="dp-page-head flex items-start justify-between">
                     <div>
-                        <h2 className="text-2xl font-bold text-white">Photos de votre maison</h2>
-                        <p className="mt-1 text-sm" style={{ color: '#94a3b8' }}>
+                        <div className="dp-eyebrow">Étape 05 / 07 · Photos</div>
+                        <h2 className="dp-page-title">Photos de votre <span className="accent">maison</span></h2>
+                        <p className="dp-page-sub">
                             Ces photos constituent les pièces DP5, DP7 et DP8 de votre dossier
                         </p>
                     </div>
                     {photosCount > 0 && (
                         <div className="text-sm font-semibold px-3 py-1.5 rounded-full"
-                            style={{ background: 'rgba(34,197,94,0.15)', color: '#86efac' }}>
+                            style={{ background: 'var(--act)', color: 'var(--acd)' }}>
                             {photosCount} photo{photosCount > 1 ? 's' : ''} ajoutée{photosCount > 1 ? 's' : ''}
                         </div>
                     )}
                 </div>
+                <div className="dp-rule" />
 
                 <div className="space-y-6">
                     {/* DP7 & DP8 */}
@@ -223,8 +225,8 @@ export default function Etape5() {
                                 Vue Après générée par IA
                             </span>
                         </div>
-                        <p className="text-sm mb-5" style={{ color: '#94a3b8' }}>
-                            Uploadez les photos des façades existantes. La vue <strong className="text-white">après travaux</strong> sera générée automatiquement par IA
+                        <p className="text-sm mb-5 t-muted">
+                            Uploadez les photos des façades existantes. La vue <strong className="t-ink">après travaux</strong> sera générée automatiquement par IA
                             en prenant en compte vos choix de matériaux et couleurs.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -255,7 +257,8 @@ export default function Etape5() {
                         <div className="mt-6 flex justify-center">
                             <button
                                 onClick={addFacade}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all text-sm font-medium"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl t-ink2 hover:t-accent transition-all text-sm font-medium"
+                                style={{ border: '2px dashed var(--line-3)' }}
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -270,8 +273,8 @@ export default function Etape5() {
                         <div className="flex items-start gap-3">
                             <div className="text-2xl">🤖</div>
                             <div>
-                                <h4 className="font-semibold mb-1" style={{ color: '#2D5A4C' }}>Génération IA de la vue après travaux</h4>
-                                <p className="text-sm" style={{ color: '#2D5A4C' }}>
+                                <h4 className="font-semibold mb-1">Génération IA de la vue après travaux</h4>
+                                <p className="text-sm">
                                     À l'étape suivante, notre IA (DALL-E 3) utilisera vos photos de façade et les détails de vos travaux
                                     ({formData.travaux.type || 'travaux sélectionnés'}) pour générer une simulation réaliste de votre maison après rénovation.
                                     Le prompt sera optimisé avec vos choix de matériaux et couleurs.
