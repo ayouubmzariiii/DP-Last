@@ -148,7 +148,7 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
     // (Étape 2). A mismatch is a classic ground for a demande de pièces complémentaires.
     const sPlancher = num(t.surface_plancher)
     if (sExist !== null && sPlancher !== null && !Number.isNaN(sExist) && !Number.isNaN(sPlancher) && Math.abs(sExist - sPlancher) > 1)
-        add(3, 'Travaux', 'warn', 'surf_mismatch', `Incohérence de surface : surface existante (${sExist} m²) ≠ surface de plancher du terrain (${sPlancher} m²). Harmonisez ces deux valeurs avant dépôt.`, 'surfaces')
+        add(3, 'Travaux', 'fatal', 'surf_mismatch', `Incohérence de surface : surface existante (${sExist} m²) ≠ surface de plancher du terrain (${sPlancher} m²). Harmonisez ces deux valeurs avant de générer le dossier.`, 'surfaces')
 
     // ── Étape 4 — Conformité PLU ──────────────────────────────────────────
     const ev = t.plu?.evaluationResult

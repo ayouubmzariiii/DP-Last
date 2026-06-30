@@ -1,9 +1,8 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
-import { consoleLogAfterPrompt } from '@/lib/aiPromptBuilder'
 
 interface PhotoUploadProps {
     label: string
@@ -129,14 +128,6 @@ export default function Etape5() {
     const p = formData.photos
 
     const photosCount = Object.values(p).filter(Boolean).length
-
-    // 🤖 Log full AI prompt whenever we have enough info (at least one facade photo + work type)
-    useEffect(() => {
-        const hasAnyFacade = formData.photos.facades.some(f => f.before)
-        if (hasAnyFacade && formData.travaux.type) {
-            consoleLogAfterPrompt(formData, 'Etape 5 – Photos')
-        }
-    }, [formData.photos.facades, formData.travaux.type, formData])
 
     const addFacade = () => {
         const newId = (formData.photos.facades.length + 1).toString()

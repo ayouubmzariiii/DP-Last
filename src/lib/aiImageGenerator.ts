@@ -165,21 +165,10 @@ async function callOpenAIDirect(payload: {
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
-export async function generateAIAfterImage(data: DPFormData): Promise<string> {
-    const prompt = buildAIAfterImagePrompt(data)
-    const imageBase64 = data.photos.facade_avant
-
-    console.group('%c🤖 AI Facade Generation – gpt-image-1 (browser)', 'color:#a78bfa;font-weight:bold;font-size:13px')
-    console.log('%cPrompt:', 'font-weight:bold;color:#60a5fa', prompt)
-    console.log('%cBefore image provided:', 'font-weight:bold;color:#34d399', !!imageBase64)
-    console.groupEnd()
-
-    // Pass data URLs, public /test/* paths and http(s) URLs through — the server resolves
-    // non-data sources to bytes before sending to the model. Only a falsy/garbage value is dropped,
-    // which is what forces a from-scratch generation (and the "different house" bug).
-    const realImage = imageBase64 && /^(data:|https?:|\/)/.test(imageBase64) ? imageBase64 : undefined
-    return callOpenAIDirect({ prompt, imageBase64: realImage })
-}
+// NOTE: per-façade "after" generation is done directly in étape 6 (POST /api/generate-after-facade
+// with each facades[i].before). A former generateAIAfterImage(data) helper read the DEPRECATED
+// photos.facade_avant single field and was removed — it could silently fall through to a
+// from-scratch generation (the "different house" bug) for any façade beyond the first.
 
 export async function generateAICroquis(data: DPFormData, baseImage: string, customInstruction?: string): Promise<string> {
     const prompt = buildAICroquisPrompt(data, customInstruction)

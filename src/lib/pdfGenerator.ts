@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, PageSizes } from 'pdf-lib'
 import { DPFormData } from './models'
+import { isProtectedSector } from './validation'
 import path from 'path'
 
 // ─── French transliteration (no accented chars in PDF StandardFonts) ─────────
@@ -274,13 +275,22 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         setField('4_2_surface_plancher_supprimee', data.travaux.surfaces?.supprimee || '')
 
         // ── 5 SPECIAL DECLARATIONS ──────────────────────────────
+        // Section 5 box meanings VERIFIED against the form text (page 4/13):
+        //   1 déroge (ordonnance 2018-937) · 2 relève de L632-2-1 (antennes/habitat indigne) ·
+        //   3 autre législation connexe · 4 raccordement réseau chaleur/froid ·
+        //   5 SITE PATRIMONIAL REMARQUABLE · 6 ABORDS D'UN MONUMENT HISTORIQUE ·
+        //   7 site classé / en instance (code env.).
+        // Boxes 5 & 6 are driven by the PLU heritage detection (fetch-plu overlays). Box 7 (site
+        // classé) has no reliable data source yet, so it stays unchecked but USER-EDITABLE below.
+        const hasSPR = !!data.terrain?.plu?.overlays?.hasSPR
+        const hasAbordsMH = (data.terrain?.plu?.overlays?.monumentsWithin500m?.length || 0) > 0
         checkBox('5_checkbox_1', false)
         checkBox('5_checkbox_2', false)
         checkBox('5_checkbox_3', false)
         setField('5_checkbox_3_precisez', '')
         checkBox('5_checkbox_4', false)
-        checkBox('5_checkbox_5', false)
-        checkBox('5_checkbox_6', false)
+        checkBox('5_checkbox_5', hasSPR)
+        checkBox('5_checkbox_6', hasAbordsMH)
         checkBox('5_checkbox_7', false)
 
         // ── 8 DECLARATION ──────────────────────────────
@@ -306,20 +316,28 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         const hasAIAfter = ph.facades.some(f => f.after)
         const hasCroquis = ph.facades.some(f => f.croquis)
 
-        checkBox('dp5_checkbox', hasFacades)
-        checkBox('dp6_checkbox', hasAIAfter)
+        checkBox('dp5_checkbox', ph.facades.some(f => f.before) || hasFacades && !!ph.facade_avant)
+        // DP6 = insertion / aspect projeté — present if EITHER a photoreal "after" OR a croquis exists.
+        checkBox('dp6_checkbox', hasAIAfter || hasCroquis)
         checkBox('dp7_checkbox', !!ph.dp7_vue_proche)
         checkBox('dp8_checkbox', !!ph.dp8_vue_lointaine)
         checkBox('dp8_1_checkbox', false)
-        checkBox('dp11_checkbox', hasAIAfter) // Using 'après' AI for DP11 simulation
+        // DP11 = notice de matériaux et modalités d'exécution — required in a protected sector
+        // (the detailed DP4 notice fulfils this role). Not tied to whether an AI image exists.
+        checkBox('dp11_checkbox', isProtectedSector(data))
 
         // Log key fields for debugging
         console.log('[CERFA] Fields set. demandeur.date_naissance:', demandeur.date_naissance)
         console.log('[CERFA] demandeur.lieu_naissance:', demandeur.lieu_naissance)
 
-        // Make fields read-only to avoid pdf-lib 'Unexpected N type' errors on custom checkboxes
+        // Make fields read-only to avoid pdf-lib 'Unexpected N type' errors on custom checkboxes.
+        // EXCEPTION: leave the heritage / protected-sector declarations (Section 5, boxes 5–7) and
+        // their "précisez" field editable, so the user can correct an edge case the APIs can't detect
+        // (e.g. a site classé) directly in their PDF reader before filing.
+        const editable = new Set(['5_checkbox_5', '5_checkbox_6', '5_checkbox_7', '5_checkbox_3_precisez'])
         const fields = form.getFields()
         fields.forEach(field => {
+            if (editable.has(field.getName())) return
             try {
                 field.enableReadOnly()
             } catch (e) {

@@ -409,7 +409,9 @@ export async function GET(req: NextRequest) {
         // Fetch overlays concurrently with resilience and timeouts
         const overlays = {
             seismicZone: 'inconnue',
-            seismicClass: '1 - TRES FAIBLE',
+            // Default to an explicit unknown — never assert "très faible" when the Géorisques call
+            // failed/timed out, which would silently under-report a compliance-critical risk.
+            seismicClass: 'inconnue',
             hasFloodRisk: false,
             floodRisks: [] as Array<{ libelle: string; dateEvt?: string }>,
             hasPPRN: false,
@@ -444,7 +446,7 @@ export async function GET(req: NextRequest) {
                     const data = await seismicRes.value.json()
                     if (data.data && data.data.length > 0) {
                         overlays.seismicZone = data.data[0].code_zone || 'inconnue'
-                        overlays.seismicClass = data.data[0].zone_sismicite || '1 - TRES FAIBLE'
+                        overlays.seismicClass = data.data[0].zone_sismicite || 'inconnue'
                     }
                 }
 
