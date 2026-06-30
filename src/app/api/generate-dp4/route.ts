@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
 CONTEXTE DU PROJET (Ne pas inclure ces infos mot pour mot dans la réponse) :
 ${applicantInfo}
 La commune du projet est située à: ${formData.terrain.commune || ''} (${formData.terrain.code_postal || ''}).
-Le projet concerne: ${formData.travaux.type} (${formData.travaux.description_projet || 'Rénovation extérieure'}).
+Le projet concerne: ${formData.travaux.type} (${formData.terrain.description_projet || formData.travaux.description_projet || 'Rénovation extérieure'}).
+IMPÉRATIF DE COHÉRENCE : la notice doit décrire EXACTEMENT et UNIQUEMENT les travaux déclarés ci-dessus. N'invente, n'ajoute et ne mentionne AUCUN autre travaux (pas d'isolation par l'extérieur, de réfection de toiture ou de panneaux photovoltaïques) s'ils ne font pas explicitement partie du projet déclaré.
 
 CONSIGNES HYPER STRICTES ET IMPÉRATIVES (POUR L'INTÉGRATION PDF) :
 1. NE METS AUCUN TITRE GÉNÉRAL (ex: pas de "NOTICE DESCRIPTIVE", pas de "Dossier n°").

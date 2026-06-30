@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
+import { isProtectedSector } from '@/lib/validation'
 
 export default function Etape4() {
     const router = useRouter()
@@ -266,6 +267,27 @@ export default function Etape4() {
                                 </div>
                             )}
                         </div>
+
+                        {/* 2.4. Protected-sector requirements — deterministic checklist shown whenever the
+                            parcel is in an SPR / abords MH (binding ABF avis). Encodes the recevabilité
+                            essentials so the dossier is coherent and survives ABF scrutiny. */}
+                        {isProtectedSector(formData) && (
+                            <div className="dp-card dp-spec" style={{ borderColor: '#EBD9A8', background: '#FBF1DC' }}>
+                                <h3 className="dp-section-title flex items-center gap-2">
+                                    <span>🏛️</span> Secteur protégé — à faire avant le dépôt
+                                </h3>
+                                <p className="text-sm t-warn mb-3">
+                                    L'avis de l'Architecte des Bâtiments de France est <strong>conforme (contraignant)</strong> : un avis défavorable bloque l'autorisation. Pour que le dossier soit recevable :
+                                </p>
+                                <ul className="space-y-2 text-sm" style={{ color: '#6B5512' }}>
+                                    <li className="flex items-start gap-2"><span className="mt-0.5">1.</span> <span><strong>Déclarez TOUS les travaux</strong> sur le CERFA (nature du projet) — ils doivent correspondre exactement à la notice et aux plans. Une omission (ITE, toiture, photovoltaïque…) entraîne une demande de pièces complémentaires, voire un refus.</span></li>
+                                    <li className="flex items-start gap-2"><span className="mt-0.5">2.</span> <span><strong>Notice de matériaux détaillée</strong> : teintes (références RAL), matériaux, profils et mise en œuvre — justifiés au regard du règlement du SPR (tient lieu de notice DP11).</span></li>
+                                    <li className="flex items-start gap-2"><span className="mt-0.5">3.</span> <span><strong>État initial / état futur fidèle</strong> : les vues « avant / après » doivent représenter le <em>même</em> bâtiment (mêmes ouvertures, même toiture, même volume), avec uniquement les travaux déclarés.</span></li>
+                                    <li className="flex items-start gap-2"><span className="mt-0.5">4.</span> <span><strong>Pré-consultez l'UDAP</strong> (service de l'ABF de votre département) <em>avant</em> le dépôt : c'est le meilleur moyen d'éviter un avis défavorable.</span></li>
+                                    <li className="flex items-start gap-2"><span className="mt-0.5">5.</span> <span>Anticipez un <strong>délai d'instruction de 2 mois</strong> et la fourniture d'exemplaires supplémentaires du dossier.</span></li>
+                                </ul>
+                            </div>
+                        )}
 
                         {/* 2.5. Overlays (GeoRisques & Monuments Historiques) */}
                         {plu?.overlays && (

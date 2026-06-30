@@ -144,6 +144,11 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
     // Permit threshold guard (these works create ≈0 m², but be safe).
     if (sExist !== null && sCreee !== null && !Number.isNaN(sExist) && !Number.isNaN(sCreee) && (sExist + sCreee) > 150)
         add(3, 'Travaux', 'warn', 'surf_seuil_150', 'Surface totale > 150 m² : un permis de construire et le recours à un architecte peuvent être requis.', 'surfaces')
+    // Coherence: the existing floor area declared here must match the dwelling's surface de plancher
+    // (Étape 2). A mismatch is a classic ground for a demande de pièces complémentaires.
+    const sPlancher = num(t.surface_plancher)
+    if (sExist !== null && sPlancher !== null && !Number.isNaN(sExist) && !Number.isNaN(sPlancher) && Math.abs(sExist - sPlancher) > 1)
+        add(3, 'Travaux', 'warn', 'surf_mismatch', `Incohérence de surface : surface existante (${sExist} m²) ≠ surface de plancher du terrain (${sPlancher} m²). Harmonisez ces deux valeurs avant dépôt.`, 'surfaces')
 
     // ── Étape 4 — Conformité PLU ──────────────────────────────────────────
     const ev = t.plu?.evaluationResult
@@ -179,22 +184,33 @@ export interface PieceStatus {
     note?: string
 }
 
+/** True when the parcel is in a protected sector (SPR / abords MH) — binding ABF avis applies. */
+export function isProtectedSector(data: DPFormData): boolean {
+    const plu = data.terrain?.plu
+    return !!(plu?.overlays?.hasSPR
+        || (plu?.overlays?.monumentsWithin500m?.length || 0) > 0
+        || plu?.evaluationResult?.decision === 'DECLARATION_PREALABLE_ABF')
+}
+
 export function piecesChecklist(data: DPFormData): PieceStatus[] {
     const plans = data.plans
     const photos = data.photos
     const hasFacade = (photos.facades?.some(f => f.before) ?? false) || !!photos.facade_avant
     const hasCroquis = (photos.facades?.some(f => f.croquis) ?? false) || !!photos.facade_croquis_ai
     const hasAfter = (photos.facades?.some(f => f.after) ?? false) || !!photos.facade_apres_ai
+    const protege = isProtectedSector(data)
     // DP2 (plan de masse) is only legally required when built volume changes —
     // not the case for menuiseries/ITE/PV — so it is recommended, not fatal.
+    // In a protected sector the ABF examines the projected aspect closely, so DP6 (insertion) and
+    // DP8 (vue lointaine) become required, and the DP4 must detail materials/teintes (rôle DP11).
     return [
         { code: 'DP1', label: 'Plan de situation', present: !!plans.dp1_carte_situation, severity: 'fatal', note: 'Seule pièce obligatoire dans tous les cas.' },
         { code: 'DP2', label: 'Plan de masse', present: !!plans.dp2_plan_masse, severity: 'warn', note: 'Requis seulement si le volume bâti change.' },
-        { code: 'DP4', label: 'Notice descriptive', present: !!plans.dp4_notice, severity: 'fatal' },
+        { code: 'DP4', label: 'Notice descriptive', present: !!plans.dp4_notice, severity: 'fatal', note: protege ? 'Secteur protégé : détaillez les matériaux et teintes (réf. RAL, profils) — tient lieu de notice de matériaux (DP11).' : undefined },
         { code: 'DP5', label: 'Plan des façades (existant)', present: hasFacade, severity: 'fatal' },
-        { code: 'DP6', label: 'Insertion / aspect projeté', present: hasAfter || hasCroquis, severity: 'warn' },
+        { code: 'DP6', label: 'Insertion / aspect projeté', present: hasAfter || hasCroquis, severity: protege ? 'fatal' : 'warn', note: protege ? 'Examiné par l’ABF en secteur protégé.' : undefined },
         { code: 'DP7', label: 'Photo environnement proche', present: !!photos.dp7_vue_proche, severity: 'fatal' },
-        { code: 'DP8', label: 'Photo environnement lointain', present: !!photos.dp8_vue_lointaine, severity: 'warn', note: 'Exigé en secteur protégé.' },
+        { code: 'DP8', label: 'Photo environnement lointain', present: !!photos.dp8_vue_lointaine, severity: protege ? 'fatal' : 'warn', note: 'Exigé en secteur protégé.' },
     ]
 }
 

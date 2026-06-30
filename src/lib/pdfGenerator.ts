@@ -257,7 +257,11 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         setField('4_1_construction_existante_autre', data.travaux.type)
 
         checkBox('4_1_cloture_checkbox', false)
-        setField('4_1_description_projet', data.travaux.description_projet || '')
+        // Use the canonical, user-facing project description (Étape 3 → terrain.description_projet),
+        // which always matches the declared works shown in the dossier. The legacy
+        // travaux.description_projet could carry a stale/different scope, so it is only a fallback —
+        // the CERFA "nature du projet" must describe exactly the declared works (scope coherence).
+        setField('4_1_description_projet', data.terrain.description_projet || data.travaux.description_projet || '')
 
         // Destination — driven by the user's choice (Étape 3), default principale.
         const secondaire = data.projet_concerne === 'secondaire'

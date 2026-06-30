@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
-import { validateDPForm, piecesChecklist, fatalIssues, warnIssues, ValidationIssue } from '@/lib/validation'
+import { validateDPForm, piecesChecklist, fatalIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
 
 function RecapSection({ title, icon, items }: {
     title: string; icon: string;
@@ -430,6 +430,13 @@ export default function Etape7() {
                     {/* Guide de dépôt en mairie */}
                     <div className="dp-card dp-spec">
                         <h3 className="dp-section-title">📮 Comment déposer votre dossier en mairie</h3>
+
+                        {isProtectedSector(formData) && (
+                            <div className="dp-alert is-warn mb-4">
+                                <span className="dp-alert-title">Secteur protégé — avis ABF contraignant</span>
+                                Avant de déposer : <strong>pré-consultez l'UDAP</strong> (service de l'ABF), assurez-vous que le CERFA déclare <strong>tous</strong> les travaux et joignez une <strong>notice de matériaux détaillée</strong> (teintes/RAL). Délai d'instruction : <strong>2 mois</strong>.
+                            </div>
+                        )}
 
                         {/* Numbered steps — tight, consistent rhythm */}
                         <ol className="space-y-4">

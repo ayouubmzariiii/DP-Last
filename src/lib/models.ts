@@ -438,9 +438,10 @@ export const defaultTravaux: Travaux = {
         integration: 'surimposition',
         description: '',
     },
-    description_projet: 'Rénovation énergétique globale incluant la pose d\'une isolation par l\'extérieur sur les murs Nord et Est. Les teintes choisies sont en adéquation avec le PLU local.',
+    // Kept coherent with the declared works (menuiseries only) and with terrain.surface_plancher (95).
+    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) en aluminium gris anthracite (RAL 7016), sans modification des dimensions ni des proportions des baies existantes.',
     surfaces: {
-        existante: '110',
+        existante: '95',
         creee: '0',
         supprimee: '0'
     }
