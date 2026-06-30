@@ -40,19 +40,18 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
         }
     }
 
-    return `You are an expert architectural visualization AI. Your task is to generate a realistic "after" simulation of a house based on the requested modifications.
+    return `Edit the attached photograph. Return the SAME photograph, pixel-for-pixel identical, with ONLY the requested modification applied. This is an in-place photo edit — it is NOT a request to imagine, redraw or generate a new building.
 
-REQUESTED CHANGES:
+REQUESTED MODIFICATION (the only thing you may change):
 "${rawDescription}"
 
-CONSTRAINTS (strictly enforced):
-- DO NOT ADD ANY NEW ELEMENTS. You must not add windows, doors, shutters, chimneys, or any architectural features that were not present in the original photo.
-- DO NOT REMOVE OR MOVE EXISTING ELEMENTS. Keep all existing windows, doors, and structural features in their exact same positions, shapes, and sizes. The number of windows and doors MUST NOT change.
-- KEEP THE PHOTO IDENTICAL. The existing walls (unless specifically being re-rendered by request), roof structure, garden, driveway, surroundings, lighting, sky, and camera angle MUST remain 100% unchanged.
-- ONLY IMPLEMENT REQUESTED CHANGES. If the request is for "painting the door", ONLY change the color of the door. Do not touch the windows. If the request is for "cladding", only apply cladding to the specified areas.
-- CLEAR THE VIEW. Remove any temporary obstacles, people, cars, or objects that might be in front of the areas being modified (like windows or walls) to ensure the changes are clearly visible.
-- ZERO CREATIVITY FOR UNMENTIONED AREAS. Do not invent new structures or alter the architectural style of unmentioned elements.
-- Ensure a photorealistic architectural result without any text, borders, or artificial artifacts.`
+ABSOLUTE RULES:
+- The output MUST be the exact same building shown in the attached photo — same shape, same number of floors, same number and position of every window and door, same roof, same proportions, same materials (except where the modification explicitly changes them).
+- Keep the camera angle, framing, perspective, zoom, background, neighbouring buildings, garden, sky and lighting 100% identical to the attached photo. Do not re-frame or re-compose the shot.
+- Do NOT add or remove windows, doors, shutters, chimneys, balconies or any feature. Do NOT invent or substitute a different house.
+- Apply the modification ONLY to the relevant surfaces (e.g. "paint the shutters blue" → recolour only the shutters; "exterior insulation render" → re-coat only the wall surfaces). Leave everything else untouched.
+- Remove only transient clutter in front of the edited area (people, parked cars, bins) so the change is clearly visible.
+- Photorealistic result, matching the original photo's quality and tone. No added text, captions, borders, arrows or watermarks.`
 }
 
 export function buildAICroquisPrompt(data: DPFormData, customInstruction?: string): string {
@@ -69,20 +68,24 @@ export function buildAICroquisPrompt(data: DPFormData, customInstruction?: strin
         }
     }
 
-    return `You are an expert architectural illustrator. Create a professional 2D ARCHITECTURAL ELEVATION DRAWING (Facade) for a French residential building based on the provided image.
+    return `Convert the attached photograph of a French house into a clean, professional 2D ARCHITECTURAL FAÇADE ELEVATION drawing (un plan de façade). Reproduce the exact same building — same number of floors, windows, doors, roof shape and proportions as in the photo.
 
-The provided image is a photorealistic simulation of the building AFTER works. Your task is to accurately convert this image into a formal architectural CAD drawing.
+FRAMING (very important — the drawing must be clear and close):
+- Strictly FRONTAL, head-on orthographic elevation (no perspective, no angle, no vanishing points).
+- The building must FILL the frame: it should occupy roughly 90% of the image, large and centred. Do NOT draw it small or far away. Crop out streets, distant context, neighbouring plots and foreground — show only the building façade.
+- Large enough that every window, door and material is clearly legible.
 
 VISUAL STYLE (MANDATORY):
-- Style: Clean 2D technical CAD elevation drawing (not a photo, not a sketch).
-- Linework: Very thin, consistent clean black outlines for all structural elements.
-- Colors: Muted "architectural" palette. Walls in light beige or warm grey. Roof in dark charcoal or slate grey.
-- Shadows: Simple, flat, solid grey shadows at a 45-degree angle to show depth. No gradients.
-- Background: Solid white background.
-- Details: Include subtle material textures like fine grid for roof tiles.
-- Content: Exactly replicate the structure shown in the image.
-- ANNOTATIONS: Draw thin black arrows pointing at the key areas of change (e.g., new windows, new pintu, new cladding). Near each arrow, add a small, legibly written technical description in French (e.g., "Nouveau portail", "Menuiseries Aluminium RAL 7016", "Isolation par l'extérieur").
-- Professionalism: No people, no trees, no artifacts. Just the building facade with technical annotations on a white background.`
+- Clean 2D technical CAD elevation (not a photo, not a loose sketch).
+- Crisp, confident black outlines — clearly visible, consistent weight, slightly thicker on the building's outer contour.
+- Muted architectural palette: walls light beige/warm grey, roof dark slate/charcoal, joinery in its real colour.
+- Simple flat solid grey shadows at 45° for depth. No gradients, no blur.
+- Solid pure-white background.
+- Subtle material hatching (fine line grid for roof tiles, light texture for cladding).
+- A discreet horizontal ground line under the building.
+
+ANNOTATIONS: a few thin black leader lines pointing to the modified areas, each with a short, legible French label (e.g. "Menuiseries aluminium RAL 7016", "Isolation par l'extérieur — enduit", "Panneaux photovoltaïques"). Keep labels minimal and readable.
+NO people, no cars, no trees, no photo background, no watermark.`
 }
 
 export interface ResizedImage {
@@ -170,13 +173,16 @@ export async function generateAIAfterImage(data: DPFormData): Promise<string> {
     console.log('%cBefore image provided:', 'font-weight:bold;color:#34d399', !!imageBase64)
     console.groupEnd()
 
-    const realImage = imageBase64?.startsWith('data:') ? imageBase64 : undefined
+    // Pass data URLs, public /test/* paths and http(s) URLs through — the server resolves
+    // non-data sources to bytes before sending to the model. Only a falsy/garbage value is dropped,
+    // which is what forces a from-scratch generation (and the "different house" bug).
+    const realImage = imageBase64 && /^(data:|https?:|\/)/.test(imageBase64) ? imageBase64 : undefined
     return callOpenAIDirect({ prompt, imageBase64: realImage })
 }
 
 export async function generateAICroquis(data: DPFormData, baseImage: string, customInstruction?: string): Promise<string> {
     const prompt = buildAICroquisPrompt(data, customInstruction)
-    const realImage = baseImage.startsWith('data:') ? baseImage : undefined
+    const realImage = baseImage && /^(data:|https?:|\/)/.test(baseImage) ? baseImage : undefined
 
     console.group('%c🤖 AI Croquis Generation – gpt-image-1 (browser)', 'color:#a78bfa;font-weight:bold;font-size:13px')
     console.log('%cPrompt:', 'font-weight:bold;color:#60a5fa', prompt)

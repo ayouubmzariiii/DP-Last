@@ -104,7 +104,7 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
             {/* Test-mode banner */}
             {isTestMode && (
                 <div style={{ background: '#8A6D1F', color: '#FBF1DC', textAlign: 'center', fontSize: 12, fontWeight: 600, padding: '6px 16px' }}>
-                    Mode test — données fictives. La génération du dossier est désactivée. Désactivez le mode test pour un dossier réel.
+                    Mode test — données fictives. Vous pouvez générer le dossier pour prévisualiser le résultat, mais ne le déposez pas en mairie. Désactivez le mode test pour un dossier réel.
                 </div>
             )}
 
