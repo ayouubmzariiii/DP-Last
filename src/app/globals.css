@@ -123,6 +123,21 @@ h1, h2, h3, .font-serif { font-family: var(--hf); }
 
   .dp-form-group { @apply space-y-1.5; }
 
+  /* Text-tone utilities mapped to the warm palette (replace text-slate-*). */
+  .t-ink   { color: var(--ink); }
+  .t-ink2  { color: var(--ink-2); }
+  .t-muted { color: var(--muted); }
+  .t-faint { color: var(--faint); }
+  .t-accent{ color: var(--ac); }
+  .t-error { color: #B43A2E; }
+  .t-warn  { color: #8A6D1F; }
+  .t-ok    { color: var(--acd); }
+  /* Mono metadata label (small uppercase technical caption). */
+  .dp-meta {
+    font-family: var(--mf); font-size: 11px; font-weight: 500;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+  }
+
   .upload-zone {
     @apply rounded-xl p-8 text-center transition-all duration-200 cursor-pointer;
     border: 2px dashed var(--line-3);
@@ -148,6 +163,157 @@ h1, h2, h3, .font-serif { font-family: var(--hf); }
   .travaux-sub-card.selected { border-color: var(--ac); background: var(--act); }
 }
 
+/* ─── "Architect's Dossier" — editorial / technical component layer ──────────── */
+@layer components {
+  /* Step / page header: mono eyebrow + large serif title + thin green rule.
+     Used at the top of every wizard step and echoed by the homepage hero. */
+  .dp-page-head { @apply mb-8 md:mb-10; }
+  .dp-page-head .dp-eyebrow { @apply block mb-3; }
+  .dp-page-title {
+    font-family: var(--hf);
+    font-weight: 500;
+    font-size: clamp(28px, 4.4vw, 40px);
+    line-height: 1.05;
+    letter-spacing: -.01em;
+    color: var(--ink);
+    margin: 0;
+  }
+  .dp-page-title em, .dp-page-title .accent { color: var(--ac); font-style: italic; }
+  .dp-page-sub { @apply mt-3; font-size: 15.5px; line-height: 1.6; color: var(--ink-2); max-width: 64ch; }
+  /* Thin rule with a short solid green lead — reads like a drafting tick. */
+  .dp-rule {
+    @apply mt-5;
+    height: 1px;
+    background: linear-gradient(90deg, var(--ac) 0 44px, var(--line) 44px);
+  }
+
+  /* Technical "spec" card: a dp-card with an L-shaped corner tick in the accent. */
+  .dp-spec { position: relative; }
+  .dp-spec::before {
+    content: "";
+    position: absolute; top: 14px; left: 14px;
+    width: 12px; height: 12px;
+    border-top: 1.5px solid var(--ac);
+    border-left: 1.5px solid var(--ac);
+    opacity: .55;
+    pointer-events: none;
+  }
+
+  /* Metric tile: big mono value over an uppercase mono label. PLU / recap stats. */
+  .dp-metric {
+    @apply rounded-xl p-4;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+  .dp-metric .val {
+    font-family: var(--mf);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.1;
+    letter-spacing: -.01em;
+  }
+  .dp-metric .unit { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .dp-metric .key {
+    @apply mt-1.5 block;
+    font-family: var(--mf);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .dp-metric.is-accent { background: var(--act); border-color: var(--acb); }
+  .dp-metric.is-accent .val { color: var(--acd); }
+
+  /* Semantic alert/notice boxes — readable warm tones on cream. */
+  .dp-alert {
+    @apply rounded-xl px-4 py-3.5 text-sm;
+    border: 1px solid transparent;
+    line-height: 1.55;
+  }
+  .dp-alert-title {
+    @apply block mb-1.5;
+    font-family: var(--mf);
+    font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  }
+  .dp-alert.is-error { background: #FBEAE6; border-color: #EBC3BB; color: #8F2E22; }
+  .dp-alert.is-warn  { background: #FBF1DC; border-color: #EBD9A8; color: #7A5E16; }
+  .dp-alert.is-ok    { background: var(--act); border-color: var(--acb); color: var(--acd); }
+  .dp-alert.is-info  { background: var(--surface-2); border-color: var(--line); color: var(--ink-2); }
+
+  /* Status chip — DP1–DP8 pieces & doc tiles. Contrast-correct on cream. */
+  .dp-chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--muted);
+  }
+  .dp-chip .code { font-family: var(--mf); font-weight: 600; letter-spacing: .03em; }
+  .dp-chip.is-ok      { background: var(--act); border-color: var(--acb); color: var(--acd); }
+  .dp-chip.is-missing { background: #FBEAE6; border-color: #EBC3BB; color: #8F2E22; }
+
+  /* Read-only input: clearly distinct (locked) from editable fields. */
+  .dp-input--ro,
+  .dp-input[readonly], textarea.dp-input[readonly] {
+    background: var(--field-ro);
+    color: var(--ink-2);
+    cursor: default;
+    border-color: var(--line);
+  }
+  .dp-input[readonly]:focus { box-shadow: none; border-color: var(--line); background: var(--field-ro); }
+
+  /* Selection / opt-in card with a checkbox (co-déclarant, dématérialisation, signature). */
+  .dp-check-card {
+    @apply flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all;
+    border: 1px solid var(--line-3);
+    background: var(--surface-2);
+  }
+  .dp-check-card:hover { border-color: var(--acb); }
+  .dp-check-card.selected { border-color: var(--ac); background: var(--act); }
+  .dp-check-card input[type="checkbox"] { @apply w-5 h-5 mt-0.5 shrink-0 rounded; accent-color: var(--ac); }
+
+  /* Floating menu (address autocomplete & similar). Warm surface, never dark. */
+  .dp-menu {
+    @apply absolute z-50 w-full mt-2 rounded-xl overflow-hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: 0 1px 2px rgba(37,34,30,.04), 0 22px 44px -24px rgba(37,34,30,.34);
+  }
+  .dp-menu-item {
+    @apply w-full px-4 py-3 text-left transition-colors;
+    border-bottom: 1px solid var(--line-2);
+    color: var(--ink);
+  }
+  .dp-menu-item:last-child { border-bottom: none; }
+  .dp-menu-item:hover { background: var(--act); }
+  .dp-menu-item .label { @apply text-sm font-medium; color: var(--ink); }
+  .dp-menu-item .meta { @apply text-xs; color: var(--ink-2); }
+
+  /* Step-6 sub-step progress dots. */
+  .dp-substep {
+    @apply flex items-center justify-center shrink-0 rounded-full transition-all;
+    width: 30px; height: 30px;
+    font-family: var(--mf); font-size: 12px; font-weight: 600;
+    background: var(--surface); border: 1px solid var(--line-3); color: var(--faint);
+  }
+  .dp-substep.is-current { background: var(--ac); color: #fff; border-color: var(--ac); box-shadow: 0 0 0 4px rgba(45,90,76,.16); }
+  .dp-substep.is-done    { background: var(--act); color: var(--acd); border-color: var(--acb); }
+
+  /* Overlay tool button on imagery (download / modify / delete over maps & renders). */
+  .dp-tool-btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-all;
+    padding: 7px 11px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    box-shadow: 0 6px 18px -10px rgba(37,34,30,.4);
+  }
+  .dp-tool-btn:hover { background: #fff; color: var(--ac); border-color: var(--acb); }
+  .dp-tool-btn.is-danger:hover { color: #B43A2E; border-color: #EBC3BB; }
+}
+
 /* Toggle buttons (civilité, modes…) */
 .toggle-btn {
   padding: 0.625rem 1.25rem;
@@ -164,6 +330,18 @@ h1, h2, h3, .font-serif { font-family: var(--hf); }
 .toggle-btn:hover:not(.active) { border-color: var(--muted); }
 
 .progress-fill { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Accent spinner — replaces the ad-hoc blue/violet border spinners. */
+.dp-spinner {
+  display: inline-block;
+  border-radius: 9999px;
+  border: 2px solid var(--acb);
+  border-top-color: var(--ac);
+  animation: dpSpin .7s linear infinite;
+}
+.dp-spinner-sm { width: 16px; height: 16px; }
+.dp-spinner-lg { width: 34px; height: 34px; border-width: 3px; }
+.dp-spinner.on-accent { border-color: rgba(255,255,255,.35); border-top-color: #fff; }
 
 .ai-badge {
   display: inline-flex; align-items: center; gap: 0.375rem;
@@ -201,54 +379,16 @@ textarea.dp-input { resize: vertical; min-height: 100px; font-family: inherit; }
 .info-box-amber { background: #FBF1DC; border: 1px solid #EBD9A8; color: #8A6D1F; }
 .info-box-green { background: var(--act); border: 1px solid var(--acb); color: var(--acd); }
 
-/* ─── Compatibility shims: remap the old dark-slate Tailwind utilities used across
-   the step pages onto the warm palette, so they read correctly on cream. Scoped to
-   body so they beat Tailwind's single-class specificity without !important. ──── */
-body .text-white { color: var(--ink); }
-body .text-slate-100, body .text-slate-200 { color: var(--ink); }
-body .text-slate-300 { color: #4A453C; }
-body .text-slate-400, body .text-slate-500 { color: var(--ink-2); }
-body .text-slate-600 { color: var(--muted); }
+/* ─── Minimal safety net ─────────────────────────────────────────────────────
+   The step pages were refactored off the old dark-slate theme onto the design
+   tokens, so the bulk slate/blue/violet remaps are no longer needed (and would
+   wrongly force the legitimate white-on-green button text to ink). What remains
+   only guards the SEMANTIC status colours (red / amber) that pages still use for
+   destructive/required affordances, and unifies native form-control accents. ── */
 
-body .bg-slate-900, body .bg-slate-950,
-body [class*="bg-slate-900/"], body [class*="bg-slate-950/"] { background-color: var(--surface-2) !important; }
-body .bg-slate-800, body [class*="bg-slate-800/"] { background-color: var(--surface-2) !important; }
-body .bg-slate-700, body [class*="bg-slate-700/"] { background-color: #EFE9DE !important; }
-
-body .border-slate-900, body .border-slate-800, body .border-slate-750,
-body [class*="border-slate-800/"], body [class*="border-slate-700/"],
-body .border-slate-700, body .border-slate-600 { border-color: var(--line) !important; }
-
-/* Inputs that were styled inline with dark bg utilities → keep them light */
-body .bg-slate-900\/50, body .bg-slate-900\/40 { background-color: var(--field) !important; }
-
-/* ─── Unify the old blue/indigo/violet/purple accent onto the design's green. Semantic
-   status colours (red / amber / green / emerald) are intentionally left untouched. ─── */
-body [class*="text-blue-"], body [class*="text-indigo-"],
-body [class*="text-violet-"], body [class*="text-purple-"] { color: var(--ac) !important; }
-
-body [class*="border-blue-"], body [class*="border-indigo-"],
-body [class*="border-violet-"], body [class*="border-purple-"] { border-color: var(--acb) !important; }
-
-/* Solid blue/violet fills → green tint (their white text was remapped to ink, which reads on a tint) */
-body .bg-blue-500, body .bg-blue-600, body .bg-blue-700,
-body .bg-violet-500, body .bg-violet-600, body .bg-violet-700,
-body .bg-indigo-500, body .bg-indigo-600,
-body .bg-purple-500, body .bg-purple-600 { background-color: var(--act) !important; color: var(--ac) !important; }
-
-/* Translucent blue/violet/purple tint backgrounds → green tint */
-body [class*="bg-blue-"][class*="/"], body [class*="bg-violet-"][class*="/"],
-body [class*="bg-indigo-"][class*="/"], body [class*="bg-purple-"][class*="/"] { background-color: var(--act) !important; }
-
-/* The violet download button on the final step → green to match the primary action */
-body .bg-violet-600 { background-color: var(--ac) !important; color: #fff !important; }
-body .bg-violet-600:hover, body .hover\:bg-violet-700:hover { background-color: var(--acd) !important; }
-
-/* All checkboxes/radios/range sliders use the green accent (overrides accent-blue-500 etc.) */
+/* Native checkbox/radio/range accents → design green (covers any stray accent-* utility). */
 body input[type="checkbox"], body input[type="radio"], body input[type="range"] { accent-color: var(--ac); }
 
-/* Status text contrast: the light amber/green/red Tailwind shades are unreadable on the cream/
-   tinted backgrounds — remap to darker, readable tones (semantics preserved). */
-body .text-amber-200, body .text-amber-300, body .text-amber-400 { color: #8A6D1F !important; }
-body .text-green-300, body .text-green-400 { color: #2D5A4C !important; }
-body .text-red-300, body .text-red-400 { color: #B43A2E !important; }
+/* Keep the light Tailwind amber/red status shades readable on the cream surfaces. */
+body .text-amber-200, body .text-amber-300, body .text-amber-400 { color: #8A6D1F; }
+body .text-red-300, body .text-red-400 { color: #B43A2E; }

@@ -97,7 +97,8 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
             <div className="relative">
                 <input
                     type="text"
-                    className={`dp-input pr-10 ${isValid ? 'border-green-500/50 focus:border-green-500' : ''}`}
+                    className="dp-input pr-10"
+                    style={isValid ? { borderColor: 'var(--ac)', boxShadow: '0 0 0 3px rgba(45,90,76,.10)' } : undefined}
                     placeholder={placeholder || "Saisissez l'adresse complète..."}
                     value={query}
                     onChange={handleInputChange}
@@ -105,10 +106,10 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                     {loading && (
-                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="dp-spinner dp-spinner-sm"></div>
                     )}
                     {isValid && !loading && (
-                        <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" style={{ color: 'var(--ac)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                     )}
@@ -116,15 +117,15 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
             </div>
 
             {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
+                <div className="dp-menu animate-fadeIn">
                     {suggestions.map((s, i) => (
                         <button
                             key={i}
-                            className="w-full px-4 py-3 text-left hover:bg-slate-700/50 transition-colors border-b border-slate-700/50 last:border-0"
+                            className="dp-menu-item"
                             onClick={() => handleSelect(s)}
                         >
-                            <div className="text-sm font-medium text-white">{s.label}</div>
-                            <div className="text-xs text-slate-400">{s.context}</div>
+                            <div className="label">{s.label}</div>
+                            <div className="meta">{s.context}</div>
                         </button>
                     ))}
                 </div>
