@@ -42,7 +42,10 @@ INTEGRATION DANS L'ENVIRONNEMENT
         if (!apiKey) {
             return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 503 })
         }
-        const model = process.env.OPENROUTER_DP4_MODEL || 'openrouter/free'
+        // A cheap but capable model — the previous 'openrouter/free' produced degenerate output
+        // (leaked <pad> tokens, "de de de…" repetition loops). gemini-2.5-flash is a few hundredths
+        // of a cent per notice and supports the photo (vision) input. Override via OPENROUTER_DP4_MODEL.
+        const model = process.env.OPENROUTER_DP4_MODEL || 'google/gemini-2.5-flash'
 
         const validPhotos = photos ? photos.filter((p: string) => typeof p === 'string' && p.startsWith('data:image')) : []
         const withImages = validPhotos.length > 0
@@ -74,18 +77,41 @@ INTEGRATION DANS L'ENVIRONNEMENT
                 return ''
             }
             const data = await response.json().catch(() => ({}))
-            return (data?.choices?.[0]?.message?.content || '').trim()
+            return sanitizeNotice(data?.choices?.[0]?.message?.content || '')
         }
 
-        // Try with the photos (vision) first; free vision routing can be flaky, so fall back to
-        // a text-only request — that still produces a valid notice without paid models.
-        let generatedText = await callModel(withImages)
-        if (!generatedText && validPhotos.length > 0) {
-            console.warn('[DP4] vision call returned nothing — retrying text-only')
-            generatedText = await callModel(systemPrompt)
+        // Strip model artifacts (special tokens) and collapse degenerate repetition loops
+        // (e.g. "de de de de …") that some cheap models emit.
+        const sanitizeNotice = (raw: string): string => {
+            let t = (raw || '')
+                .replace(/<\/?(pad|unk|s|eos|bos)>/gi, ' ')
+                .replace(/<\|[^|>]*\|>/g, ' ')
+            // Collapse any word repeated 4+ times in a row down to a single occurrence.
+            t = t.replace(/\b(\S{1,15})(?:\s+\1\b){3,}/gi, '$1')
+            return t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+        }
+
+        // A real notice is substantial and contains the required section headers. The free model
+        // sometimes replies with junk (e.g. a moderation string like "User Safety: safe") — reject
+        // those so they never reach the dossier/cache.
+        const isValidNotice = (t: string): boolean => {
+            if (!t || t.trim().length < 150) return false
+            const u = t.toUpperCase()
+            const headers = ['ETAT INITIAL', 'ÉTAT INITIAL', 'DESCRIPTION DU PROJET', 'INTEGRATION', 'INTÉGRATION']
+            return headers.some(h => u.includes(h))
+        }
+
+        // Try vision first, then fall back to text-only; retry a couple of times because free
+        // routing is flaky and occasionally returns a non-notice response.
+        let generatedText = ''
+        const attempts = [withImages, systemPrompt, systemPrompt]
+        for (const content of attempts) {
+            const t = await callModel(content)
+            if (isValidNotice(t)) { generatedText = t; break }
+            console.warn('[DP4] invalid/empty notice, retrying. Got:', t.slice(0, 80))
         }
         if (!generatedText) {
-            return NextResponse.json({ error: 'Le modèle n’a pas renvoyé de notice. Réessayez.' }, { status: 502 })
+            return NextResponse.json({ error: 'Le modèle n’a pas renvoyé de notice valide. Réessayez.' }, { status: 502 })
         }
 
         return NextResponse.json({ dp4: generatedText }, { status: 200 })

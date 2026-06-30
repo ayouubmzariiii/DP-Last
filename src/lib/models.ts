@@ -1,4 +1,5 @@
 // DP Travaux - Data Models
+import { TEST_DP4_NOTICE } from './testCache'
 
 export type Civilite = 'M' | 'Mme' | 'Société' | ''
 
@@ -454,7 +455,10 @@ export const defaultPhotos: PhotosUploadees = {
     facade_gauche: null,
     facade_arriere: null,
     facades: [
-        { id: 'f1', label: 'Façade principale (avant)', before: '/test/facade-principale.jpg', after: null, croquis: null, type: 'avant' },
+        // The principale façade ships with its CACHED AI generations (after-simulation + croquis)
+        // so test mode and the test API show a complete dossier instantly, without any AI call.
+        // Regenerate via GET /api/dev/test-dossier?doc=dp&fresh=1&cache=1.
+        { id: 'f1', label: 'Façade principale (avant)', before: '/test/facade-principale.jpg', after: '/test/cache/after-principale.jpg', croquis: '/test/cache/croquis-principale.png', type: 'avant' },
         { id: 'f2', label: 'Façade latérale', before: '/test/facade-laterale.jpg', after: null, croquis: null, type: 'droite' }
     ],
     dp7_vue_proche: '/test/vue-proche.jpg',
@@ -467,7 +471,7 @@ export const defaultPlans: PlansSauvegardes = {
     // Maps are captured live from IGN at l'étape Plans (not pre-baked).
     dp1_carte_situation: null,
     dp2_plan_masse: null,
-    dp4_notice: null,
+    dp4_notice: TEST_DP4_NOTICE, // cached AI notice (see src/lib/testCache.ts)
 }
 
 export const defaultCerfaData: CerfaData = {

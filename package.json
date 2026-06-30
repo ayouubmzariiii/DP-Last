@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:pdfs": "node scripts/gen-test-pdfs.mjs",
+    "test:pdfs:ai": "node scripts/gen-test-pdfs.mjs --ai"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",

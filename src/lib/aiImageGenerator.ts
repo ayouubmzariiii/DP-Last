@@ -85,7 +85,7 @@ VISUAL STYLE (MANDATORY):
 - Subtle material hatching (fine line grid for roof tiles, light texture for cladding).
 - A discreet horizontal ground line under the building.
 
-ANNOTATIONS: a few thin black leader lines pointing to the modified areas, each with a short, legible French label (e.g. "Menuiseries aluminium RAL 7016", "Isolation par l'extérieur — enduit", "Panneaux photovoltaïques"). Keep labels minimal and readable.
+ANNOTATIONS — STRICT SCOPE: add one or two thin black leader lines pointing only to the areas affected by the DECLARED works described above ("${rawDescription}"). Write a short, legible French label for THOSE works only. Do NOT add labels or depict any other work (no "isolation par l'extérieur", no "panneaux photovoltaïques", no roofing) unless it is explicitly part of the declared works. Keep labels minimal and correctly spelled.
 NO people, no cars, no trees, no photo background, no watermark.`
 }
 

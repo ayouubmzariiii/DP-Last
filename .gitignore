@@ -35,3 +35,6 @@ env.local
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Generated test PDFs (dev harness)
+test-output/
