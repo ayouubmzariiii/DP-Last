@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
         // ── OpenRouter Path ───────────────────────────────────────────────
         if (openRouterKey) {
             const contentArray: any[] = [{ type: 'text', text: prompt }]
-            
+
             if (imageBase64) {
                 // For image editing/referencing, pass the image directly
                 contentArray.push({
@@ -113,41 +113,63 @@ export async function POST(req: NextRequest) {
                 })
             }
 
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${openRouterKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
-                    'X-Title': 'DP Travaux Facade Generator'
-                },
-                body: JSON.stringify({
-                    // Image generation is the ONE paid step — use a cheap OpenRouter image model
-                    // (override via OPENROUTER_IMAGE_MODEL). gemini-2.5-flash-image supports both
-                    // image input (editing the "before" photo) and image output, at very low cost.
-                    model: process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.5-flash-image',
-                    messages: [{ role: 'user', content: contentArray }],
-                    modalities: ['image']
+            // The model occasionally answers with TEXT instead of an image (e.g. a refusal or a
+            // description). That is NOT a usable result — never fall back to message.content as an
+            // "image". Instead retry a couple of times, nudging it to return only the image, then
+            // surface a clean error so the client can show a retry instead of a broken picture.
+            const MAX_ATTEMPTS = 3
+            let lastTextSnippet = ''
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                const content = attempt === 1
+                    ? contentArray
+                    : [{ type: 'text', text: `${prompt}\n\nIMPORTANT: respond with the edited IMAGE only — do not reply with text or an explanation.` },
+                       ...(imageBase64 ? [{ type: 'image_url', image_url: { url: imageBase64 } }] : [])]
+
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${openRouterKey}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
+                        'X-Title': 'DP Travaux Facade Generator'
+                    },
+                    body: JSON.stringify({
+                        // Image generation is the ONE paid step — use a cheap OpenRouter image model
+                        // (override via OPENROUTER_IMAGE_MODEL). gemini-2.5-flash-image supports both
+                        // image input (editing the "before" photo) and image output, at very low cost.
+                        model: process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.5-flash-image',
+                        messages: [{ role: 'user', content }],
+                        modalities: ['image']
+                    })
                 })
-            })
 
-            if (!response.ok) {
-                const errText = await response.text()
-                throw new Error(`OpenRouter image model error: ${response.status} ${errText}`)
-            }
-
-            const data = await response.json()
-            const msg = data.choices?.[0]?.message
-            const imageUrl = msg?.images?.[0]?.image_url?.url || msg?.content
-
-            if (imageUrl) {
-                if (imageUrl.startsWith('data:')) {
-                    return NextResponse.json({ imageBase64: imageUrl })
+                if (!response.ok) {
+                    const errText = await response.text()
+                    // 4xx (bad request / content policy) won't fix itself — fail fast.
+                    if (response.status >= 400 && response.status < 500) {
+                        throw new Error(`OpenRouter image model error: ${response.status} ${errText}`)
+                    }
+                    lastTextSnippet = `${response.status} ${errText}`.slice(0, 200)
+                    continue
                 }
-                return NextResponse.json({ imageUrl })
+
+                const data = await response.json()
+                const msg = data.choices?.[0]?.message
+                // ONLY accept a real generated image (a data: URL or http(s) image URL).
+                const img: string | undefined = msg?.images?.[0]?.image_url?.url
+                if (img) {
+                    return img.startsWith('data:')
+                        ? NextResponse.json({ imageBase64: img })
+                        : NextResponse.json({ imageUrl: img })
+                }
+                lastTextSnippet = (typeof msg?.content === 'string' ? msg.content : '').slice(0, 200)
+                console.warn(`[facade] attempt ${attempt}/${MAX_ATTEMPTS} returned no image${lastTextSnippet ? ' — text: ' + lastTextSnippet : ''}`)
             }
 
-            throw new Error('No image returned from OpenRouter Grok Imagine')
+            return NextResponse.json(
+                { error: "Le modèle n'a pas renvoyé d'image (réponse texte). Réessayez." + (lastTextSnippet ? ` Détail : ${lastTextSnippet}` : '') },
+                { status: 502 }
+            )
         }
 
         // ── OpenAI Fallback Path ──────────────────────────────────────────

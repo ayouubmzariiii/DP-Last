@@ -280,20 +280,25 @@ export default function Etape7() {
                             <span>📄</span> Documents joints
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {[
-                                { key: 'dp1_carte_situation', label: 'DP1 Situation', type: 'plan' },
-                                { key: 'dp2_plan_masse', label: 'DP2 Masse', type: 'plan' },
-                                { key: 'dp4_notice', label: 'DP4 Notice', type: 'plan' },
-                                { key: 'facade_croquis_ai', label: 'DP5 Croquis', type: 'photo' },
-                                { key: 'facade_apres_ai', label: 'DP6 Simulation', type: 'photo' },
-                                { key: 'dp7_vue_proche', label: 'DP7 Vue proche', type: 'photo' },
-                                { key: 'dp8_vue_lointaine', label: 'DP8 Vue lointaine', type: 'photo' },
-                            ].map(item => {
-                                const has = item.type === 'plan'
-                                    ? !!formData.plans[item.key as keyof typeof formData.plans]
-                                    : !!formData.photos[item.key as keyof typeof formData.photos]
+                            {(() => {
+                                const facades = formData.photos.facades || []
+                                // DP5/DP6 live on the per-façade objects now (facades[].croquis / .after);
+                                // fall back to the deprecated single fields for older saved dossiers.
+                                const hasCroquis = facades.some(f => f.croquis) || !!formData.photos.facade_croquis_ai
+                                const hasAfter = facades.some(f => f.after) || !!formData.photos.facade_apres_ai
+                                return [
+                                    { label: 'DP1 Situation', has: !!formData.plans.dp1_carte_situation },
+                                    { label: 'DP2 Masse', has: !!formData.plans.dp2_plan_masse },
+                                    { label: 'DP4 Notice', has: !!formData.plans.dp4_notice },
+                                    { label: 'DP5 Croquis', has: hasCroquis },
+                                    { label: 'DP6 Simulation', has: hasAfter },
+                                    { label: 'DP7 Vue proche', has: !!formData.photos.dp7_vue_proche },
+                                    { label: 'DP8 Vue lointaine', has: !!formData.photos.dp8_vue_lointaine },
+                                ]
+                            })().map(item => {
+                                const has = item.has
                                 return (
-                                    <div key={item.key} className="rounded-xl p-3 text-center text-sm font-semibold border"
+                                    <div key={item.label} className="rounded-xl p-3 text-center text-sm font-semibold border"
                                         style={has
                                             ? { borderColor: 'var(--acb)', background: 'var(--act)', color: 'var(--acd)' }
                                             : { borderColor: 'var(--line)', background: 'var(--surface-2)', color: 'var(--muted)' }}>
@@ -426,53 +431,36 @@ export default function Etape7() {
                     <div className="dp-card dp-spec">
                         <h3 className="dp-section-title">📮 Comment déposer votre dossier en mairie</h3>
 
-                        {/* Préparer */}
-                        <p className="dp-meta mb-2">1 · Préparer le dossier</p>
-                        <ul className="space-y-1.5 text-sm t-ink2 mb-5">
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">✓</span> Signez le formulaire CERFA à la rubrique <em>« Engagement du déclarant »</em>.</li>
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">✓</span> Vérifiez que toutes les pièces (DP1 à DP8) listées plus haut sont présentes.</li>
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">✓</span> Complétez à la main, si besoin, les cotes du plan de masse (distances aux limites, hauteurs).</li>
-                        </ul>
-
-                        {/* Déposer — deux voies */}
-                        <p className="dp-meta mb-2">2 · Déposer (au choix)</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-                            <div className="rounded-xl p-4" style={{ background: 'var(--act)', border: '1px solid var(--acb)' }}>
-                                <div className="font-semibold t-ink mb-1 flex items-center gap-2">🖥️ En ligne <span className="dp-meta" style={{ margin: 0 }}>recommandé</span></div>
-                                <p className="text-sm t-ink2 mb-2">Déposez sur le <strong>Guichet Numérique des Autorisations d'Urbanisme (GNAU)</strong> de votre commune, ou préparez votre demande avec l'assistant officiel <strong>AD'AU</strong>. Vous recevez un accusé de réception électronique.</p>
-                                <a href="https://www.service-public.fr/particuliers/vosdroits/F17578" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold t-accent hover:underline">Démarche en ligne (service-public.fr) →</a>
-                            </div>
-                            <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
-                                <div className="font-semibold t-ink mb-1 flex items-center gap-2">🏛️ En mairie / par courrier</div>
-                                <p className="text-sm t-ink2 mb-2">Imprimez le dossier en <strong>2 exemplaires</strong> (davantage en secteur ABF / protégé) et déposez-le au service urbanisme contre récépissé, ou envoyez-le en <strong>lettre recommandée avec AR</strong>.</p>
-                                <span className="dp-meta" style={{ margin: 0 }}>Conservez le récépissé / l'avis de réception</span>
-                            </div>
-                        </div>
-
-                        {/* Délais */}
-                        <p className="dp-meta mb-2">3 · Délais d'instruction</p>
-                        <ul className="space-y-1.5 text-sm t-ink2 mb-4">
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">•</span> <strong>1 mois</strong> en règle générale à compter du dépôt.</li>
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">•</span> <strong>2 mois</strong> si le terrain est en périmètre d'un Monument Historique ou en Site Patrimonial Remarquable (avis de l'ABF).</li>
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">•</span> La mairie dispose d'<strong>1 mois</strong> pour réclamer des pièces manquantes. <em>Sans réponse</em> à la fin du délai, vous bénéficiez en principe d'une <strong>décision tacite</strong> (non-opposition) — demandez-en un certificat à la mairie.</li>
-                        </ul>
-
-                        {/* Après acceptation */}
-                        <p className="dp-meta mb-2">4 · Une fois la DP acceptée</p>
-                        <ul className="space-y-1.5 text-sm t-ink2 mb-5">
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">•</span> <strong>Affichez l'autorisation sur le terrain</strong> (panneau visible de la voie publique) pendant toute la durée du chantier et au moins 2 mois.</li>
-                            <li className="flex items-start gap-2"><span className="t-accent mt-0.5">•</span> À la fin des travaux, adressez la <strong>déclaration d'achèvement (DAACT)</strong> à la mairie.</li>
-                        </ul>
+                        {/* Numbered steps — tight, consistent rhythm */}
+                        <ol className="space-y-4">
+                            {[
+                                { t: 'Préparer', c: <>Signez le CERFA (rubrique <em>« Engagement du déclarant »</em>), vérifiez que les pièces DP1–DP8 ci-dessus sont présentes, et complétez à la main les cotes du plan de masse si besoin.</> },
+                                { t: 'Déposer — au choix', c: <>
+                                    <span className="block"><strong>🖥️ En ligne (recommandé)</strong> — sur le <strong>Guichet Numérique des Autorisations d'Urbanisme (GNAU)</strong> de votre commune, ou via l'assistant officiel <strong>AD'AU</strong>. Accusé de réception électronique immédiat.</span>
+                                    <span className="block mt-1"><strong>🏛️ En mairie / courrier</strong> — imprimez le dossier en <strong>2 exemplaires</strong> (plus en secteur ABF), dépôt contre récépissé ou <strong>lettre recommandée avec AR</strong>.</span>
+                                </> },
+                                { t: 'Délais d\'instruction', c: <><strong>1 mois</strong> en général, <strong>2 mois</strong> en périmètre Monument Historique / Site Patrimonial (avis ABF). La mairie a 1 mois pour réclamer des pièces ; sans réponse, vous obtenez une <strong>décision tacite</strong> (demandez-en le certificat).</> },
+                                { t: 'Après acceptation', c: <><strong>Affichez l'autorisation</strong> sur le terrain (panneau visible de la rue) pendant tout le chantier et au moins 2 mois, puis envoyez la <strong>déclaration d'achèvement (DAACT)</strong> en fin de travaux.</> },
+                            ].map((s, i) => (
+                                <li key={i} className="flex gap-3">
+                                    <span className="shrink-0 flex items-center justify-center" style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--act)', border: '1px solid var(--acb)', color: 'var(--acd)', fontFamily: 'var(--mf)', fontSize: 12, fontWeight: 600 }}>{i + 1}</span>
+                                    <div className="flex-1">
+                                        <div className="font-semibold t-ink text-sm leading-6">{s.t}</div>
+                                        <p className="text-sm t-ink2 leading-relaxed mt-0.5">{s.c}</p>
+                                    </div>
+                                </li>
+                            ))}
+                        </ol>
 
                         {/* Liens officiels */}
-                        <div className="dp-alert is-info">
+                        <div className="dp-alert is-info mt-5">
                             <span className="dp-alert-title">Liens officiels</span>
-                            <ul className="space-y-1">
-                                <li><a href="https://www.service-public.fr/particuliers/vosdroits/F17578" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Déclaration préalable de travaux — fiche & démarche</a></li>
-                                <li><a href="https://www.service-public.fr/particuliers/vosdroits/F1992" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Déclaration d'ouverture de chantier (DOC)</a></li>
-                                <li><a href="https://www.service-public.fr/particuliers/vosdroits/F1997" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Déclaration d'achèvement des travaux (DAACT)</a></li>
-                            </ul>
-                            <p className="mt-2 text-xs">Astuce : recherchez « guichet numérique urbanisme + <em>nom de votre commune</em> » pour trouver le portail de dépôt en ligne local.</p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                <a href="https://www.service-public.fr/particuliers/vosdroits/F17578" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Déclaration préalable (DP)</a>
+                                <a href="https://www.service-public.fr/particuliers/vosdroits/F1992" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Ouverture de chantier (DOC)</a>
+                                <a href="https://www.service-public.fr/particuliers/vosdroits/F1997" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Achèvement (DAACT)</a>
+                            </div>
+                            <p className="mt-2 text-xs">Astuce : cherchez « guichet numérique urbanisme + <em>votre commune</em> » pour le portail de dépôt en ligne local.</p>
                         </div>
                     </div>
 
