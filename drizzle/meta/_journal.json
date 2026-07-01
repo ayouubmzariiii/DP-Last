@@ -8,6 +8,13 @@
       "when": 1782873355240,
       "tag": "0000_careless_robin_chapel",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782915003855,
+      "tag": "0001_rich_centennial",
+      "breakpoints": true
     }
   ]
 }

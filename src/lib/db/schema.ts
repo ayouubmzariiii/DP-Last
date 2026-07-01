@@ -5,7 +5,7 @@
 // with every image field replaced by a Vercel Blob https URL (never base64) so
 // rows stay small and PUT payloads stay well under Vercel's 4.5 MB request cap.
 // ─────────────────────────────────────────────────────────────────────────────
-import { pgTable, pgEnum, uuid, text, integer, jsonb, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, text, integer, jsonb, timestamp, index, boolean } from 'drizzle-orm/pg-core'
 import type { DPFormData } from '@/lib/models'
 
 export const dossierStatus = pgEnum('dossier_status', ['draft', 'complete'])
@@ -14,6 +14,11 @@ export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
     email: text('email').notNull().unique(),          // always stored lowercased
     passwordHash: text('password_hash').notNull(),
+    // Account settings (editable from the profil "Paramètres" tab).
+    fullName: text('full_name'),
+    phone: text('phone'),
+    language: text('language').notNull().default('fr'),
+    emailNotifications: boolean('email_notifications').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
