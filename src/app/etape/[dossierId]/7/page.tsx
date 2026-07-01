@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { validateDPForm, piecesChecklist, fatalIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
 
@@ -28,7 +28,8 @@ function RecapSection({ title, icon, items }: {
 
 export default function Etape7() {
     const router = useRouter()
-    const { formData, resetForm, updateField, isTestMode } = useDPContext()
+    const dossierId = useParams<{ dossierId: string }>().dossierId as string
+    const { formData, updateField, isTestMode } = useDPContext()
     const { demandeur, terrain, travaux, photos } = formData
 
     const [generatingCerfa, setGeneratingCerfa] = useState(false)
@@ -473,17 +474,17 @@ export default function Etape7() {
 
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
-                        <button onClick={() => router.push('/etape/6')} className="dp-btn-secondary">
+                        <button onClick={() => router.push(`/etape/${dossierId}/6`)} className="dp-btn-secondary">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                             Retour
                         </button>
                         <button
-                            onClick={() => { if (confirm('Êtes-vous sûr de vouloir réinitialiser le formulaire ?')) { resetForm(); router.push('/') } }}
-                            className="text-sm t-ink2 hover:text-red-500 transition-colors"
+                            onClick={() => router.push('/mes-dossiers')}
+                            className="text-sm t-ink2 hover:t-accent transition-colors"
                         >
-                            🗑️ Nouveau dossier
+                            📁 Mes dossiers
                         </button>
                     </div>
                 </div>

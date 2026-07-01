@@ -1,31 +1,43 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDPContext } from '@/lib/context'
 import SealIcon from '@/components/SealIcon'
 
 const STEPS = [
-    { num: 1, label: 'Demandeur', path: '/etape/1' },
-    { num: 2, label: 'Terrain', path: '/etape/2' },
-    { num: 3, label: 'Travaux', path: '/etape/3' },
-    { num: 4, label: 'PLU', path: '/etape/4' },
-    { num: 5, label: 'Photos', path: '/etape/5' },
-    { num: 6, label: 'Plans', path: '/etape/6' },
-    { num: 7, label: 'Génération', path: '/etape/7' },
+    { num: 1, label: 'Demandeur' },
+    { num: 2, label: 'Terrain' },
+    { num: 3, label: 'Travaux' },
+    { num: 4, label: 'PLU' },
+    { num: 5, label: 'Photos' },
+    { num: 6, label: 'Plans' },
+    { num: 7, label: 'Génération' },
 ]
 const AC = '#2D5A4C'
 
-// This layout PERSISTS across /etape/* navigations (App Router) — so the header, stepper and
-// progress bar never remount; only the page content swaps (see template.tsx for the transition).
+// This layout PERSISTS across /etape/[dossierId]/* navigations (App Router) — so the header,
+// stepper and progress bar never remount; only the page content swaps (see template.tsx).
 export default function EtapeLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
-    const { isTestMode, toggleTestMode } = useDPContext()
+    const params = useParams<{ dossierId: string }>()
+    const dossierId = params.dossierId
+    const { isTestMode, toggleTestMode, loadDossier, setLastStep, currentDossierId } = useDPContext()
 
-    const currentStep = STEPS.findIndex(s => s.path === pathname) + 1
+    const stepPath = (num: number) => `/etape/${dossierId}/${num}`
+    // Current step = trailing numeric segment of the path.
+    const currentStep = Number(pathname.split('/').pop()) || 1
     const progress = (Math.max(currentStep, 1) / STEPS.length) * 100
+
+    // Hydrate the active dossier from the DB when the route's id changes (skip in test mode).
+    useEffect(() => {
+        if (dossierId && !isTestMode && currentDossierId !== dossierId) loadDossier(dossierId)
+    }, [dossierId, isTestMode, currentDossierId, loadDossier])
+
+    // Track the last step for autosave, so "Ouvrir" resumes where the user left off.
+    useEffect(() => { setLastStep(currentStep) }, [currentStep, setLastStep])
 
     // Keep the current step centred in the (scrollable) stepper, esp. on mobile.
     const currentRef = useRef<HTMLButtonElement>(null)
@@ -62,7 +74,7 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
                                         <button
                                             ref={isCurrent ? currentRef : undefined}
                                             type="button"
-                                            onClick={() => reachable && router.push(step.path)}
+                                            onClick={() => reachable && router.push(stepPath(step.num))}
                                             disabled={!reachable}
                                             title={step.label}
                                             className="flex items-center gap-1.5 shrink-0 rounded-full transition-colors"

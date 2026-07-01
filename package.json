@@ -8,11 +8,19 @@
     "start": "next start",
     "lint": "next lint",
     "test:pdfs": "node scripts/gen-test-pdfs.mjs",
-    "test:pdfs:ai": "node scripts/gen-test-pdfs.mjs --ai"
+    "test:pdfs:ai": "node scripts/gen-test-pdfs.mjs --ai",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "@vercel/blob": "^2.5.0",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
     "html2canvas": "^1.4.1",
+    "jose": "^6.2.3",
     "jspdf": "^2.5.1",
     "next": "14.2.5",
     "openai": "^6.27.0",
@@ -21,14 +29,18 @@
     "pdfjs-dist": "^6.0.227",
     "react": "^18",
     "react-dom": "^18",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
     "postcss": "^8",

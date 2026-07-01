@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { issuesForStep, fatalIssues } from '@/lib/validation'
 
 export default function Etape1() {
     const router = useRouter()
+    const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updateDemandeur, updateCoDemandeur, updateTerrain, updateField } = useDPContext()
     const d = formData.demandeur
     const t = formData.terrain
@@ -82,7 +83,7 @@ export default function Etape1() {
     }, [d.coords, t.meme_adresse, t.plu])
 
     const handleNext = () => {
-        router.push('/etape/2')
+        router.push(`/etape/${dossierId}/2`)
     }
 
     return (

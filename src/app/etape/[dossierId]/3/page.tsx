@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { TypeTravaux } from '@/lib/models'
 
@@ -42,6 +42,7 @@ import { issuesForStep, fatalIssues } from '@/lib/validation'
 
 export default function Etape3() {
     const router = useRouter()
+    const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updateTravaux, updateTerrain, updateField } = useDPContext()
     const t = formData.travaux
     const terrain = formData.terrain
@@ -363,14 +364,14 @@ export default function Etape3() {
 
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
-                        <button onClick={() => router.push('/etape/2')} className="dp-btn-secondary">
+                        <button onClick={() => router.push(`/etape/${dossierId}/2`)} className="dp-btn-secondary">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                             Retour
                         </button>
                         <button
-                            onClick={() => router.push('/etape/4')}
+                            onClick={() => router.push(`/etape/${dossierId}/4`)}
                             disabled={!t.type || stepFatals.length > 0}
                             className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed"
                         >

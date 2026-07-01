@@ -56,12 +56,40 @@ The final assembly line.
 
 ---
 
+## 🔐 Accounts & Persistence
+
+The app is **gated behind authentication**: users register/log in (email + password), and each
+account's dossiers are saved server-side (Postgres) and resumable across devices. Photos, maps and
+AI images are stored in **Vercel Blob** — the dossier row keeps only their URLs, never base64.
+
+- **Auth**: bcrypt-hashed passwords, stateless JWT (`jose`) in an httpOnly cookie. Edge gate in
+  `src/middleware.ts` (imports only `src/lib/session.ts` — never `bcryptjs`/`drizzle`).
+- **DB**: Drizzle ORM over Neon (`src/lib/db/`). Schema: `users`, `dossiers(data jsonb, …)`.
+- **Blob**: `src/app/api/blob/upload` + client helper `src/lib/uploadImage.ts`.
+
+### Required environment variables (`.env.local` locally, Vercel project env in prod)
+| Var | Purpose |
+|-----|---------|
+| `DATABASE_URL` | Neon/Postgres connection (pooled). Pull via `vercel env pull`. |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob store token (Storage → your store → `.env.local` tab). |
+| `AUTH_SECRET` | Strong random string for signing session JWTs. |
+| `OPENROUTER_API_KEY` | AI image + notice generation. |
+
+### Database migrations
+```bash
+npm run db:generate   # generate SQL from src/lib/db/schema.ts → ./drizzle
+npm run db:migrate    # apply to DATABASE_URL  (run as a deploy step, NOT during `next build`)
+npm run db:studio     # optional: browse the DB
+```
+
 ## 🏁 Getting Started
 
 1. **Clone**: `git clone https://github.com/ayouubmzariiii/DP-Last.git`
 2. **Install**: `npm install`
-3. **Env**: Create `.env.local` with `NVIDIA_API_KEY`.
-4. **Dev**: `npm run dev`
+3. **Env**: create `.env.local` with the variables in the table above (`vercel env pull` fills
+   `DATABASE_URL`/`BLOB_READ_WRITE_TOKEN`; set your own `AUTH_SECRET`).
+4. **Migrate**: `npm run db:migrate`
+5. **Dev**: `npm run dev` → open `/register`.
 
 ---
 Copyright © 2024 DP Last. All rights reserved.

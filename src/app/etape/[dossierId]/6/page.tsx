@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { generateAICroquis, buildAIAfterImagePrompt, buildAICroquisPrompt, buildAIAfterImagePrompt as buildDP6Prompt, resizeImageForOpenAI } from '@/lib/aiImageGenerator'
 import { DPFormData } from '@/lib/models'
+import { uploadImage } from '@/lib/uploadImage'
 import html2canvas from 'html2canvas'
 import { geocodeAddress } from '@/lib/ignMaps'
 
@@ -774,6 +775,7 @@ const compressDataURL = (dataUrl: string, maxWidth: number = 1500, quality: numb
 
 export default function Etape6() {
     const router = useRouter()
+    const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updatePhotos, updatePlans } = useDPContext()
     const [isGeneratingAI, setIsGeneratingAI] = useState(false)
     const [isGeneratingCroquis, setIsGeneratingCroquis] = useState(false)
@@ -853,8 +855,9 @@ export default function Etape6() {
                 const imageUrl = await generateAICroquis(formData, f.after!, customInstruction)
                 if (imageUrl) {
                     const compressedUrl = await compressDataURL(imageUrl)
+                    const url = await uploadImage(dossierId, 'croquis', compressedUrl, { facadeId: f.id, previousUrl: f.croquis })
                     const idx = newFacades.findIndex(nf => nf.id === f.id)
-                    if (idx !== -1) newFacades[idx].croquis = compressedUrl
+                    if (idx !== -1) newFacades[idx].croquis = url
                 }
                 setGeneratingFacades(prev => prev.filter(id => id !== f.id))
             }
@@ -906,8 +909,9 @@ export default function Etape6() {
 
                 if (imageUrl) {
                     const compressedUrl = await compressDataURL(imageUrl)
+                    const url = await uploadImage(dossierId, 'after', compressedUrl, { facadeId: f.id, previousUrl: f.after })
                     const idx = newFacades.findIndex(nf => nf.id === f.id)
-                    if (idx !== -1) newFacades[idx].after = compressedUrl
+                    if (idx !== -1) newFacades[idx].after = url
                 }
                 
                 // Remove from local generating set as each one finishes
@@ -934,7 +938,8 @@ export default function Etape6() {
                 const imageUrl = await generateAICroquis(formData, facade.after!)
                 if (imageUrl) {
                     const compressedUrl = imageUrl.startsWith('data:image') ? await compressDataURL(imageUrl) : imageUrl
-                    const newFacades = formData.photos.facades.map(f => f.id === facadeId ? { ...f, croquis: compressedUrl } : f)
+                    const url = await uploadImage(dossierId, 'croquis', compressedUrl, { facadeId, previousUrl: facade.croquis })
+                    const newFacades = formData.photos.facades.map(f => f.id === facadeId ? { ...f, croquis: url } : f)
                     updatePhotos({ facades: newFacades })
                 }
             } catch (err: any) { alert('Erreur: ' + err.message) }
@@ -962,7 +967,8 @@ export default function Etape6() {
 
                 if (newImage) {
                     const compressedUrl = newImage.startsWith('data:image') ? await compressDataURL(newImage) : newImage
-                    const newFacades = formData.photos.facades.map(f => f.id === facadeId ? { ...f, after: compressedUrl } : f)
+                    const url = await uploadImage(dossierId, 'after', compressedUrl, { facadeId, previousUrl: facade.after })
+                    const newFacades = formData.photos.facades.map(f => f.id === facadeId ? { ...f, after: url } : f)
                     updatePhotos({ facades: newFacades })
                 }
             } catch (err: any) { alert('Erreur: ' + err.message) }
@@ -1092,7 +1098,12 @@ export default function Etape6() {
                                 color="blue"
                                 zoom={dp1Zoom}
                                 onZoomChange={setDp1Zoom}
-                                onCapture={(img) => updatePlans({ dp1_carte_situation: img, dp1_span_m: dp1Zoom })}
+                                onCapture={async (img) => {
+                                    try {
+                                        const url = await uploadImage(dossierId, 'dp1', img, { previousUrl: formData.plans.dp1_carte_situation })
+                                        updatePlans({ dp1_carte_situation: url, dp1_span_m: dp1Zoom })
+                                    } catch { alert('Téléversement du plan DP1 échoué. Réessayez.') }
+                                }}
                                 savedImage={formData.plans.dp1_carte_situation}
                             />
                             <div className="flex justify-end pt-4">
@@ -1120,7 +1131,12 @@ export default function Etape6() {
                                 commune={commune}
                                 coords={coords}
                                 formData={formData}
-                                onCapture={(img) => updatePlans({ dp2_plan_masse: img })}
+                                onCapture={async (img) => {
+                                    try {
+                                        const url = await uploadImage(dossierId, 'dp2', img, { previousUrl: formData.plans.dp2_plan_masse })
+                                        updatePlans({ dp2_plan_masse: url })
+                                    } catch { alert('Téléversement du plan DP2 échoué. Réessayez.') }
+                                }}
                                 savedImage={formData.plans.dp2_plan_masse}
                             />
                             <div className="flex justify-between pt-4">
@@ -1537,7 +1553,7 @@ export default function Etape6() {
 
                             <div className="flex justify-between pt-12 border-t border-[color:var(--line)]">
                                 <button onClick={() => setSubStep(5)} className="dp-btn-secondary">Retour</button>
-                                <button onClick={() => router.push('/etape/7')} className="dp-btn-primary group px-12 py-5">
+                                <button onClick={() => router.push(`/etape/${dossierId}/7`)} className="dp-btn-primary group px-12 py-5">
                                     Finaliser le dossier
                                     <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7-7 7" />
@@ -1550,7 +1566,7 @@ export default function Etape6() {
 
                 {/* Return navigation */}
                 <div className="flex justify-start mt-16 pt-8 border-t border-[color:var(--line)]">
-                    <button onClick={() => router.push('/etape/5')} className="t-ink2 hover:t-ink text-sm font-bold flex items-center gap-3 transition-colors uppercase tracking-widest">
+                    <button onClick={() => router.push(`/etape/${dossierId}/5`)} className="t-ink2 hover:t-ink text-sm font-bold flex items-center gap-3 transition-colors uppercase tracking-widest">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
                         Retour aux photos
                     </button>

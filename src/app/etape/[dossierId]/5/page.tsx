@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRef, useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
+import { uploadImage, type ImageKind } from '@/lib/uploadImage'
 
 interface PhotoUploadProps {
     label: string
@@ -10,6 +11,9 @@ interface PhotoUploadProps {
     icon: string
     value: string | null
     onChange: (val: string | null) => void
+    dossierId: string
+    kind: ImageKind
+    facadeId?: string
     required?: boolean
     badge?: string
 }
@@ -48,24 +52,32 @@ const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.
     })
 }
 
-function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }: PhotoUploadProps) {
+function PhotoUpload({ label, sublabel, icon, value, onChange, dossierId, kind, facadeId, required, badge }: PhotoUploadProps) {
     const inputRef = useRef<HTMLInputElement>(null)
+    const [uploading, setUploading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     const handleFile = async (file: File | null) => {
         if (!file) return
+        setUploading(true)
+        setError(null)
         try {
+            // Compress client-side, then upload to Blob and store ONLY the returned URL — never
+            // base64 (the dossier save endpoint rejects inline data: URLs).
             const compressed = await compressImage(file)
-            onChange(compressed)
+            const url = await uploadImage(dossierId, kind, compressed, { facadeId, previousUrl: value })
+            onChange(url)
         } catch (err) {
-            console.error('Compression failed', err)
-            const reader = new FileReader()
-            reader.onload = e => onChange(e.target?.result as string)
-            reader.readAsDataURL(file)
+            console.error('Upload failed', err)
+            setError('Téléversement échoué. Vérifiez votre connexion et réessayez.')
+        } finally {
+            setUploading(false)
         }
     }
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault()
+        if (uploading) return
         const file = e.dataTransfer.files[0]
         if (file && file.type.startsWith('image/')) handleFile(file)
     }
@@ -89,7 +101,8 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }
                 className={`upload-zone ${value ? 'has-file' : ''}`}
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
-                onClick={() => inputRef.current?.click()}
+                onClick={() => { if (!uploading) inputRef.current?.click() }}
+                style={uploading ? { opacity: 0.7, pointerEvents: 'none' } : undefined}
             >
                 <input
                     ref={inputRef}
@@ -98,7 +111,12 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }
                     className="hidden"
                     onChange={e => handleFile(e.target.files?.[0] || null)}
                 />
-                {value ? (
+                {uploading ? (
+                    <div className="py-8 flex flex-col items-center gap-3">
+                        <span className="dp-spinner dp-spinner-lg" />
+                        <p className="text-[13px] font-medium t-ink2">Téléversement…</p>
+                    </div>
+                ) : value ? (
                     <div className="relative inline-block">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={value} alt={label} className="max-h-48 mx-auto rounded-lg object-cover" />
@@ -118,12 +136,14 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, required, badge }
                     </div>
                 )}
             </div>
+            {error && <p className="text-xs t-error mt-1">⚠️ {error}</p>}
         </div>
     )
 }
 
 export default function Etape5() {
     const router = useRouter()
+    const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updatePhotos } = useDPContext()
     const p = formData.photos
 
@@ -189,6 +209,8 @@ export default function Etape5() {
                                 sublabel="Photo prise depuis la voie publique, montrant clairement la façade concernée par les travaux"
                                 icon="📷"
                                 badge="DP7"
+                                dossierId={dossierId}
+                                kind="dp7"
                                 value={p.dp7_vue_proche}
                                 onChange={v => updatePhotos({ dp7_vue_proche: v })}
                                 required
@@ -198,6 +220,8 @@ export default function Etape5() {
                                 sublabel="Photo montrant la maison dans son environnement (depuis la rue, un peu plus loin)"
                                 icon="🌄"
                                 badge="DP8"
+                                dossierId={dossierId}
+                                kind="dp8"
                                 value={p.dp8_vue_lointaine}
                                 onChange={v => updatePhotos({ dp8_vue_lointaine: v })}
                                 required
@@ -227,6 +251,9 @@ export default function Etape5() {
                                         label={f.label}
                                         sublabel={f.type === 'avant' ? "Photo de la façade principale visible depuis la rue" : `Photo de la façade ${f.label.toLowerCase()}`}
                                         icon={f.type === 'avant' ? "🏠" : f.type === 'arriere' ? "🏡" : "📐"}
+                                        dossierId={dossierId}
+                                        kind="before"
+                                        facadeId={f.id}
                                         value={f.before}
                                         onChange={v => updateFacadePhoto(f.id, v)}
                                         required={f.type === 'avant'}
@@ -276,13 +303,13 @@ export default function Etape5() {
 
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
-                        <button onClick={() => router.push('/etape/4')} className="dp-btn-secondary">
+                        <button onClick={() => router.push(`/etape/${dossierId}/4`)} className="dp-btn-secondary">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                             Retour
                         </button>
-                        <button onClick={() => router.push('/etape/6')} className="dp-btn-primary text-base">
+                        <button onClick={() => router.push(`/etape/${dossierId}/6`)} className="dp-btn-primary text-base">
                             Générer les plans
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
     try {
+        if (!(await getSession())) return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
         const { formData, photos } = await req.json()
 
         let applicantInfo = ''

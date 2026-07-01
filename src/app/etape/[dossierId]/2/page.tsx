@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { issuesForStep, fatalIssues } from '@/lib/validation'
 
 export default function Etape2() {
     const router = useRouter()
+    const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updateTerrain, updateField, updateDemandeur } = useDPContext()
     const t = formData.terrain
     const d = formData.demandeur
@@ -309,13 +310,13 @@ export default function Etape2() {
 
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
-                        <button onClick={() => router.push('/etape/1')} className="dp-btn-secondary">
+                        <button onClick={() => router.push(`/etape/${dossierId}/1`)} className="dp-btn-secondary">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                             Retour
                         </button>
-                        <button onClick={() => router.push('/etape/3')} disabled={stepFatals.length > 0} className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button onClick={() => router.push(`/etape/${dossierId}/3`)} disabled={stepFatals.length > 0} className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed">
                             Étape suivante
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

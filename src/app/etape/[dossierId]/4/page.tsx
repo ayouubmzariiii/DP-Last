@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { isProtectedSector, pluAspectConflicts } from '@/lib/validation'
 
 export default function Etape4() {
     const router = useRouter()
+    const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updateTerrain } = useDPContext()
     const terrain = formData.terrain
     const travaux = formData.travaux
@@ -142,7 +143,7 @@ export default function Etape4() {
                         <p className="text-xs t-ink2 mt-2 max-w-sm mx-auto">
                             Veuillez renseigner une adresse valide et récupérer les données cadastrales à l'étape 2 (Terrain).
                         </p>
-                        <button onClick={() => router.push('/etape/2')} className="dp-btn-primary mt-6 mx-auto">
+                        <button onClick={() => router.push(`/etape/${dossierId}/2`)} className="dp-btn-primary mt-6 mx-auto">
                             Retour à l'étape 2
                         </button>
                     </div>
@@ -168,7 +169,7 @@ export default function Etape4() {
                                     <button onClick={runAnalysis} className="dp-btn-primary text-xs !px-4 !py-2">
                                         Réessayer l'analyse
                                     </button>
-                                    <button onClick={() => router.push('/etape/3')} className="dp-btn-secondary text-xs !px-4 !py-2">
+                                    <button onClick={() => router.push(`/etape/${dossierId}/3`)} className="dp-btn-secondary text-xs !px-4 !py-2">
                                         Retour aux travaux
                                     </button>
                                 </div>
@@ -596,7 +597,7 @@ export default function Etape4() {
 
                         {/* Navigation Buttons */}
                         <div className="flex justify-between items-center pt-4">
-                            <button onClick={() => router.push('/etape/3')} className="dp-btn-secondary">
+                            <button onClick={() => router.push(`/etape/${dossierId}/3`)} className="dp-btn-secondary">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
@@ -614,7 +615,7 @@ export default function Etape4() {
                                         plu?.verified === false
                                     ))
                                     return (
-                                        <button onClick={() => router.push('/etape/5')} disabled={needsAck && !ack}
+                                        <button onClick={() => router.push(`/etape/${dossierId}/5`)} disabled={needsAck && !ack}
                                             className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed">
                                             Étape suivante
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

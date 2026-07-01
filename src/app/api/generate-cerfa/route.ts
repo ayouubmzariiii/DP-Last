@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateCerfaPdf } from '@/lib/pdfGenerator'
 import { DPFormData } from '@/lib/models'
 import { validateDPForm, fatalIssues } from '@/lib/validation'
+import { getSession } from '@/lib/auth'
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
     try {
+        if (!(await getSession())) return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
         const data: DPFormData = await req.json()
 
         // Safety net: never emit a legally-invalid CERFA, even if the UI is bypassed.

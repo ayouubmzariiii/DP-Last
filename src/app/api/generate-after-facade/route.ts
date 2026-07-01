@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI, { toFile } from 'openai'
 import sharp from 'sharp'
 import { Readable } from 'stream'
+import { getSession } from '@/lib/auth'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
@@ -60,6 +61,10 @@ export async function POST(req: NextRequest) {
     // ── Security checks ────────────────────────────────────────────────────
     if (!isOriginAllowed(req)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (!(await getSession())) {
+        return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
     }
 
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
