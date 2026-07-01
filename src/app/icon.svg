@@ -1,9 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#2D5A4C"/>
-  <g fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="16" cy="16" r="9.5"/>
-    <circle cx="16" cy="16" r="5.6"/>
-    <path d="M13.4 16.2l2 2 3.4-3.8"/>
-    <path d="M16 4v1.6M16 26.4V28M4 16h1.6M26.4 16H28"/>
-  </g>
+  <defs>
+    <linearGradient id="dpg" x1="3" y1="1" x2="29" y2="31" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2D5A4C"/>
+      <stop offset="1" stop-color="#244A3E"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#dpg)"/>
+  <text x="16" y="15.5" text-anchor="middle" dominant-baseline="central"
+        font-family="Georgia, 'Times New Roman', serif" font-weight="700"
+        font-size="16" letter-spacing="-0.5" fill="#ffffff">dp</text>
+  <rect x="12" y="23" width="8" height="1.7" rx="0.85" fill="#ffffff" fill-opacity="0.5"/>
 </svg>
