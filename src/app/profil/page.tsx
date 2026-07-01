@@ -151,21 +151,21 @@ export default function ProfilePage() {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             {dossiers.map(d => (
-                                <div key={d.id} className="dp-card" style={{ padding: '18px 20px' }}>
+                                <div key={d.id} className="dp-card" style={{ padding: '16px 18px' }}>
                                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                                        <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} style={{ minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', flex: 1 }}>
+                                        <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="w-full sm:flex-1" style={{ minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                                                <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }} className="truncate">{d.title}</span>
+                                                <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflowWrap: 'anywhere' }}>{d.title}</span>
                                                 <span className={d.status === 'complete' ? 'dp-chip is-ok' : 'dp-chip'}>{d.status === 'complete' ? 'Complet' : 'Brouillon'}</span>
                                             </div>
-                                            <div className="dp-meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12.5 }}>
+                                            <div className="dp-meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12.5, lineHeight: 1.5 }}>
                                                 Étape {d.lastStep}/7 · {STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · modifié le {fmtDate(d.updatedAt)}
                                             </div>
                                         </button>
-                                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                                            <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>Ouvrir</button>
-                                            <button onClick={() => rename(d)} className="dp-btn-secondary" style={{ padding: '8px 14px', fontSize: 13 }}>Renommer</button>
-                                            <button onClick={() => remove(d)} className="dp-btn-secondary" style={{ padding: '8px 12px', fontSize: 13 }} title="Supprimer">🗑</button>
+                                        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                                            <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary flex-1 sm:flex-none justify-center" style={{ padding: '9px 16px', fontSize: 13 }}>Ouvrir</button>
+                                            <button onClick={() => rename(d)} className="dp-btn-secondary flex-1 sm:flex-none justify-center" style={{ padding: '9px 14px', fontSize: 13 }}>Renommer</button>
+                                            <button onClick={() => remove(d)} className="dp-btn-secondary justify-center shrink-0" style={{ padding: '9px 13px', fontSize: 13 }} title="Supprimer" aria-label="Supprimer">🗑</button>
                                         </div>
                                     </div>
                                 </div>
