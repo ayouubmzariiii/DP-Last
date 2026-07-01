@@ -286,7 +286,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         </div>
                         <div style={s('white-space:nowrap')}>
                             <div style={s('font-family:var(--hf);font-size:16px;font-weight:600;line-height:1.05;color:var(--ink)')}>DP Travaux</div>
-                            <div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.09em;color:var(--muted);text-transform:uppercase')}>Déclaration préalable</div>
+                            <div data-logosub style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.09em;color:var(--muted);text-transform:uppercase')}>Déclaration préalable</div>
                         </div>
                     </a>
                     <nav data-navlinks style={s('flex:1;display:flex;align-items:center;justify-content:center;gap:30px')}>
@@ -295,12 +295,12 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <button data-nav data-active={page === 'faq' ? '1' : '0'} onClick={() => go('faq')} style={s('background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;padding:7px 2px;transition:color .15s,border-color .15s')}>FAQ</button>
                         <button data-nav data-active={page === 'contact' ? '1' : '0'} onClick={() => go('contact')} style={s('background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;padding:7px 2px;transition:color .15s,border-color .15s')}>Contact</button>
                     </nav>
-                    <div style={s('display:flex;align-items:center;gap:14px;flex-shrink:0')}>
+                    <div data-headcta style={s('display:flex;align-items:center;gap:14px;flex-shrink:0')}>
                         {authed ? (
                             <a href="/profil" className="dp-btn-primary" style={s('text-decoration:none;padding:10px 20px;font-size:14px')}>Mon espace</a>
                         ) : (
                             <>
-                                <a href={SIGNIN_HREF} data-nav style={s('text-decoration:none;font-size:14px;font-weight:600;color:var(--ink-2);white-space:nowrap')}>Se connecter</a>
+                                <a href={SIGNIN_HREF} data-signin data-nav style={s('text-decoration:none;font-size:14px;font-weight:600;color:var(--ink-2);white-space:nowrap')}>Se connecter</a>
                                 <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:10px 20px;font-size:14px')}>Commencer</a>
                             </>
                         )}
@@ -928,5 +928,6 @@ const SITE_CSS = `
 #site [data-anim]{will-change:transform,opacity}
 @media (prefers-reduced-motion:reduce){#site [data-anim]{animation:none!important}#site.reveal-on [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
 @media (max-width:860px){#site [data-hero]{grid-template-columns:1fr!important}#site [data-hero-visual]{display:none!important}#site [data-col2]{grid-template-columns:1fr!important}#site [data-split]{grid-template-columns:1fr!important}}
-@media (max-width:760px){#site [data-navlinks]{display:none!important}#site [data-grid3]{grid-template-columns:1fr!important}#site [data-grid2]{grid-template-columns:repeat(2,1fr)!important}#site [data-elig]{grid-template-columns:1fr!important}#site [data-foot]{grid-template-columns:1fr 1fr!important}}
+@media (max-width:760px){#site [data-navlinks]{display:none!important}#site [data-headcta]{margin-left:auto}#site [data-grid3]{grid-template-columns:1fr!important}#site [data-grid2]{grid-template-columns:repeat(2,1fr)!important}#site [data-elig]{grid-template-columns:1fr!important}#site [data-foot]{grid-template-columns:1fr 1fr!important}}
+@media (max-width:520px){#site header > div{padding-left:16px!important;padding-right:16px!important;gap:12px!important}#site [data-logosub]{display:none!important}#site [data-signin]{display:none!important}#site [data-foot]{grid-template-columns:1fr!important}}
 `

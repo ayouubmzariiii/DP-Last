@@ -152,7 +152,7 @@ export default function ProfilePage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             {dossiers.map(d => (
                                 <div key={d.id} className="dp-card" style={{ padding: '18px 20px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                                         <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} style={{ minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', flex: 1 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                                                 <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }} className="truncate">{d.title}</span>
@@ -162,7 +162,7 @@ export default function ProfilePage() {
                                                 Étape {d.lastStep}/7 · {STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · modifié le {fmtDate(d.updatedAt)}
                                             </div>
                                         </button>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
                                             <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>Ouvrir</button>
                                             <button onClick={() => rename(d)} className="dp-btn-secondary" style={{ padding: '8px 14px', fontSize: 13 }}>Renommer</button>
                                             <button onClick={() => remove(d)} className="dp-btn-secondary" style={{ padding: '8px 12px', fontSize: 13 }} title="Supprimer">🗑</button>
@@ -281,7 +281,7 @@ function SettingsTab({ account, onSaved, onDeleted }: {
             {msg && <div className={`dp-alert ${msg.kind === 'ok' ? 'is-ok' : 'is-error'}`} style={{ marginBottom: 16 }}>{msg.kind === 'ok' ? '✓ ' : '⚠️ '}{msg.text}</div>}
 
             <div className="dp-card" style={{ marginBottom: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="dp-form-group"><label className="dp-label">Nom complet</label><input className="dp-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Prénom Nom" /></div>
                     <div className="dp-form-group"><label className="dp-label">Email</label><input className="dp-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="vous@exemple.fr" /></div>
                     <div className="dp-form-group"><label className="dp-label">Téléphone</label><input className="dp-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="06 12 34 56 78" /></div>
@@ -314,7 +314,7 @@ function SettingsTab({ account, onSaved, onDeleted }: {
                     <div className="animate-fadeIn" style={{ marginTop: 20 }}>
                         <div className="dp-rule" style={{ margin: '0 0 18px', background: 'var(--line-2)' }} />
                         {pwdMsg && <div className={`dp-alert ${pwdMsg.kind === 'ok' ? 'is-ok' : 'is-error'}`} style={{ marginBottom: 16 }}>{pwdMsg.kind === 'ok' ? '✓ ' : '⚠️ '}{pwdMsg.text}</div>}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="dp-form-group"><label className="dp-label">Mot de passe actuel</label><input className="dp-input" type="password" value={curPwd} onChange={e => setCurPwd(e.target.value)} autoComplete="current-password" placeholder="••••••••" /></div>
                             <div className="dp-form-group"><label className="dp-label">Nouveau mot de passe</label><input className="dp-input" type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} autoComplete="new-password" placeholder="Au moins 8 caractères" /></div>
                         </div>
