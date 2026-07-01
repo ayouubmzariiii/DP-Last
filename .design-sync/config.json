@@ -1,0 +1,24 @@
+{
+  "projectId": "883474b7-bbcd-4e0d-84f2-bd7f7eea6991",
+  "shape": "package",
+  "pkg": "dp-travaux",
+  "globalName": "DPTravaux",
+  "srcDir": "src",
+  "tsconfig": ".design-sync/tsconfig.sync.json",
+  "componentSrcMap": {
+    "AuthForm": "src/components/AuthForm.tsx",
+    "AddressAutocomplete": "src/components/AddressAutocomplete.tsx",
+    "SealIcon": "src/components/SealIcon.tsx"
+  },
+  "dtsPropsFor": {
+    "SealIcon": "size?: number; stroke?: string; strokeWidth?: number;",
+    "AuthForm": "mode: 'login' | 'register';",
+    "AddressAutocomplete": "placeholder?: string; initialValue?: string; onAddressSelected: (address: { adresse: string; code_postal: string; commune: string; coords: { lat: number; lon: number } }) => void;"
+  },
+  "overrides": {
+    "AuthForm": { "cardMode": "column" }
+  },
+  "cssEntry": ".design-sync/compiled.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "buildCmd": "npx tailwindcss -i ./src/app/globals.css -o ./.design-sync/compiled.css"
+}
