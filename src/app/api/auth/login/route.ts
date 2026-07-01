@@ -12,6 +12,10 @@ const schema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+    if (!process.env.AUTH_SECRET) {
+        return NextResponse.json({ error: 'Configuration serveur incomplète : AUTH_SECRET manquant. Contactez l’administrateur.' }, { status: 503 })
+    }
+
     let body: unknown
     try { body = await req.json() } catch { return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 }) }
 
