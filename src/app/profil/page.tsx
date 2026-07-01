@@ -22,6 +22,9 @@ interface Account {
 
 const STEP_LABELS = ['Demandeur', 'Terrain', 'Travaux', 'PLU', 'Photos', 'Plans', 'Génération']
 
+// Pixel-matched to the Claude Design prototype ("DP Travaux.dc.html" — Profil):
+// 880px column, 44px padding, Mes projets / Paramètres tabs, identity card with a
+// 44px avatar + check badge and mono dp-metric tiles, serif project titles.
 export default function ProfilePage() {
     const router = useRouter()
     const [dossiers, setDossiers] = useState<DossierMeta[] | null>(null)
@@ -76,7 +79,7 @@ export default function ProfilePage() {
     const total = dossiers?.length ?? 0
     const complete = dossiers?.filter(d => d.status === 'complete').length ?? 0
     const drafts = total - complete
-    const initial = (account?.email || '?').charAt(0).toUpperCase()
+    const initial = (account?.fullName || account?.email || '?').charAt(0).toUpperCase()
 
     const tabStyle = (active: boolean): React.CSSProperties => ({
         padding: '9px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
@@ -84,87 +87,86 @@ export default function ProfilePage() {
         background: active ? 'var(--surface)' : 'transparent', color: active ? 'var(--ink)' : 'var(--muted)',
         boxShadow: active ? '0 2px 6px -3px rgba(37,34,30,.28)' : 'none',
     })
+    const metricTile: React.CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: 16 }
+    const metricTileAccent: React.CSSProperties = { background: 'var(--act)', border: '1px solid var(--acb)', borderRadius: 12, padding: 16 }
 
     return (
-        <div className="max-w-4xl mx-auto p-4 md:p-8">
-            <div className="flex items-start justify-between gap-4">
+        <div className="animate-fadeIn" style={{ maxWidth: 880, margin: '0 auto', padding: '44px 24px 80px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 32 }}>
                 <div className="dp-page-head" style={{ marginBottom: 0 }}>
                     <span className="dp-eyebrow">Mon espace</span>
                     <h1 className="dp-page-title">Mon <span className="accent">profil</span></h1>
                 </div>
-                <button onClick={logout} className="dp-btn-secondary text-sm shrink-0">Se déconnecter</button>
+                <button onClick={logout} className="dp-btn-secondary" style={{ flexShrink: 0 }}>Se déconnecter</button>
             </div>
 
             {/* Tab switcher */}
-            <div className="inline-flex gap-1" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: 4, margin: '16px 0 28px' }}>
+            <div style={{ display: 'inline-flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: 4, margin: '0 0 28px' }}>
                 <button onClick={() => setTab('projets')} style={tabStyle(tab === 'projets')}>Mes projets</button>
                 <button onClick={() => setTab('params')} style={tabStyle(tab === 'params')}>Paramètres</button>
             </div>
 
-            {error && <div className="dp-alert is-error mb-4">⚠️ {error}</div>}
+            {error && <div className="dp-alert is-error" style={{ marginBottom: 16 }}>⚠️ {error}</div>}
 
             {tab === 'projets' ? (
                 <>
                     {/* Identity + stats */}
-                    <div className="dp-card mb-6">
-                        <div className="flex flex-col md:flex-row md:items-center gap-5">
-                            <div className="flex items-center gap-4 flex-1 min-w-0">
-                                <div className="flex items-center justify-center shrink-0 text-white font-bold"
-                                    style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--ac)', fontSize: 24, fontFamily: 'var(--hf)' }}>
-                                    {initial}
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="font-semibold t-ink truncate">{account?.fullName || account?.email || '…'}</div>
-                                    <div className="text-xs t-muted mt-0.5">{account?.createdAt ? `Membre depuis le ${fmtDate(account.createdAt)}` : 'Compte'}</div>
-                                </div>
+                    <div className="dp-card" style={{ marginBottom: 28 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+                            <div style={{ position: 'relative', width: 44, height: 44, borderRadius: 12, background: 'var(--ac)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 6px 16px -8px rgba(45,90,76,.6)' }}>
+                                <span style={{ fontFamily: 'var(--hf)', fontSize: 20, fontWeight: 600 }}>{initial}</span>
+                                <span style={{ position: 'absolute', bottom: -4, right: -4, background: 'var(--acd)', borderRadius: '50%', padding: 2, display: 'flex', border: '2px solid #fff' }}>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                                </span>
                             </div>
-                            <div className="grid grid-cols-3 gap-3 md:gap-4 shrink-0">
-                                {[{ n: total, l: 'Projets' }, { n: drafts, l: 'Brouillons' }, { n: complete, l: 'Complets' }].map(s => (
-                                    <div key={s.l} className="text-center px-4 py-2 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
-                                        <div className="font-bold t-ink text-xl">{s.n}</div>
-                                        <div className="dp-meta">{s.l}</div>
-                                    </div>
-                                ))}
+                            <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }} className="truncate">{account?.fullName || account?.email || '…'}</div>
+                                <div className="dp-meta" style={{ marginTop: 2 }}>{account?.createdAt ? `Membre depuis le ${fmtDate(account.createdAt)}` : 'Compte'}</div>
                             </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+                            <div className="dp-metric" style={metricTile}><span className="val">{total}</span><span className="key">Projets</span></div>
+                            <div className="dp-metric" style={metricTile}><span className="val">{drafts}</span><span className="key">Brouillons</span></div>
+                            <div className="dp-metric is-accent" style={metricTileAccent}><span className="val">{complete}</span><span className="key">Complets</span></div>
                         </div>
                     </div>
 
                     {/* Projects */}
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="dp-section-title mb-0 pb-0 border-0">Mes projets</h2>
-                        <button onClick={createDossier} disabled={busy} className="dp-btn-primary disabled:opacity-50">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                        <h2 className="dp-section-title" style={{ margin: 0, padding: 0, border: 'none' }}>Mes projets</h2>
+                        <button onClick={createDossier} disabled={busy} className="dp-btn-primary">
                             {busy ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Création…</> : '+ Nouveau projet'}
                         </button>
                     </div>
 
                     {dossiers === null ? (
-                        <div className="dp-card text-center py-16"><span className="dp-spinner dp-spinner-lg" /></div>
+                        <div className="dp-card" style={{ textAlign: 'center', padding: '64px 0' }}><span className="dp-spinner dp-spinner-lg" /></div>
                     ) : dossiers.length === 0 ? (
-                        <div className="dp-card text-center py-16">
-                            <div className="text-4xl mb-3">📁</div>
-                            <h3 className="font-bold t-ink">Aucun projet pour le moment</h3>
-                            <p className="text-sm t-ink2 mt-1">Créez votre premier dossier de déclaration préalable.</p>
-                            <button onClick={createDossier} disabled={busy} className="dp-btn-primary mt-6 mx-auto disabled:opacity-50">+ Nouveau projet</button>
+                        <div className="dp-card" style={{ textAlign: 'center', padding: '56px 0' }}>
+                            <div style={{ fontSize: 34, marginBottom: 12 }}>📁</div>
+                            <h3 style={{ fontFamily: 'var(--hf)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Aucun projet pour le moment</h3>
+                            <p style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 4 }}>Créez votre premier dossier de déclaration préalable.</p>
+                            <button onClick={createDossier} disabled={busy} className="dp-btn-primary" style={{ marginTop: 24 }}>+ Nouveau projet</button>
                         </div>
                     ) : (
-                        <div className="space-y-3">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             {dossiers.map(d => (
-                                <div key={d.id} className="dp-card flex items-center justify-between gap-4 !py-4">
-                                    <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="flex-1 text-left min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold t-ink truncate">{d.title}</span>
-                                            <span className="dp-chip is-ok text-[10px]" style={{ opacity: d.status === 'complete' ? 1 : 0.55 }}>
-                                                {d.status === 'complete' ? 'Complet' : 'Brouillon'}
-                                            </span>
+                                <div key={d.id} className="dp-card" style={{ padding: '18px 20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                                        <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} style={{ minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }} className="truncate">{d.title}</span>
+                                                <span className={d.status === 'complete' ? 'dp-chip is-ok' : 'dp-chip'}>{d.status === 'complete' ? 'Complet' : 'Brouillon'}</span>
+                                            </div>
+                                            <div className="dp-meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12.5 }}>
+                                                Étape {d.lastStep}/7 · {STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · modifié le {fmtDate(d.updatedAt)}
+                                            </div>
+                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                            <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>Ouvrir</button>
+                                            <button onClick={() => rename(d)} className="dp-btn-secondary" style={{ padding: '8px 14px', fontSize: 13 }}>Renommer</button>
+                                            <button onClick={() => remove(d)} className="dp-btn-secondary" style={{ padding: '8px 12px', fontSize: 13 }} title="Supprimer">🗑</button>
                                         </div>
-                                        <div className="text-xs t-muted mt-1">
-                                            Étape {d.lastStep}/7 · {STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · modifié le {fmtDate(d.updatedAt)}
-                                        </div>
-                                    </button>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary text-xs !px-3 !py-1.5">Ouvrir</button>
-                                        <button onClick={() => rename(d)} className="dp-btn-secondary text-xs !px-3 !py-1.5">Renommer</button>
-                                        <button onClick={() => remove(d)} className="text-xs t-ink2 hover:text-red-500 px-2 py-1.5 transition-colors" title="Supprimer">🗑️</button>
                                     </div>
                                 </div>
                             ))}
@@ -276,10 +278,10 @@ function SettingsTab({ account, onSaved, onDeleted }: {
                 Paramètres du <span className="accent" style={{ fontStyle: 'normal' }}>compte</span>
             </h2>
 
-            {msg && <div className={`dp-alert ${msg.kind === 'ok' ? 'is-ok' : 'is-error'} mb-4`}>{msg.kind === 'ok' ? '✓ ' : '⚠️ '}{msg.text}</div>}
+            {msg && <div className={`dp-alert ${msg.kind === 'ok' ? 'is-ok' : 'is-error'}`} style={{ marginBottom: 16 }}>{msg.kind === 'ok' ? '✓ ' : '⚠️ '}{msg.text}</div>}
 
-            <div className="dp-card mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="dp-card" style={{ marginBottom: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div className="dp-form-group"><label className="dp-label">Nom complet</label><input className="dp-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Prénom Nom" /></div>
                     <div className="dp-form-group"><label className="dp-label">Email</label><input className="dp-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="vous@exemple.fr" /></div>
                     <div className="dp-form-group"><label className="dp-label">Téléphone</label><input className="dp-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="06 12 34 56 78" /></div>
@@ -301,23 +303,23 @@ function SettingsTab({ account, onSaved, onDeleted }: {
                     </div>
                 </label>
 
-                <div className="flex gap-3 mt-5 flex-wrap">
-                    <button onClick={save} disabled={saving} className="dp-btn-primary disabled:opacity-50">
+                <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+                    <button onClick={save} disabled={saving} className="dp-btn-primary">
                         {saving ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Enregistrement…</> : 'Enregistrer les modifications'}
                     </button>
                     <button onClick={() => { setShowPwd(v => !v); setPwdMsg(null) }} className="dp-btn-secondary">Changer le mot de passe</button>
                 </div>
 
                 {showPwd && (
-                    <div className="animate-fadeIn mt-5 pt-5">
+                    <div className="animate-fadeIn" style={{ marginTop: 20 }}>
                         <div className="dp-rule" style={{ margin: '0 0 18px', background: 'var(--line-2)' }} />
-                        {pwdMsg && <div className={`dp-alert ${pwdMsg.kind === 'ok' ? 'is-ok' : 'is-error'} mb-4`}>{pwdMsg.kind === 'ok' ? '✓ ' : '⚠️ '}{pwdMsg.text}</div>}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {pwdMsg && <div className={`dp-alert ${pwdMsg.kind === 'ok' ? 'is-ok' : 'is-error'}`} style={{ marginBottom: 16 }}>{pwdMsg.kind === 'ok' ? '✓ ' : '⚠️ '}{pwdMsg.text}</div>}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                             <div className="dp-form-group"><label className="dp-label">Mot de passe actuel</label><input className="dp-input" type="password" value={curPwd} onChange={e => setCurPwd(e.target.value)} autoComplete="current-password" placeholder="••••••••" /></div>
                             <div className="dp-form-group"><label className="dp-label">Nouveau mot de passe</label><input className="dp-input" type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} autoComplete="new-password" placeholder="Au moins 8 caractères" /></div>
                         </div>
-                        <div className="flex gap-3 mt-2">
-                            <button onClick={changePassword} disabled={pwdBusy || !curPwd || newPwd.length < 8} className="dp-btn-primary disabled:opacity-50">
+                        <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                            <button onClick={changePassword} disabled={pwdBusy || !curPwd || newPwd.length < 8} className="dp-btn-primary">
                                 {pwdBusy ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Mise à jour…</> : 'Mettre à jour le mot de passe'}
                             </button>
                             <button onClick={() => { setShowPwd(false); setCurPwd(''); setNewPwd('') }} className="dp-btn-secondary">Annuler</button>
@@ -328,12 +330,12 @@ function SettingsTab({ account, onSaved, onDeleted }: {
 
             {/* Danger zone */}
             <div className="dp-card" style={{ borderColor: '#EBC3BB', background: '#FDF4F1' }}>
-                <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                     <div>
                         <div style={{ fontWeight: 600, color: '#8F2E22' }}>Supprimer mon compte</div>
                         <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 2 }}>Action irréversible — tous vos dossiers seront définitivement supprimés.</div>
                     </div>
-                    <button onClick={deleteAccount} disabled={delBusy} className="dp-btn-outline disabled:opacity-50" style={{ color: '#8F2E22', borderColor: '#EBC3BB' }}>
+                    <button onClick={deleteAccount} disabled={delBusy} className="dp-btn-outline" style={{ color: '#8F2E22', borderColor: '#EBC3BB' }}>
                         {delBusy ? 'Suppression…' : 'Supprimer'}
                     </button>
                 </div>
