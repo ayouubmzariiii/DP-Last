@@ -73,7 +73,7 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
 
     // Best-effort blob cleanup — never block the row deletion on it.
     try {
-        if (process.env.BLOB_READ_WRITE_TOKEN) {
+        if (process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID) {
             const { blobs } = await list({ prefix: `dossiers/${params.id}/` })
             if (blobs.length) await del(blobs.map(b => b.url))
         }

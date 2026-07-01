@@ -15,8 +15,11 @@ const EXTS: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', pn
 export async function POST(req: NextRequest) {
     const session = await getSession()
     if (!session) return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        return NextResponse.json({ error: 'Stockage Blob non configuré (BLOB_READ_WRITE_TOKEN).' }, { status: 503 })
+    // Blob auth is either an explicit read-write token OR — recommended — OIDC on Vercel, where the
+    // SDK auto-authenticates from VERCEL_OIDC_TOKEN + BLOB_STORE_ID (both injected when the store is
+    // connected to the project). Accept either so a token-less OIDC deployment works.
+    if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) {
+        return NextResponse.json({ error: 'Stockage Blob non configuré (connectez un store Blob au projet, ou définissez BLOB_READ_WRITE_TOKEN).' }, { status: 503 })
     }
 
     let form: FormData
