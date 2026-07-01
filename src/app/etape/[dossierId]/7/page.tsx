@@ -481,10 +481,10 @@ export default function Etape7() {
                             Retour
                         </button>
                         <button
-                            onClick={() => router.push('/mes-dossiers')}
+                            onClick={() => router.push('/profil')}
                             className="text-sm t-ink2 hover:t-accent transition-colors"
                         >
-                            📁 Mes dossiers
+                            📁 Mes projets
                         </button>
                     </div>
                 </div>

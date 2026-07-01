@@ -98,6 +98,15 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
                         </div>
                     </nav>
 
+                    {/* Profile link — back to the account's projects */}
+                    <Link href="/profil" className="hidden sm:flex items-center gap-1.5 shrink-0 t-ink2 hover:t-accent transition-colors"
+                        style={{ fontSize: 12.5, fontWeight: 500 }} title="Mes projets">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                        </svg>
+                        Mes projets
+                    </Link>
+
                     {/* Test toggle */}
                     <div className="flex items-center gap-2.5 shrink-0" style={{ background: '#F1ECE3', border: '1px solid #E3DCCF', padding: '6px 12px', borderRadius: 100 }}>
                         <span className="hidden sm:inline" style={{ fontFamily: 'var(--mf)', fontSize: 10.5, letterSpacing: '.05em', color: '#8A8378', textTransform: 'uppercase' }}>Test</span>

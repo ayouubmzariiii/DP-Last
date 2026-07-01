@@ -7,7 +7,7 @@ import Link from 'next/link'
 export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     const router = useRouter()
     const params = useSearchParams()
-    const next = params.get('next') || '/mes-dossiers'
+    const next = params.get('next') || '/profil'
 
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
