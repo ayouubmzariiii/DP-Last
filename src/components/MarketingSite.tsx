@@ -12,8 +12,8 @@ import { useEffect, useRef, useState } from 'react'
 import SealIcon from '@/components/SealIcon'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 
-// Entry points into the authenticated app.
-const APP_HREF = '/register'
+// Entry points into the app. Guests are sent to registration; authenticated
+// visitors go straight to their space (/profil). See `appHref` inside the component.
 const SIGNIN_HREF = '/login'
 
 type Page = 'home' | 'how' | 'pricing' | 'faq' | 'contact'
@@ -191,7 +191,9 @@ const HOME_FAQ_IDS: Record<string, boolean> = { a1: true, a3: true, b1: true, c1
 const FAQ_ALL: FaqItem[] = FAQ_DATA.flatMap((g) => g.items)
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function MarketingSite() {
+export default function MarketingSite({ authed = false }: { authed?: boolean }) {
+    // Authenticated visitors' CTAs lead to their space; guests' lead to registration.
+    const appHref = authed ? '/profil' : '/register'
     const [page, setPage] = useState<Page>('home')
     const [pricing, setPricing] = useState<'usage' | 'abo'>('usage')
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
@@ -294,8 +296,14 @@ export default function MarketingSite() {
                         <button data-nav data-active={page === 'contact' ? '1' : '0'} onClick={() => go('contact')} style={s('background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;padding:7px 2px;transition:color .15s,border-color .15s')}>Contact</button>
                     </nav>
                     <div style={s('display:flex;align-items:center;gap:14px;flex-shrink:0')}>
-                        <a href={SIGNIN_HREF} data-nav style={s('text-decoration:none;font-size:14px;font-weight:600;color:var(--ink-2);white-space:nowrap')}>Se connecter</a>
-                        <a href={APP_HREF} className="dp-btn-primary" style={s('text-decoration:none;padding:10px 20px;font-size:14px')}>Commencer</a>
+                        {authed ? (
+                            <a href="/profil" className="dp-btn-primary" style={s('text-decoration:none;padding:10px 20px;font-size:14px')}>Mon espace</a>
+                        ) : (
+                            <>
+                                <a href={SIGNIN_HREF} data-nav style={s('text-decoration:none;font-size:14px;font-weight:600;color:var(--ink-2);white-space:nowrap')}>Se connecter</a>
+                                <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:10px 20px;font-size:14px')}>Commencer</a>
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
@@ -324,11 +332,11 @@ export default function MarketingSite() {
                                                 <Check size={15} color="var(--acd)" />
                                                 {(address.commune || address.adresse || 'Votre commune')} — PLU disponible
                                             </span>
-                                            <a href={APP_HREF} className="dp-btn-primary" style={s('text-decoration:none;padding:10px 18px;font-size:14px')}>Continuer ma déclaration →</a>
+                                            <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:10px 18px;font-size:14px')}>Continuer ma déclaration →</a>
                                         </div>
                                     ) : (
                                         <div style={s('display:flex;align-items:center;gap:14px;margin-top:17px;flex-wrap:wrap')}>
-                                            <a href={APP_HREF} className="dp-btn-primary" style={s('text-decoration:none;padding:13px 24px;font-size:15px')}>Commencer gratuitement</a>
+                                            <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:13px 24px;font-size:15px')}>Commencer gratuitement</a>
                                             <button className="dp-btn-secondary" onClick={() => go('how')} style={s('padding:13px 22px;font-size:15px')}>Voir comment ça marche</button>
                                         </div>
                                     )}
@@ -498,7 +506,7 @@ export default function MarketingSite() {
                                     <div style={s('flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:13px 14px')}><div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>Architecte</div><div style={s('font-size:15px;font-weight:600;color:var(--ink);margin-top:4px')}>Non requis</div></div>
                                 </div>
                                 <p style={s('font-size:14px;line-height:1.55;color:var(--ink-2);margin:0 0 18px')}>{ev.note}</p>
-                                <a href={APP_HREF} className="dp-btn-primary" style={s('text-decoration:none;width:100%;justify-content:center')}>Déclarer ce projet</a>
+                                <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;width:100%;justify-content:center')}>Déclarer ce projet</a>
                             </div>
                         </div>
                     </section>
@@ -517,7 +525,7 @@ export default function MarketingSite() {
                                     <div style={s('font-family:var(--hf);font-size:19px;font-weight:600;color:var(--ink)')}>{p.name}</div>
                                     <div style={s('display:flex;align-items:baseline;gap:4px;margin:12px 0 4px')}><span style={s('font-family:var(--hf);font-size:42px;font-weight:600;color:var(--ink);line-height:1')}>{p.price}</span><span style={s('font-size:20px;color:var(--ink)')}>{p.unit}</span><span style={s('font-size:13px;color:var(--muted);margin-left:2px')}>{p.per}</span></div>
                                     <div style={s('font-size:14px;line-height:1.5;color:var(--ink-2);margin-bottom:20px;min-height:42px')}>{p.desc}</div>
-                                    <a href={APP_HREF} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
+                                    <a href={appHref} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
                                 </div>
                             ))}
                         </div>
@@ -568,7 +576,7 @@ export default function MarketingSite() {
                                 <h2 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(30px,3.8vw,46px);line-height:1.06;color:#fff;margin:0')}>Prêt à déclarer vos travaux ?</h2>
                                 <p style={s('font-size:17px;line-height:1.55;color:rgba(255,255,255,.85);margin:16px auto 0;max-width:48ch')}>Commencez gratuitement. Vous ne payez qu&apos;au moment de générer le dossier final.</p>
                                 <div style={s('display:flex;align-items:center;justify-content:center;gap:16px;margin-top:30px;flex-wrap:wrap')}>
-                                    <a href={APP_HREF} style={s('text-decoration:none;display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--acd);font-weight:600;font-size:15px;padding:14px 26px;border-radius:12px;box-shadow:0 14px 30px -12px rgba(0,0,0,.3)')}>Commencer gratuitement</a>
+                                    <a href={appHref} style={s('text-decoration:none;display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--acd);font-weight:600;font-size:15px;padding:14px 26px;border-radius:12px;box-shadow:0 14px 30px -12px rgba(0,0,0,.3)')}>Commencer gratuitement</a>
                                     <span style={s('font-family:var(--mf);font-size:12px;letter-spacing:.04em;color:rgba(255,255,255,.75)')}>≈ 20 minutes</span>
                                 </div>
                             </div>
@@ -648,7 +656,7 @@ export default function MarketingSite() {
                             <div><span className="dp-alert-title">Bon à savoir</span><div style={s('font-size:14px;line-height:1.55')}>Sans réponse de la mairie dans le délai d&apos;instruction, la déclaration est généralement acceptée tacitement. Le récépissé remis au dépôt indique la date de référence.</div></div>
                         </div>
                         <div style={s('text-align:center;margin-top:40px')}>
-                            <a href={APP_HREF} className="dp-btn-primary" style={s('text-decoration:none;padding:13px 26px;font-size:15px')}>Commencer ma déclaration →</a>
+                            <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:13px 26px;font-size:15px')}>Commencer ma déclaration →</a>
                         </div>
                     </section>
                     <div style={s('height:40px')}></div>
@@ -684,7 +692,7 @@ export default function MarketingSite() {
                                             <li key={f} style={s('display:flex;gap:10px;font-size:14px;line-height:1.45;color:var(--ink-2)')}><span style={s('flex-shrink:0;margin-top:2px')}><Check size={16} sw={2.4} /></span>{f}</li>
                                         ))}
                                     </ul>
-                                    <a href={APP_HREF} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
+                                    <a href={appHref} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
                                 </div>
                             ))}
                         </div>
@@ -747,7 +755,7 @@ export default function MarketingSite() {
                             {FAQ_DATA[3].items.map((it) => <FaqRow key={it.id} item={it} />)}
                         </div>
                         <div style={s('text-align:center;margin-top:36px')}>
-                            <a href={APP_HREF} className="dp-btn-primary" style={s('text-decoration:none;padding:13px 26px;font-size:15px')}>Commencer gratuitement →</a>
+                            <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:13px 26px;font-size:15px')}>Commencer gratuitement →</a>
                         </div>
                     </section>
                     <div style={s('height:40px')}></div>
@@ -860,8 +868,8 @@ export default function MarketingSite() {
                             <div style={s('display:flex;flex-direction:column;gap:11px;font-size:14px')}>
                                 <button data-flink onClick={() => go('how')} style={s('background:none;border:none;padding:0;text-align:left;cursor:pointer;font-family:inherit;font-size:14px;color:rgba(255,255,255,.72)')}>Comment ça marche</button>
                                 <button data-flink onClick={() => go('pricing')} style={s('background:none;border:none;padding:0;text-align:left;cursor:pointer;font-family:inherit;font-size:14px;color:rgba(255,255,255,.72)')}>Tarifs</button>
-                                <a data-flink href={APP_HREF} style={s('color:rgba(255,255,255,.72);text-decoration:none')}>Analyse PLU</a>
-                                <a data-flink href={APP_HREF} style={s('color:rgba(255,255,255,.72);text-decoration:none')}>Démarrer un dossier</a>
+                                <a data-flink href={appHref} style={s('color:rgba(255,255,255,.72);text-decoration:none')}>Analyse PLU</a>
+                                <a data-flink href={appHref} style={s('color:rgba(255,255,255,.72);text-decoration:none')}>Démarrer un dossier</a>
                             </div>
                         </div>
                         <div>
