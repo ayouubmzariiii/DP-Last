@@ -163,6 +163,15 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
     if (t.plu?.overlays?.hasSPR || (t.plu?.overlays?.monumentsWithin500m?.length || 0) > 0)
         add(4, 'Conformité PLU', 'warn', 'abf', 'Secteur protégé (SPR / abords de Monument Historique) : avis de l’ABF requis, délai porté à 2 mois.')
 
+    // Deterministic aspect conflict: the chosen material/teinte is explicitly on the règlement's
+    // forbidden list. A near-certain ground for refusal in an aspect-controlled zone — surfaced as
+    // a loud warning (the PLU extraction can be an estimation, so it is not hard-blocking).
+    const aspect = pluAspectConflicts(data)
+    if (aspect.material)
+        add(4, 'Conformité PLU', 'warn', 'plu_mat_forbidden', `Matériau « ${aspect.material.chosen} » proscrit par le règlement (liste des matériaux interdits : « ${aspect.material.rule} »). Fort risque de refus — choisissez un matériau autorisé ou justifiez auprès de la mairie/l’ABF avant dépôt.`, 'materiau')
+    if (aspect.color)
+        add(4, 'Conformité PLU', 'warn', 'plu_col_forbidden', `Teinte « ${aspect.color.chosen} » proscrite par le règlement (« ${aspect.color.rule} »). À corriger ou confirmer avec la palette autorisée avant dépôt.`, 'couleur')
+
     // ── Étape 7 — Engagement ──────────────────────────────────────────────
     const eng = data.engagement
     if (blank(eng?.lieu)) add(7, 'Engagement', 'fatal', 'eng_lieu', 'Lieu de signature manquant.', 'lieu')
@@ -182,6 +191,67 @@ export interface PieceStatus {
     present: boolean
     severity: Severity // fatal = legally required for this dossier
     note?: string
+}
+
+// ── PLU aspect (material / teinte) conflict detection ────────────────────────
+export interface AspectConflict { chosen: string; rule: string }
+
+const normAspect = (s: string): string =>
+    (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+// French labels the chosen enum value may appear as inside the règlement's forbidden list.
+const MATERIAL_ALIASES: Record<string, string[]> = {
+    pvc: ['pvc'],
+    aluminium: ['aluminium', 'alu'],
+    bois: ['bois'],
+    mixte: ['mixte', 'bois-aluminium'],
+    enduit: ['enduit'],
+    bardage_bois: ['bardage bois', 'bardage en bois', 'bois'],
+    bardage_metal: ['bardage metal', 'bardage metallique', 'metal', 'tole', 'acier', 'zinc'],
+    bardage_composite: ['bardage composite', 'composite', 'hpl', 'fibrociment'],
+}
+
+/** Return the forbidden-list entry a value matches, or null. Exact match for short tokens (≤3
+ *  chars like "pvc"), substring match only for longer ones — avoids "or"/"gris" false positives. */
+function forbiddenHit(list: unknown, candidates: string[]): string | null {
+    if (!Array.isArray(list)) return null
+    const cand = candidates.map(normAspect).filter(Boolean)
+    for (const raw of list) {
+        const nf = normAspect(String(raw))
+        if (!nf) continue
+        for (const c of cand) {
+            if (c === nf) return String(raw)
+            if (c.length >= 4 && nf.length >= 4 && (c.includes(nf) || nf.includes(c))) return String(raw)
+        }
+    }
+    return null
+}
+
+/** Deterministically detect when the declared material/teinte is on the PLU's forbidden list.
+ *  Returns the offending {chosen, rule} pair per axis (or null). Used both by the validator
+ *  (step-4 warning → surfaces in the step-7 gate) and by the étape-4 comparison table. */
+export function pluAspectConflicts(data: DPFormData): { material: AspectConflict | null; color: AspectConflict | null } {
+    const facade = data.terrain?.plu?.extractedRules?.facade
+    const tr = data.travaux
+    if (!facade || !tr?.type) return { material: null, color: null }
+
+    const chosenMat = tr.type === 'menuiseries' ? tr.menuiseries?.materiau
+        : tr.type === 'isolation' ? tr.isolation?.type_finition : ''
+    const chosenColor = tr.type === 'menuiseries' ? tr.menuiseries?.couleur
+        : tr.type === 'isolation' ? tr.isolation?.couleur : ''
+
+    let material: AspectConflict | null = null
+    if (chosenMat) {
+        const rule = forbiddenHit(facade.forbidden_materials, MATERIAL_ALIASES[chosenMat] || [chosenMat])
+        if (rule) material = { chosen: chosenMat, rule }
+    }
+    let color: AspectConflict | null = null
+    if (chosenColor) {
+        const tokens = [chosenColor, ...chosenColor.split(/[\s/]+/)].filter(w => w.length >= 4)
+        const rule = forbiddenHit(facade.forbidden_colors, tokens.length ? tokens : [chosenColor])
+        if (rule) color = { chosen: chosenColor, rule }
+    }
+    return { material, color }
 }
 
 /** True when the parcel is in a protected sector (SPR / abords MH) — binding ABF avis applies. */

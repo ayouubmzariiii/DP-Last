@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
-import { isProtectedSector } from '@/lib/validation'
+import { isProtectedSector, pluAspectConflicts } from '@/lib/validation'
 
 export default function Etape4() {
     const router = useRouter()
@@ -120,6 +120,10 @@ export default function Etape4() {
     }
 
     const verdict = getVerdictDetails()
+
+    // Deterministic aspect conflict — the chosen material/teinte is on the règlement's forbidden
+    // list. Flagged inline below AND folded into the acknowledgement gate (near-certain refusal).
+    const aspectConflict = pluAspectConflicts(formData)
 
     return (
         <>
@@ -427,11 +431,18 @@ export default function Etape4() {
                                             </div>
                                             <div className="flex justify-between text-[11px]">
                                                 <span className="t-muted">Proposé :</span>
-                                                <span className="font-bold t-accent">{travaux.menuiseries.materiau}</span>
+                                                <span className={`font-bold ${aspectConflict.material ? 't-error' : 't-accent'}`}>
+                                                    {travaux.menuiseries.materiau}{aspectConflict.material ? ' — ⛔ INTERDIT PAR LE RÈGLEMENT' : ''}
+                                                </span>
                                             </div>
                                             {plu.extractedRules.facade?.forbidden_materials?.length > 0 && (
                                                 <div className="text-[10px] t-error">
                                                     Interdits : {plu.extractedRules.facade.forbidden_materials.join(', ')}
+                                                </div>
+                                            )}
+                                            {aspectConflict.material && (
+                                                <div className="text-[11px] t-error font-semibold mt-0.5">
+                                                    Fort risque de refus : ce matériau figure dans la liste des matériaux proscrits. Choisissez un matériau autorisé ou justifiez auprès de la mairie / l’ABF avant dépôt.
                                                 </div>
                                             )}
                                         </div>
@@ -449,15 +460,21 @@ export default function Etape4() {
                                             </div>
                                             <div className="flex justify-between text-[11px]">
                                                 <span className="t-muted">Proposé :</span>
-                                                <span className="font-bold t-accent">
+                                                <span className={`font-bold ${aspectConflict.color ? 't-error' : 't-accent'}`}>
                                                     {travaux.type === 'menuiseries' && travaux.menuiseries
                                                         ? `${travaux.menuiseries.couleur} ${travaux.menuiseries.couleur_ral ? `(RAL ${travaux.menuiseries.couleur_ral})` : ''}`
                                                         : travaux.isolation?.couleur}
+                                                    {aspectConflict.color ? ' — ⛔ INTERDIT' : ''}
                                                 </span>
                                             </div>
                                             {(plu.extractedRules.facade?.forbidden_colors?.length > 0) && (
                                                 <div className="text-[10px] t-error">
                                                     Interdits : {plu.extractedRules.facade.forbidden_colors.join(', ')}
+                                                </div>
+                                            )}
+                                            {aspectConflict.color && (
+                                                <div className="text-[11px] t-error font-semibold mt-0.5">
+                                                    Teinte proscrite par le règlement : à corriger ou confirmer avec la palette autorisée avant dépôt.
                                                 </div>
                                             )}
                                         </div>
@@ -561,17 +578,17 @@ export default function Etape4() {
                             when the project is flagged (permit required / non-conforme / non vérifié). */}
                         {(() => {
                             const ev = plu?.evaluationResult
-                            const needsAck = !!ev && (
+                            const needsAck = !!aspectConflict.material || !!aspectConflict.color || (!!ev && (
                                 ev.decision === 'PERMIS_CONSTRUIRE' ||
                                 (typeof ev.status === 'string' && ev.status.toUpperCase().includes('NON-CONFORME')) ||
                                 plu?.verified === false
-                            )
+                            ))
                             if (!needsAck) return null
                             return (
                                 <label className="dp-check-card cursor-pointer" style={{ borderColor: '#EBD9A8', background: '#FBF1DC' }}>
                                     <input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} style={{ accentColor: '#8A6D1F' }} />
                                     <span className="text-sm t-warn">
-                                        Je comprends que l’analyse signale un risque (non-conformité, permis de construire requis, ou règlement non vérifié) et je choisis de continuer en connaissance de cause. Une vérification par un professionnel est recommandée avant dépôt.
+                                        Je comprends que l’analyse signale un risque (matériau ou teinte proscrit par le règlement, non-conformité, permis de construire requis, ou règlement non vérifié) et je choisis de continuer en connaissance de cause. Une vérification par un professionnel est recommandée avant dépôt.
                                     </span>
                                 </label>
                             )
@@ -591,11 +608,11 @@ export default function Etape4() {
                                 </button>
                                 {(() => {
                                     const ev = plu?.evaluationResult
-                                    const needsAck = !!ev && (
+                                    const needsAck = !!aspectConflict.material || !!aspectConflict.color || (!!ev && (
                                         ev.decision === 'PERMIS_CONSTRUIRE' ||
                                         (typeof ev.status === 'string' && ev.status.toUpperCase().includes('NON-CONFORME')) ||
                                         plu?.verified === false
-                                    )
+                                    ))
                                     return (
                                         <button onClick={() => router.push('/etape/5')} disabled={needsAck && !ack}
                                             className="dp-btn-primary text-base disabled:opacity-50 disabled:cursor-not-allowed">
