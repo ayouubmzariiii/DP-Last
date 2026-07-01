@@ -39,9 +39,16 @@ async function enrichWithAI(req: NextRequest, d: DPFormData): Promise<void> {
     const post = (path: string, body: unknown) =>
         fetch(`${origin}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
-    // One façade: photoreal "after" (DP6) then the architectural croquis (DP5).
-    const facade = d.photos.facades.find(f => f.before)
-    if (facade?.before) {
+    // EVERY façade that has a "before" photo gets its own photoreal "after" (DP6) and
+    // architectural croquis (DP5) — not just the first one found. (Previously this only ever
+    // enriched a single façade, which is why "façade latérale" always shipped with a blank
+    // "Etat projeté" and an unchecked-in-spirit DP6 for that façade.)
+    // Façades that ALREADY have both after+croquis are skipped — the AI's text-rendering
+    // inside the croquis annotation is noticeably unreliable run-to-run, so a façade that
+    // already has a clean cached result should not be needlessly re-rolled (and risk getting
+    // a worse one) just because a sibling façade needed generating for the first time.
+    for (const facade of d.photos.facades) {
+        if (!facade.before || (facade.after && facade.croquis)) continue
         try {
             const aRes = await post('/api/generate-after-facade', { prompt: buildAIAfterImagePrompt(d), imageBase64: facade.before })
             if (aRes.ok) {
@@ -53,7 +60,7 @@ async function enrichWithAI(req: NextRequest, d: DPFormData): Promise<void> {
                     if (cRes.ok) { const cj = await cRes.json(); facade.croquis = cj.imageBase64 || cj.imageUrl || null }
                 }
             }
-        } catch (e) { console.warn('[dev/test-dossier] AI façade step failed:', e) }
+        } catch (e) { console.warn(`[dev/test-dossier] AI façade step failed for "${facade.id}":`, e) }
     }
 
     // DP4 descriptive notice.
@@ -71,19 +78,26 @@ async function enrichWithAI(req: NextRequest, d: DPFormData): Promise<void> {
 async function persistCache(d: DPFormData): Promise<void> {
     const dir = path.join(process.cwd(), 'public', 'test', 'cache')
     await fs.mkdir(dir, { recursive: true })
-    const facade = d.photos.facades.find(f => f.after)
     const toBytes = async (src: string): Promise<Buffer | null> => {
         if (src.startsWith('data:')) return Buffer.from(src.slice(src.indexOf(',') + 1), 'base64')
         if (src.startsWith('http')) return Buffer.from(await (await fetch(src)).arrayBuffer())
         return null
     }
-    if (facade?.after) {
-        const b = await toBytes(facade.after)
-        if (b) await fs.writeFile(path.join(dir, 'after-principale.jpg'), await sharp(b).resize(1280, 960, { fit: 'inside' }).jpeg({ quality: 82 }).toBuffer())
-    }
-    if (facade?.croquis) {
-        const b = await toBytes(facade.croquis)
-        if (b) await fs.writeFile(path.join(dir, 'croquis-principale.png'), await sharp(b).resize(1280, 960, { fit: 'inside' }).png({ compressionLevel: 9, palette: true, quality: 85 }).toBuffer())
+    // Persist EVERY façade that got AI content, not just the first — 'principale'/'laterale' are
+    // kept as the historical slugs for the two fixture façades; anything beyond that falls back
+    // to the façade's own id so a third façade wouldn't silently overwrite one of the first two.
+    const slugFor = (idx: number, id: string) => idx === 0 ? 'principale' : idx === 1 ? 'laterale' : id
+    for (let i = 0; i < d.photos.facades.length; i++) {
+        const facade = d.photos.facades[i]
+        const slug = slugFor(i, facade.id)
+        if (facade.after) {
+            const b = await toBytes(facade.after)
+            if (b) await fs.writeFile(path.join(dir, `after-${slug}.jpg`), await sharp(b).resize(1280, 960, { fit: 'inside' }).jpeg({ quality: 82 }).toBuffer())
+        }
+        if (facade.croquis) {
+            const b = await toBytes(facade.croquis)
+            if (b) await fs.writeFile(path.join(dir, `croquis-${slug}.png`), await sharp(b).resize(1280, 960, { fit: 'inside' }).png({ compressionLevel: 9, palette: true, quality: 85 }).toBuffer())
+        }
     }
     if (d.plans.dp4_notice) {
         // Persisted both as text (reference) and as a TS module imported by the fixture.

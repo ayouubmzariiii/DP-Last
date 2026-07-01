@@ -54,20 +54,12 @@ ABSOLUTE RULES:
 - Photorealistic result, matching the original photo's quality and tone. No added text, captions, borders, arrows or watermarks.`
 }
 
-export function buildAICroquisPrompt(data: DPFormData, customInstruction?: string): string {
-    const { travaux } = data
-    let rawDescription = customInstruction || data.terrain.description_projet || ''
-
-    if (!rawDescription) {
-        if (travaux.type === 'menuiseries' && travaux.menuiseries) {
-            rawDescription = `Remplacement de menuiseries (${travaux.menuiseries.nombre || 1} ${travaux.menuiseries.type || 'fenêtre'}) en ${travaux.menuiseries.materiau || 'pvc'} ${travaux.menuiseries.couleur || ''}`
-        } else if (travaux.type === 'isolation' && travaux.isolation) {
-            rawDescription = `Isolation thermique par l'extérieur. Finition : ${travaux.isolation.type_finition || 'enduit'} ${travaux.isolation.couleur || ''}.`
-        } else if (travaux.type === 'photovoltaique' && travaux.photovoltaique) {
-            rawDescription = `Installation de ${travaux.photovoltaique.nombre_panneaux || '10'} panneaux photovoltaïques sur la toiture.`
-        }
-    }
-
+export function buildAICroquisPrompt(_data: DPFormData, _customInstruction?: string): string {
+    // NOTE: the croquis is generated deliberately TEXT-FREE. The image model is unreliable at
+    // rendering small printed labels (it produced garbled French like "menusries"/"antchaite"),
+    // so the works annotation (leader line + label) is drawn afterwards as crisp pdf-lib vector
+    // text in the DP5 renderer (see dpDocGenerator.ts → drawWorksAnnotation). The prompt below
+    // therefore forbids ANY written characters in the generated drawing.
     return `Convert the attached photograph of a French house into a clean, professional 2D ARCHITECTURAL FAÇADE ELEVATION drawing (un plan de façade). Reproduce the exact same building — same number of floors, windows, doors, roof shape and proportions as in the photo.
 
 FRAMING (must stay ALIGNED with the attached image):
@@ -85,8 +77,8 @@ VISUAL STYLE (MANDATORY):
 - Subtle material hatching (fine line grid for roof tiles, light texture for cladding).
 - A discreet horizontal ground line under the building.
 
-ANNOTATIONS — STRICT SCOPE: add one or two thin black leader lines pointing only to the areas affected by the DECLARED works described above ("${rawDescription}"). Write a short, legible French label for THOSE works only. Do NOT add labels or depict any other work (no "isolation par l'extérieur", no "panneaux photovoltaïques", no roofing) unless it is explicitly part of the declared works. Keep labels minimal and correctly spelled.
-NO people, no cars, no trees, no photo background, no watermark.`
+STRICTLY NO TEXT: the drawing must contain ZERO written characters — no labels, no annotations, no leader lines, no dimensions, no title block, no legend, no watermark, no scale text. A separate step adds the labels afterwards.
+NO people, no cars, no trees, no photo background.`
 }
 
 export interface ResizedImage {

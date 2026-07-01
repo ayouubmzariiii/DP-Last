@@ -340,6 +340,56 @@ function natureLabel(data: DPFormData): string {
     return 'Non defini'
 }
 
+/** Concise, correctly-spelled French label for the declared works — drawn as crisp pdf-lib
+ *  vector text on the DP5 croquis (the AI renders the drawing text-free; see buildAICroquisPrompt). */
+function worksLabel(data: DPFormData): string {
+    const tr = data.travaux
+    if (tr.type === 'menuiseries' && tr.menuiseries) {
+        const m = tr.menuiseries
+        const mat: Record<string, string> = { pvc: 'PVC', aluminium: 'aluminium', bois: 'bois', mixte: 'mixte bois-aluminium' }
+        const matStr = mat[m.materiau] || m.materiau || ''
+        const col = m.couleur ? ` ${m.couleur.toLowerCase()}` : ''
+        const ral = m.couleur_ral ? ` (${m.couleur_ral})` : ''
+        return `Remplacement des menuiseries${matStr ? ` en ${matStr}` : ''}${col}${ral}`.trim()
+    }
+    if (tr.type === 'isolation' && tr.isolation) {
+        const fin: Record<string, string> = { enduit: 'enduit', bardage_bois: 'bardage bois', bardage_metal: 'bardage metal', bardage_composite: 'bardage composite' }
+        const finStr = fin[tr.isolation.type_finition] || 'enduit'
+        const col = tr.isolation.couleur ? ` ${tr.isolation.couleur.toLowerCase()}` : ''
+        return `Isolation par l'exterieur - finition ${finStr}${col}`
+    }
+    if (tr.type === 'photovoltaique' && tr.photovoltaique) {
+        const nb = tr.photovoltaique.nombre_panneaux
+        return `Pose de ${nb ? nb + ' ' : ''}panneaux photovoltaiques en toiture`
+    }
+    return natureLabel(data)
+}
+
+/** Draw a crisp works annotation (callout box + leader line) over a croquis image.
+ *  (ix, iy) is the image's bottom-left corner; iw/ih its drawn size. The leader points to the
+ *  façade centre — for renovation works (menuiseries/ITE/PV) that always lands on wall/joinery. */
+function drawWorksAnnotation(page: PDFPage, font: PDFFont, ix: number, iy: number, iw: number, ih: number, label: string) {
+    if (!label.trim()) return
+    const fs = 7.5
+    const lineH = 10
+    const pad = 5
+    const maxCols = Math.max(14, Math.floor((iw * 0.46) / (fs * 0.5))) // keep the box within ~46% of the image
+    const lines = wrapText(label, maxCols)
+    const textW = Math.max(...lines.map(l => font.widthOfTextAtSize(l, fs)))
+    const boxW = textW + pad * 2
+    const boxH = lines.length * lineH + pad * 2 - 2
+    // Callout anchored top-right inside the image, leader dropping to the façade centre.
+    const boxX = ix + iw - boxW - 8
+    const boxY = iy + ih - boxH - 8
+    const target = { x: ix + iw * 0.5, y: iy + ih * 0.52 }
+    const anchor = { x: boxX + 4, y: boxY + 2 }
+    ln(page, anchor.x, anchor.y, target.x, target.y, 0.8, C.nearBlack)
+    page.drawCircle({ x: target.x, y: target.y, size: 2.2, color: C.nearBlack })
+    box(page, boxX, boxY, boxW, boxH, C.white, C.nearBlack, 0.7)
+    let ty = boxY + boxH - lineH + 1
+    for (const l of lines) { tx(page, l, boxX + pad, ty, fs, font, C.nearBlack); ty -= lineH }
+}
+
 // ─── Multi-line text block renderer ──────────────────────────────────────────
 /**
  * Renders a block of text with automatic line wrapping.
@@ -901,21 +951,29 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 tx(page, san(f.label).toUpperCase(), M, rowTop, 10, bold, C.nearBlack)
                 const cellTop = rowTop - 16
 
-                const cell = async (src: string | null, x: number, caption: string) => {
+                const cell = async (src: string | null, x: number, caption: string, annotate = false) => {
                     const img = await embed(doc, src)
                     if (img) {
                         const dims = img.scaleToFit(halfW, imgH)
                         const xOff = x + (halfW - dims.width) / 2
                         box(page, xOff - 2, cellTop - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 0.8)
                         page.drawImage(img, { x: xOff, y: cellTop - dims.height, width: dims.width, height: dims.height })
+                        // The croquis (état projeté) is generated text-free; draw the works label as
+                        // crisp pdf-lib vector text here (never garbled, always correctly spelled).
+                        if (annotate) drawWorksAnnotation(page, font, xOff, cellTop - dims.height, dims.width, dims.height, worksLabel(data))
+                        // Caption goes BELOW the real image. When there's no image, placeholder()
+                        // already draws this same caption centred inside the box — drawing it again
+                        // here produced the overlapping "Etat projeteEtat projete" double-text bug.
+                        txCentered(page, caption, x + halfW / 2, cellTop - imgH - 12, 8.5, fontOblique, C.mid)
                     } else {
                         placeholder(page, font, x, cellTop, halfW, imgH, caption)
                     }
-                    txCentered(page, caption, x + halfW / 2, cellTop - imgH - 12, 8.5, fontOblique, C.mid)
                 }
 
                 await cell(f.before, M, 'Etat existant')
-                await cell(f.croquis || f.after, M + halfW + 16, 'Etat projeté')
+                // Annotate only when a real croquis exists (the projected-state drawing). If we fall
+                // back to the photoreal "after", it already conveys the change photographically.
+                await cell(f.croquis || f.after, M + halfW + 16, 'Etat projeté', !!f.croquis)
             }
         }
 

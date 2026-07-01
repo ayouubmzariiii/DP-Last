@@ -455,11 +455,11 @@ export const defaultPhotos: PhotosUploadees = {
     facade_gauche: null,
     facade_arriere: null,
     facades: [
-        // The principale façade ships with its CACHED AI generations (after-simulation + croquis)
-        // so test mode and the test API show a complete dossier instantly, without any AI call.
+        // Both façades ship with their CACHED AI generations (after-simulation + croquis) so
+        // test mode and the test API show a complete dossier instantly, without any AI call.
         // Regenerate via GET /api/dev/test-dossier?doc=dp&fresh=1&cache=1.
         { id: 'f1', label: 'Façade principale (avant)', before: '/test/facade-principale.jpg', after: '/test/cache/after-principale.jpg', croquis: '/test/cache/croquis-principale.png', type: 'avant' },
-        { id: 'f2', label: 'Façade latérale', before: '/test/facade-laterale.jpg', after: null, croquis: null, type: 'droite' }
+        { id: 'f2', label: 'Façade latérale', before: '/test/facade-laterale.jpg', after: '/test/cache/after-laterale.jpg', croquis: '/test/cache/croquis-laterale.png', type: 'droite' }
     ],
     dp7_vue_proche: '/test/vue-proche.jpg',
     dp8_vue_lointaine: '/test/vue-lointaine.jpg',
