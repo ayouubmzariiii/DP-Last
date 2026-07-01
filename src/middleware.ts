@@ -3,7 +3,8 @@
 // `@/lib/session` (jose). NEVER import bcryptjs / drizzle / @neondatabase here —
 // it would break the edge build.
 //
-// Everything is gated except /login, /register, /api/auth/*, and static assets.
+// Everything is gated except / (public landing), /login, /register, /api/auth/*,
+// and static assets.
 // ─────────────────────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server'
 import { COOKIE_NAME, verifySessionToken } from '@/lib/session'
@@ -14,6 +15,8 @@ export const config = {
 }
 
 function isPublic(pathname: string): boolean {
+    // Public marketing landing page (guests) — the page itself redirects authed users to /profil.
+    if (pathname === '/') return true
     if (pathname === '/login' || pathname === '/register') return true
     if (pathname.startsWith('/api/auth/')) return true
     // Dev-only test harness (self-guards against production); keep it usable without a session in dev.
