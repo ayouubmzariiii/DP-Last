@@ -71,20 +71,31 @@ const GAINS = [
     'Un dossier conforme, prêt à déposer',
 ]
 
-const STEPS_OVERVIEW = [
-    { n: '1', title: 'Décrivez', body: 'Le demandeur, le terrain et la nature exacte de vos travaux.' },
-    { n: '2', title: 'Vérifiez', body: 'L\'analyse PLU repère les contraintes et les secteurs protégés.' },
-    { n: '3', title: 'Générez', body: 'Le CERFA, les pièces DP1 à DP8 et les vues d\'insertion IA.' },
-    { n: '4', title: 'Déposez', body: 'En ligne ou en mairie, avec le guide de dépôt fourni.' },
+// Thumbnails for the "Déposez" walkthrough card — the 8 DP pieces, generated
+// as CSS backgrounds (ported from the prototype's pieceThumbs).
+const PIECE_THUMBS = [
+    { code: 'DP1', bg: 'radial-gradient(circle at 50% 55%, var(--acb) 0 4px, transparent 5px), repeating-linear-gradient(0deg,var(--line-2) 0 1px,transparent 1px 7px), repeating-linear-gradient(90deg,var(--line-2) 0 1px,transparent 1px 7px)' },
+    { code: 'DP2', bg: 'linear-gradient(135deg,#E6EDE9,#DCE6E0)' },
+    { code: 'DP3', bg: 'repeating-linear-gradient(90deg,var(--field) 0 7px,var(--line-2) 7px 9px)' },
+    { code: 'DP4', bg: 'repeating-linear-gradient(0deg,var(--surface) 0 4px,var(--line-2) 4px 5px)' },
+    { code: 'DP5', bg: 'linear-gradient(135deg,#EDEBE3,#E4E0D5)' },
+    { code: 'DP6', bg: 'linear-gradient(135deg,#D8E4DC,#C7D8CD)' },
+    { code: 'DP7', bg: 'repeating-linear-gradient(45deg,#EFEAE0,#EFEAE0 5px,#F5F1E9 5px,#F5F1E9 10px)' },
+    { code: 'DP8', bg: 'linear-gradient(135deg,#E9E4D9,#DED7C8)' },
 ]
 
+// Real before/after façade photos already shipped in /public/test — used by the
+// DP6 insertion comparison slider in the walkthrough.
+const BA_BEFORE = '/test/facade-principale.jpg'
+const BA_AFTER = '/test/cache/after-principale.jpg'
+
 const FEATURES = [
-    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.6-3.1 7.7-7 9-3.9-1.3-7-4.4-7-9V6l7-3z" /><path d="M9 12l2 2 4-4" /></svg>, title: 'Analyse PLU automatique', body: 'Nous croisons le règlement d\'urbanisme de votre parcelle avec votre projet, pour repérer les non-conformités avant la mairie.' },
-    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h5" /></svg>, title: 'Formulaire CERFA pré-rempli', body: 'Le 13703*11 rempli au bon endroit à partir de vos réponses, sans jargon administratif ni case oubliée.' },
-    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-5.1 1.9L12 16.6l-1.9-4.9L5 9.8l5.1-1.9z" /><path d="M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" /></svg>, title: 'Vues « après » par IA', body: 'L\'insertion paysagère générée façade par façade à partir de vos photos, pour la pièce DP6.' },
-    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 12l9 5 9-5" /><path d="M3 16.5l9 5 9-5" /></svg>, title: 'Toutes les pièces réunies', body: 'DP1 à DP8 assemblées dans un dossier unique, prêt à imprimer ou à déposer en ligne.' },
-    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l9-5 9 5" /><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8" /><path d="M3 21h18" /></svg>, title: 'Secteurs protégés & ABF', body: 'Détection des sites patrimoniaux, monuments historiques et avis obligatoires de l\'Architecte des Bâtiments de France.' },
-    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M14 4l6 6" /><path d="M4 20l1.2-4.2L16.5 4.5a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1L8.2 18.8 4 20z" /></svg>, title: 'Notice rédigée pour vous', body: 'La pièce DP4 rédigée automatiquement à partir de la nature de vos travaux et des matériaux choisis.' },
+    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.6-3.1 7.7-7 9-3.9-1.3-7-4.4-7-9V6l7-3z" /><path d="M9 12l2 2 4-4" /></svg>, title: 'Analyse PLU automatique', body: 'Votre projet croisé au règlement de votre parcelle, pour repérer les blocages avant la mairie.' },
+    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h5" /></svg>, title: 'Formulaire CERFA pré-rempli', body: 'Le 13703*11 rempli à partir de vos réponses, sans case oubliée.' },
+    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-5.1 1.9L12 16.6l-1.9-4.9L5 9.8l5.1-1.9z" /><path d="M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" /></svg>, title: 'Vues « après » par IA', body: 'L\'insertion paysagère « après » (DP6) générée à partir de vos photos.' },
+    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 12l9 5 9-5" /><path d="M3 16.5l9 5 9-5" /></svg>, title: 'Toutes les pièces réunies', body: 'DP1 à DP8 dans un dossier unique, prêt à imprimer ou déposer en ligne.' },
+    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l9-5 9 5" /><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8" /><path d="M3 21h18" /></svg>, title: 'Secteurs protégés & ABF', body: 'Détection des sites patrimoniaux et des avis ABF obligatoires.' },
+    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M14 4l6 6" /><path d="M4 20l1.2-4.2L16.5 4.5a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1L8.2 18.8 4 20z" /></svg>, title: 'Notice rédigée pour vous', body: 'La notice DP4 rédigée à partir de vos travaux et matériaux.' },
 ]
 
 const STEPS_DETAIL = [
@@ -118,20 +129,22 @@ const DEPOSE_STEPS = [
 ]
 
 const TESTIMONIALS = [
-    { quote: 'Je pensais devoir payer un architecte pour changer mes fenêtres. Dossier déposé le week-end, accepté en trois semaines.', name: 'Camille R.', meta: 'Propriétaire · Lyon 3e', initial: 'C' },
-    { quote: 'Je génère les déclarations de mes clients en quinze minutes. L\'analyse PLU nous a déjà évité deux refus.', name: 'Karim B.', meta: 'Menuisier · Villeurbanne', initial: 'K' },
-    { quote: 'La palette imposée en secteur ABF était signalée dès l\'analyse. On a corrigé la teinte avant de déposer.', name: 'Sophie & Marc', meta: 'Rénovation · Bordeaux', initial: 'S' },
+    { quote: 'Je pensais devoir payer un architecte pour changer mes fenêtres. Dossier déposé le week-end, accepté en trois semaines.', name: 'Camille R.', meta: 'Propriétaire · Lyon 3e', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&q=70' },
+    { quote: 'Je génère les déclarations de mes clients en quinze minutes. L\'analyse PLU nous a déjà évité deux refus.', name: 'Karim B.', meta: 'Menuisier · Villeurbanne', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=70' },
+    { quote: 'La palette imposée en secteur ABF était signalée dès l\'analyse. On a corrigé la teinte avant de déposer.', name: 'Sophie & Marc', meta: 'Rénovation · Bordeaux', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=160&q=70' },
 ]
 
-const ELIG_MAP: Record<string, { label: string; emoji: string; verdict: string; delai: string; note: string }> = {
-    menuiseries: { label: 'Menuiseries', emoji: '🪟', verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'Changer des fenêtres, portes ou volets modifie l\'aspect extérieur : une déclaration préalable est requise.' },
-    ite: { label: 'Isolation extérieure', emoji: '🧱', verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'L\'isolation par l\'extérieur change l\'aspect des façades : la déclaration préalable est obligatoire.' },
-    solaire: { label: 'Panneaux solaires', emoji: '☀️', verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'Panneaux posés en toiture : DP requise (permis si construction neuve ou secteur protégé).' },
-    cloture: { label: 'Clôture & portail', emoji: '🚪', verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'Selon la commune, une DP est souvent exigée pour une clôture ou un portail sur rue.' },
-    abri: { label: 'Abri de jardin', emoji: '🏡', verdict: 'DP de 5 à 20 m²', delai: '≈ 1 mois', note: 'Emprise ≤ 5 m² : aucune formalité. De 5 à 20 m² : déclaration préalable. Au-delà : permis.' },
-    piscine: { label: 'Piscine', emoji: '🏊', verdict: 'DP de 10 à 100 m²', delai: '≈ 1 mois', note: 'Bassin de 10 à 100 m² non couvert : déclaration préalable.' },
-    ravalement: { label: 'Ravalement', emoji: '🎨', verdict: 'Selon la commune', delai: '≈ 1 mois', note: 'Obligatoire en secteur protégé ou lorsque la commune l\'impose par délibération.' },
-    veranda: { label: 'Véranda', emoji: '🌿', verdict: 'DP jusqu\'à 20 m²', delai: '1 à 2 mois', note: 'Emprise ou surface ≤ 20 m² : déclaration préalable. Au-delà : permis de construire.' },
+// Unsplash photo for a work type. Ported from the prototype's IMG(id) helper.
+const eligImg = (id: string, w = 600) => `https://images.unsplash.com/photo-${id}?w=${w}&q=70`
+const ELIG_MAP: Record<string, { label: string; emoji: string; img: string; verdict: string; delai: string; note: string }> = {
+    menuiseries: { label: 'Menuiseries', emoji: '🪟', img: eligImg('1509644851169-2acc08aa25b5'), verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'Changer des fenêtres, portes ou volets modifie l\'aspect extérieur : une déclaration préalable est requise.' },
+    ite: { label: 'Isolation extérieure', emoji: '🧱', img: eligImg('1621905251189-08b45d6a269e'), verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'L\'isolation par l\'extérieur change l\'aspect des façades : la déclaration préalable est obligatoire.' },
+    solaire: { label: 'Panneaux solaires', emoji: '☀️', img: eligImg('1509391366360-2e959784a276'), verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'Panneaux posés en toiture : DP requise (permis si construction neuve ou secteur protégé).' },
+    cloture: { label: 'Clôture & portail', emoji: '🚪', img: eligImg('1558904541-efa843a96f01'), verdict: 'Déclaration préalable', delai: '≈ 1 mois', note: 'Selon la commune, une DP est souvent exigée pour une clôture ou un portail sur rue.' },
+    abri: { label: 'Abri de jardin', emoji: '🏡', img: eligImg('1449844908441-8829872d2607'), verdict: 'DP de 5 à 20 m²', delai: '≈ 1 mois', note: 'Emprise ≤ 5 m² : aucune formalité. De 5 à 20 m² : déclaration préalable. Au-delà : permis.' },
+    piscine: { label: 'Piscine', emoji: '🏊', img: eligImg('1576013551627-0cc20b96c2a7'), verdict: 'DP de 10 à 100 m²', delai: '≈ 1 mois', note: 'Bassin de 10 à 100 m² non couvert : déclaration préalable.' },
+    ravalement: { label: 'Ravalement', emoji: '🎨', img: eligImg('1589939705384-5185137a7f0f'), verdict: 'Selon la commune', delai: '≈ 1 mois', note: 'Obligatoire en secteur protégé ou lorsque la commune l\'impose par délibération.' },
+    veranda: { label: 'Véranda', emoji: '🌿', img: eligImg('1616137466211-f939a420be84'), verdict: 'DP jusqu\'à 20 m²', delai: '1 à 2 mois', note: 'Emprise ou surface ≤ 20 m² : déclaration préalable. Au-delà : permis de construire.' },
 }
 const ELIG_KEYS = ['menuiseries', 'ite', 'solaire', 'cloture', 'abri', 'piscine', 'ravalement', 'veranda']
 
@@ -200,7 +213,10 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     const [elig, setElig] = useState('menuiseries')
     const [address, setAddress] = useState<{ adresse: string; code_postal: string; commune: string } | null>(null)
     const [sent, setSent] = useState(false)
+    const [sliderPos, setSliderPos] = useState(52)
     const rootRef = useRef<HTMLDivElement>(null)
+    const sliderRef = useRef<HTMLDivElement>(null)
+    const draggingRef = useRef(false)
 
     const go = (p: Page) => {
         if (p === page) { try { window.scrollTo(0, 0) } catch { /* noop */ } return }
@@ -234,6 +250,18 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
 
     const toggleFaq = (id: string) => setOpenFaqs((o) => ({ ...o, [id]: !o[id] }))
 
+    // Before / after comparison slider (ported from the prototype's pointer handlers).
+    const clampPos = (x: number) => Math.max(2, Math.min(98, x))
+    const posFromX = (clientX: number) => {
+        const el = sliderRef.current
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        setSliderPos(clampPos(((clientX - r.left) / r.width) * 100))
+    }
+    const onSliderDown = (e: React.PointerEvent) => { draggingRef.current = true; try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ } posFromX(e.clientX) }
+    const onSliderMove = (e: React.PointerEvent) => { if (draggingRef.current) posFromX(e.clientX) }
+    const onSliderUp = (e: React.PointerEvent) => { draggingRef.current = false; try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ } }
+
     // Dynamic style builders (ported from the prototype's render helpers).
     const planCardStyle = (highlight: boolean): CSS => ({
         position: 'relative', display: 'flex', flexDirection: 'column', height: '100%',
@@ -243,7 +271,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     })
     const planTagStyle: CSS = { position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', background: 'var(--ac)', color: '#fff', fontFamily: 'var(--mf)', fontSize: 10, letterSpacing: '.05em', textTransform: 'uppercase', padding: '5px 13px', borderRadius: 100, whiteSpace: 'nowrap' }
     const segStyle = (on: boolean): CSS => ({ padding: '9px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, transition: 'all .15s', background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--muted)', boxShadow: on ? '0 2px 6px -3px rgba(37,34,30,.28)' : 'none' })
-    const eligOptStyle = (on: boolean): CSS => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 15px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, textAlign: 'left', transition: 'all .15s', color: on ? 'var(--acd)' : 'var(--ink-2)', border: '1px solid ' + (on ? 'var(--ac)' : 'var(--line)'), background: on ? 'var(--act)' : 'var(--surface)', boxShadow: on ? '0 8px 20px -14px rgba(45,90,76,.5)' : 'none' })
+    const eligTileStyle = (on: boolean): CSS => ({ position: 'relative', height: 92, borderRadius: 13, overflow: 'hidden', cursor: 'pointer', padding: 0, background: 'var(--field)', border: '2px solid ' + (on ? 'var(--ac)' : 'transparent'), outline: on ? 'none' : '1px solid var(--line)', transition: 'transform .16s ease, box-shadow .16s ease', boxShadow: on ? '0 14px 28px -16px rgba(45,90,76,.6)' : '0 1px 2px rgba(37,34,30,.05)', transform: on ? 'translateY(-2px)' : 'none' })
 
     // FAQ accordion item (ported from mkFaq).
     const FaqRow = ({ item }: { item: FaqItem }) => {
@@ -321,7 +349,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     Déclaration préalable en ligne
                                 </span>
                                 <h1 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(40px,5.3vw,62px);line-height:1.02;letter-spacing:-.02em;margin:22px 0 0;color:var(--ink)')}>Votre déclaration de travaux, <span style={italicAc}>prête à déposer</span>.</h1>
-                                <p style={s('font-size:18px;line-height:1.62;color:var(--ink-2);margin:22px 0 0;max-width:53ch')}>DP&nbsp;Travaux assemble votre dossier complet — formulaire CERFA, plans, photos et pièces DP1 à DP8 — et vérifie sa conformité au PLU de votre commune. En 20&nbsp;minutes, sans architecte.</p>
+                                <p style={s('font-size:18px;line-height:1.62;color:var(--ink-2);margin:22px 0 0;max-width:53ch')}>Formulaire CERFA, plans, photos et notice : nous assemblons tout et vérifions la conformité au PLU de votre commune. En 20&nbsp;minutes, sans architecte.</p>
 
                                 <div style={s('margin:32px 0 0;max-width:470px')}>
                                     <label className="dp-label" style={s('display:block;margin-bottom:8px')}>Commencez par l&apos;adresse de votre terrain</label>
@@ -445,23 +473,127 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         </div>
                     </section>
 
-                    {/* HOW OVERVIEW */}
-                    <section data-reveal style={s('max-width:1120px;margin:0 auto;padding:78px 28px 20px')}>
-                        <div style={s('max-width:660px;margin:0 auto 46px;text-align:center')}>
-                            <span className="dp-eyebrow">Comment ça marche</span>
-                            <h2 style={sectionHeadH2}>Quatre étapes, <span style={italicAc}>un dossier complet</span>.</h2>
+                    {/* HOW — VISUAL WALKTHROUGH */}
+                    <section style={s('max-width:1120px;margin:0 auto;padding:82px 28px 10px')}>
+                        <div data-reveal style={s('max-width:640px;margin:0 auto 56px;text-align:center')}>
+                            <span className="dp-eyebrow">Démonstration</span>
+                            <h2 style={sectionHeadH2}>Le dossier se construit <span style={italicAc}>sous vos yeux</span>.</h2>
                         </div>
-                        <div data-grid3 style={s('display:grid;grid-template-columns:repeat(4,1fr);gap:18px')}>
-                            {STEPS_OVERVIEW.map((step) => (
-                                <div key={step.n} className="dp-card" data-lift style={s('padding:24px 22px')}>
-                                    <div style={s('display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;background:var(--act);border:1px solid var(--acb);font-family:var(--mf);font-size:15px;font-weight:600;color:var(--acd);margin-bottom:16px')}>{step.n}</div>
-                                    <div style={s('font-family:var(--hf);font-size:18px;font-weight:600;color:var(--ink);margin-bottom:7px')}>{step.title}</div>
-                                    <div style={s('font-size:14px;line-height:1.55;color:var(--ink-2)')}>{step.body}</div>
+
+                        {/* Row 1 : Décrivez */}
+                        <div data-reveal data-wrow style={s('display:grid;grid-template-columns:1fr 1.04fr;gap:52px;align-items:center;margin-bottom:64px')}>
+                            <div>
+                                <div style={s('display:flex;align-items:center;gap:12px;margin-bottom:16px')}><span style={s('font-family:var(--hf);font-size:15px;font-weight:600;color:#fff;width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--ac),var(--acd));display:flex;align-items:center;justify-content:center')}>01</span><span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)')}>≈ 5 minutes</span></div>
+                                <h3 style={s('font-family:var(--hf);font-size:26px;font-weight:600;color:var(--ink);margin:0 0 10px;letter-spacing:-.01em')}>Décrivez votre projet</h3>
+                                <p style={s('font-size:15.5px;line-height:1.6;color:var(--ink-2);margin:0 0 18px;max-width:44ch')}>L&apos;adresse suffit pour retrouver la parcelle. On vous guide, champ après champ, sans jargon.</p>
+                                <div style={s('display:flex;flex-wrap:wrap;gap:8px')}>
+                                    <span style={s('font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;border-radius:8px')}>Adresse &amp; cadastre</span>
+                                    <span style={s('font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;border-radius:8px')}>Nature des travaux</span>
+                                    <span style={s('font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;border-radius:8px')}>Matériaux &amp; teintes</span>
                                 </div>
-                            ))}
+                            </div>
+                            <div style={s('position:relative')}>
+                                <div style={s('background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 34px 66px -40px rgba(37,34,30,.5);padding:24px')}>
+                                    <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:14px')}>Votre projet</div>
+                                    <label className="dp-label" style={s('display:block;margin-bottom:6px')}>Adresse du terrain</label>
+                                    <div style={s('display:flex;align-items:center;gap:10px;border:1px solid var(--acb);background:var(--act);border-radius:11px;padding:11px 13px;margin-bottom:16px')}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acd)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z" /><circle cx="12" cy="11" r="2" /></svg>
+                                        <span style={s('font-size:13.5px;font-weight:600;color:var(--ink)')}>24 Rue des Lilas, 69003 Lyon</span>
+                                    </div>
+                                    <label className="dp-label" style={s('display:block;margin-bottom:8px')}>Type de travaux</label>
+                                    <div style={s('display:flex;flex-wrap:wrap;gap:7px')}>
+                                        <span style={s('display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--acd);background:var(--act);border:1px solid var(--ac);padding:7px 12px;border-radius:9px')}><Check size={12} color="var(--acd)" sw={3} />Menuiseries</span>
+                                        <span style={s('font-size:12.5px;color:var(--muted);background:var(--field);border:1px solid var(--line-2);padding:7px 12px;border-radius:9px')}>Ravalement</span>
+                                        <span style={s('font-size:12.5px;color:var(--muted);background:var(--field);border:1px solid var(--line-2);padding:7px 12px;border-radius:9px')}>Clôture</span>
+                                        <span style={s('font-size:12.5px;color:var(--muted);background:var(--field);border:1px solid var(--line-2);padding:7px 12px;border-radius:9px')}>Solaire</span>
+                                    </div>
+                                    <div style={s('display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px')}>
+                                        <div><div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:5px')}>Fenêtres</div><div style={s('height:34px;border-radius:8px;background:var(--field);border:1px solid var(--line-2);display:flex;align-items:center;padding:0 11px;font-size:13px;color:var(--ink)')}>6 · Bois</div></div>
+                                        <div><div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:5px')}>Teinte RAL</div><div style={s('height:34px;border-radius:8px;background:var(--field);border:1px solid var(--line-2);display:flex;align-items:center;gap:8px;padding:0 11px;font-size:13px;color:var(--ink)')}><span style={s('width:14px;height:14px;border-radius:4px;background:#7B8B6F;border:1px solid rgba(0,0,0,.15)')}></span>6013</div></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div style={s('text-align:center;margin-top:30px')}>
-                            <button className="dp-btn-secondary" onClick={() => go('how')} style={s('padding:12px 22px')}>Voir le détail des 7 étapes →</button>
+
+                        {/* Row 2 : Vérifiez (visual left) */}
+                        <div data-reveal data-wrow style={s('display:grid;grid-template-columns:1.04fr 1fr;gap:52px;align-items:center;margin-bottom:64px')}>
+                            <div style={s('grid-column:1;grid-row:1')}>
+                                <div style={s('position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 34px 66px -40px rgba(37,34,30,.5);padding:24px')}>
+                                    <div style={s('display:flex;align-items:center;justify-content:space-between;margin-bottom:16px')}>
+                                        <span style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>Analyse PLU · Parcelle AK 0142</span>
+                                        <span style={s('font-family:var(--mf);font-size:10px;font-weight:600;color:var(--acd);background:var(--act);border:1px solid var(--acb);padding:3px 8px;border-radius:6px')}>ZONE UA</span>
+                                    </div>
+                                    <div style={s('display:flex;flex-direction:column;gap:9px')}>
+                                        <div style={s('display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border:1px solid var(--acb);background:var(--act);border-radius:10px')}><span style={s('font-size:13.5px;color:var(--ink);font-weight:500')}>Hauteur ≤ 9 m</span><span className="dp-chip is-ok" style={s('font-size:11px')}>Conforme</span></div>
+                                        <div style={s('display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border:1px solid var(--acb);background:var(--act);border-radius:10px')}><span style={s('font-size:13.5px;color:var(--ink);font-weight:500')}>Menuiseries bois autorisées</span><span className="dp-chip is-ok" style={s('font-size:11px')}>Conforme</span></div>
+                                        <div style={s('display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border:1px solid #E3C9A6;background:#FBF3E6;border-radius:10px')}><span style={s('font-size:13.5px;color:var(--ink);font-weight:500')}>Secteur ABF — teinte imposée</span><span className="dp-chip is-missing" style={s('font-size:11px')}>À vérifier</span></div>
+                                    </div>
+                                    <div data-anim style={s('position:absolute;top:52px;bottom:0;left:0;width:34%;background:linear-gradient(90deg,transparent,rgba(45,90,76,.14),transparent);animation:dpScan 3s linear infinite;pointer-events:none')}></div>
+                                </div>
+                            </div>
+                            <div style={s('grid-column:2;grid-row:1')}>
+                                <div style={s('display:flex;align-items:center;gap:12px;margin-bottom:16px')}><span style={s('font-family:var(--hf);font-size:15px;font-weight:600;color:#fff;width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--ac),var(--acd));display:flex;align-items:center;justify-content:center')}>02</span><span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)')}>Automatique</span></div>
+                                <h3 style={s('font-family:var(--hf);font-size:26px;font-weight:600;color:var(--ink);margin:0 0 10px;letter-spacing:-.01em')}>L&apos;analyse PLU repère les pièges</h3>
+                                <p style={s('font-size:15.5px;line-height:1.6;color:var(--ink-2);margin:0 0 18px;max-width:44ch')}>On croise votre projet avec le règlement de votre zone et signale les secteurs protégés — avant que la mairie ne le fasse.</p>
+                                <div style={s('display:flex;flex-wrap:wrap;gap:8px')}>
+                                    <span style={s('font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;border-radius:8px')}>Règlement de zone</span>
+                                    <span style={s('font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;border-radius:8px')}>Détection ABF / SPR</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 3 : Générez (before/after slider) */}
+                        <div data-reveal data-wrow style={s('display:grid;grid-template-columns:1fr 1.04fr;gap:52px;align-items:center;margin-bottom:64px')}>
+                            <div>
+                                <div style={s('display:flex;align-items:center;gap:12px;margin-bottom:16px')}><span style={s('font-family:var(--hf);font-size:15px;font-weight:600;color:#fff;width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--ac),var(--acd));display:flex;align-items:center;justify-content:center')}>03</span><span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)')}>Généré pour vous</span></div>
+                                <h3 style={s('font-family:var(--hf);font-size:26px;font-weight:600;color:var(--ink);margin:0 0 10px;letter-spacing:-.01em')}>Vos pièces graphiques, prêtes</h3>
+                                <p style={s('font-size:15.5px;line-height:1.6;color:var(--ink-2);margin:0 0 18px;max-width:44ch')}>Plans, notice et surtout l&apos;insertion paysagère « après » (DP6) générée par IA à partir de vos photos.</p>
+                                <div style={s('display:flex;flex-wrap:wrap;gap:8px')}>
+                                    <span style={s('font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;border-radius:8px')}>Insertion DP6 par IA</span>
+                                    <span style={s('font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;border-radius:8px')}>Notice DP4 rédigée</span>
+                                </div>
+                            </div>
+                            <div style={s('background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 34px 66px -40px rgba(37,34,30,.5);padding:16px')}>
+                                <div style={s('display:flex;align-items:center;justify-content:space-between;padding:2px 4px 12px')}><span style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>DP6 · Insertion paysagère</span><span style={s('font-family:var(--mf);font-size:10px;color:var(--acd);display:inline-flex;align-items:center;gap:5px')}><span style={s('width:6px;height:6px;border-radius:50%;background:var(--ac)')}></span>Généré par IA</span></div>
+                                <div ref={sliderRef} onPointerDown={onSliderDown} onPointerMove={onSliderMove} onPointerUp={onSliderUp} style={s('position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line-2);aspect-ratio:4/3;max-width:400px;margin:0 auto;background:var(--field);cursor:ew-resize;touch-action:none;user-select:none;-webkit-user-select:none')}>
+                                    <img src={BA_AFTER} alt="Façade après travaux" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
+                                    <img src={BA_BEFORE} alt="Façade avant travaux" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }} />
+                                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${sliderPos}%`, width: 2, background: '#fff', transform: 'translateX(-1px)', boxShadow: '0 0 0 1px rgba(37,34,30,.18)', pointerEvents: 'none' }}>
+                                        <div style={s('position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:#fff;box-shadow:0 4px 14px -3px rgba(37,34,30,.5),0 0 0 1px rgba(37,34,30,.1);display:flex;align-items:center;justify-content:center')}>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--acd)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 8L6 12l3.5 4" /><path d="M14.5 8l3.5 4-3.5 4" /></svg>
+                                        </div>
+                                    </div>
+                                    <span style={s('position:absolute;bottom:10px;left:10px;z-index:2;pointer-events:none;font-family:var(--mf);font-size:9.5px;letter-spacing:.05em;color:#fff;background:rgba(37,34,30,.72);padding:3px 8px;border-radius:6px')}>AVANT</span>
+                                    <span style={s('position:absolute;bottom:10px;right:10px;z-index:2;pointer-events:none;font-family:var(--mf);font-size:9.5px;letter-spacing:.05em;color:#fff;background:var(--acd);padding:3px 8px;border-radius:6px')}>APRÈS</span>
+                                </div>
+                                <div style={s('display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;background:var(--act);border:1px solid var(--acb);border-radius:10px')}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acd)" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8-18h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3" /></svg><span style={s('font-size:12.5px;color:var(--acd);font-weight:600')}>Glissez le curseur pour comparer avant / après</span></div>
+                            </div>
+                        </div>
+
+                        {/* Row 4 : Déposez (visual left) */}
+                        <div data-reveal data-wrow style={s('display:grid;grid-template-columns:1.04fr 1fr;gap:52px;align-items:center')}>
+                            <div style={s('grid-column:1;grid-row:1')}>
+                                <div style={s('background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 34px 66px -40px rgba(37,34,30,.5);overflow:hidden')}>
+                                    <div style={s('display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line-2);background:var(--surface-2)')}><span style={s('font-family:var(--hf);font-size:14px;font-weight:600;color:var(--ink)')}>Dossier DP — 24 Rue des Lilas</span><span className="dp-chip is-ok">Prêt à déposer</span></div>
+                                    <div style={s('padding:18px')}>
+                                        <div style={s('display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px')}>
+                                            {PIECE_THUMBS.map((pt) => (
+                                                <div key={pt.code} style={s('border:1px solid var(--acb);border-radius:9px;overflow:hidden;background:var(--act)')}><div style={{ height: 34, background: pt.bg }}></div><div style={s('display:flex;align-items:center;justify-content:center;gap:4px;font-family:var(--mf);font-size:8.5px;letter-spacing:.03em;color:var(--acd);padding:4px 0')}><Check size={9} color="var(--acd)" sw={3.4} />{pt.code}</div></div>
+                                            ))}
+                                        </div>
+                                        <div style={s('display:flex;align-items:center;justify-content:space-between;gap:12px')}>
+                                            <div style={s('flex:1')}><div style={s('display:flex;justify-content:space-between;font-family:var(--mf);font-size:9.5px;letter-spacing:.04em;color:var(--muted);margin-bottom:5px')}><span>DOSSIER COMPLET</span><span>8 / 8</span></div><div style={s('height:6px;border-radius:4px;background:var(--line-2);overflow:hidden')}><div style={s('height:100%;width:100%;background:linear-gradient(90deg,var(--ac),var(--acd))')}></div></div></div>
+                                            <span style={s('display:inline-flex;align-items:center;gap:7px;background:var(--ac);color:#fff;font-size:12.5px;font-weight:600;padding:9px 15px;border-radius:10px;white-space:nowrap')}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M4 21h16" /></svg>PDF · ZIP</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={s('grid-column:2;grid-row:1')}>
+                                <div style={s('display:flex;align-items:center;gap:12px;margin-bottom:16px')}><span style={s('font-family:var(--hf);font-size:15px;font-weight:600;color:#fff;width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--ac),var(--acd));display:flex;align-items:center;justify-content:center')}>04</span><span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)')}>Le livrable</span></div>
+                                <h3 style={s('font-family:var(--hf);font-size:26px;font-weight:600;color:var(--ink);margin:0 0 10px;letter-spacing:-.01em')}>Déposez, tout est là</h3>
+                                <p style={s('font-size:15.5px;line-height:1.6;color:var(--ink-2);margin:0 0 18px;max-width:44ch')}>CERFA rempli et pièces DP1 à DP8 réunies en un dossier unique, avec le guide de dépôt en mairie ou en ligne.</p>
+                                <button className="dp-btn-secondary" onClick={() => go('how')} style={s('padding:12px 22px')}>Voir le détail des 7 étapes →</button>
+                            </div>
                         </div>
                     </section>
 
@@ -490,23 +622,37 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                             <p style={s('font-size:16.5px;line-height:1.6;color:var(--ink-2);margin:14px auto 0;max-width:52ch')}>Choisissez vos travaux — nous vous disons quel régime s&apos;applique.</p>
                         </div>
                         <div data-elig style={s('display:grid;grid-template-columns:1.1fr .9fr;gap:22px;align-items:start')}>
-                            <div style={s('display:grid;grid-template-columns:1fr 1fr;gap:10px')}>
-                                {ELIG_KEYS.map((k) => (
-                                    <button key={k} onClick={() => setElig(k)} style={eligOptStyle(elig === k)}><span style={s('font-size:20px;line-height:1')}>{ELIG_MAP[k].emoji}</span>{ELIG_MAP[k].label}</button>
-                                ))}
+                            <div data-elig-grid style={s('display:grid;grid-template-columns:repeat(3,1fr);gap:11px')}>
+                                {ELIG_KEYS.map((k) => {
+                                    const on = elig === k
+                                    return (
+                                        <button key={k} onClick={() => setElig(k)} style={eligTileStyle(on)}>
+                                            <img src={ELIG_MAP[k].img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <span style={s('position:absolute;inset:0;background:linear-gradient(to top, rgba(30,28,24,.72), rgba(30,28,24,.12) 55%, rgba(30,28,24,.02))')}></span>
+                                            <span style={s('position:absolute;left:11px;bottom:9px;right:34px;z-index:2;color:#fff;font-family:inherit;font-size:13px;font-weight:600;text-align:left;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.4)')}>{ELIG_MAP[k].label}</span>
+                                            <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: 'var(--ac)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,.3)', opacity: on ? 1 : 0, transform: on ? 'scale(1)' : 'scale(.6)', transition: 'opacity .16s ease, transform .16s ease' }}><Check size={12} color="#fff" sw={3.4} /></span>
+                                        </button>
+                                    )
+                                })}
                             </div>
-                            <div className="dp-card dp-spec" style={s('padding:26px 26px 24px;position:sticky;top:88px')}>
-                                <div style={s('display:flex;align-items:center;gap:12px;margin-bottom:18px')}>
-                                    <div style={s('display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;background:var(--act);border:1px solid var(--acb);font-size:26px')}>{ev.emoji}</div>
-                                    <div><div style={s('font-family:var(--hf);font-size:20px;font-weight:600;color:var(--ink)')}>{ev.label}</div><div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:2px')}>Régime d&apos;urbanisme</div></div>
+                            <div className="dp-card dp-spec" style={s('padding:0;overflow:hidden;position:sticky;top:88px')}>
+                                <div style={s('position:relative;height:150px;background:var(--field)')}>
+                                    <img src={ev.img} alt={ev.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <span style={s('position:absolute;inset:0;background:linear-gradient(to top,rgba(30,28,24,.66),rgba(30,28,24,.05) 62%)')}></span>
+                                    <div style={s('position:absolute;left:20px;bottom:14px;right:20px')}>
+                                        <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.82)')}>Régime d&apos;urbanisme</div>
+                                        <div style={s('font-family:var(--hf);font-size:22px;font-weight:600;color:#fff;line-height:1.1;margin-top:3px;text-shadow:0 1px 4px rgba(0,0,0,.4)')}>{ev.label}</div>
+                                    </div>
                                 </div>
-                                <div className="dp-alert is-ok" style={s('margin-bottom:16px')}><span className="dp-alert-title">Formalité</span><div style={s('font-size:16px;font-weight:600;color:var(--acd)')}>{ev.verdict}</div></div>
-                                <div style={s('display:flex;gap:10px;margin-bottom:16px')}>
-                                    <div style={s('flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:13px 14px')}><div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>Instruction</div><div style={s('font-size:15px;font-weight:600;color:var(--ink);margin-top:4px')}>{ev.delai}</div></div>
-                                    <div style={s('flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:13px 14px')}><div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>Architecte</div><div style={s('font-size:15px;font-weight:600;color:var(--ink);margin-top:4px')}>Non requis</div></div>
+                                <div style={s('padding:22px 24px 24px')}>
+                                    <div className="dp-alert is-ok" style={s('margin-bottom:16px')}><span className="dp-alert-title">Formalité</span><div style={s('font-size:16px;font-weight:600;color:var(--acd)')}>{ev.verdict}</div></div>
+                                    <div style={s('display:flex;gap:10px;margin-bottom:16px')}>
+                                        <div style={s('flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:13px 14px')}><div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>Instruction</div><div style={s('font-size:15px;font-weight:600;color:var(--ink);margin-top:4px')}>{ev.delai}</div></div>
+                                        <div style={s('flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:13px 14px')}><div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>Architecte</div><div style={s('font-size:15px;font-weight:600;color:var(--ink);margin-top:4px')}>Non requis</div></div>
+                                    </div>
+                                    <p style={s('font-size:14px;line-height:1.55;color:var(--ink-2);margin:0 0 18px')}>{ev.note}</p>
+                                    <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;width:100%;justify-content:center')}>Déclarer ce projet</a>
                                 </div>
-                                <p style={s('font-size:14px;line-height:1.55;color:var(--ink-2);margin:0 0 18px')}>{ev.note}</p>
-                                <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;width:100%;justify-content:center')}>Déclarer ce projet</a>
                             </div>
                         </div>
                     </section>
@@ -546,7 +692,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     <div style={s('color:var(--ac);font-family:var(--hf);font-size:40px;line-height:.6;height:22px')}>“</div>
                                     <p style={s('font-family:var(--hf);font-size:17px;line-height:1.5;color:var(--ink);margin:8px 0 20px;flex:1')}>{t.quote}</p>
                                     <div style={s('display:flex;align-items:center;gap:12px;border-top:1px solid var(--line-2);padding-top:16px')}>
-                                        <div style={s('width:38px;height:38px;border-radius:50%;background:var(--act);border:1px solid var(--acb);color:var(--acd);display:flex;align-items:center;justify-content:center;font-family:var(--hf);font-size:16px;font-weight:600')}>{t.initial}</div>
+                                        <div style={s('width:42px;height:42px;border-radius:50%;overflow:hidden;flex-shrink:0;border:1px solid var(--line-2)')}><img src={t.avatar} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
                                         <div><div style={s('font-size:14px;font-weight:600;color:var(--ink)')}>{t.name}</div><div style={s('font-size:12.5px;color:var(--muted)')}>{t.meta}</div></div>
                                     </div>
                                 </div>
@@ -928,6 +1074,7 @@ const SITE_CSS = `
 #site [data-anim]{will-change:transform,opacity}
 @media (prefers-reduced-motion:reduce){#site [data-anim]{animation:none!important}#site.reveal-on [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
 @media (max-width:860px){#site [data-hero]{grid-template-columns:1fr!important}#site [data-hero-visual]{display:none!important}#site [data-col2]{grid-template-columns:1fr!important}#site [data-split]{grid-template-columns:1fr!important}}
-@media (max-width:760px){#site [data-navlinks]{display:none!important}#site [data-headcta]{margin-left:auto}#site [data-grid3]{grid-template-columns:1fr!important}#site [data-grid2]{grid-template-columns:repeat(2,1fr)!important}#site [data-elig]{grid-template-columns:1fr!important}#site [data-foot]{grid-template-columns:1fr 1fr!important}}
+@media (max-width:820px){#site [data-wrow]{grid-template-columns:1fr!important;gap:26px!important}#site [data-wrow] > *{grid-column:auto!important;grid-row:auto!important}}
+@media (max-width:760px){#site [data-navlinks]{display:none!important}#site [data-headcta]{margin-left:auto}#site [data-grid3]{grid-template-columns:1fr!important}#site [data-grid2]{grid-template-columns:repeat(2,1fr)!important}#site [data-elig]{grid-template-columns:1fr!important}#site [data-elig-grid]{grid-template-columns:repeat(2,1fr)!important}#site [data-foot]{grid-template-columns:1fr 1fr!important}}
 @media (max-width:520px){#site header > div{padding-left:16px!important;padding-right:16px!important;gap:12px!important}#site [data-logosub]{display:none!important}#site [data-signin]{display:none!important}#site [data-foot]{grid-template-columns:1fr!important}}
 `
