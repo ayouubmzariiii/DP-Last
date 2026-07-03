@@ -35,8 +35,33 @@ function san(text: string): string {
         '\u2013': '-', '\u2014': '-', '\u2019': "'", '\u2018': "'", '\u201c': '"', '\u201d': '"',
         '°': 'deg', '²': 'm2', '³': 'm3', '×': 'x', '€': 'EUR', '≈': '~',
         '«': '"', '»': '"', '…': '...', '•': '-', '·': '-',
+        '≤': '<=', '≥': '>=', '→': '->', '←': '<-', '−': '-',
     }
-    return (text || '').replace(/[^\x00-\x7F]/g, c => map[c] ?? (c.normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '?'))
+    // pdf-lib's Helvetica uses WinAnsi (CP1252): it renders proper accented French plus
+    // « » – — … € ² ³ ° œ æ ç. Only glyphs WinAnsi cannot encode are
+    // transliterated — passing one would make pdf-lib throw and tx() drop the string.
+    const winAnsiPunct = new Set<number>([
+        0x20AC, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160,
+        0x2039, 0x0152, 0x017D, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+        0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x017E, 0x0178,
+    ])
+    const ok = (cp: number) =>
+        cp === 0x0A || cp === 0x09 ||          // newline / tab (structural)
+        (cp >= 0x20 && cp <= 0x7E) ||          // ASCII printable
+        (cp >= 0xA0 && cp <= 0xFF) ||          // Latin-1 (accents, guillemets, deg, m2, c-cedilla)
+        winAnsiPunct.has(cp)                   // CP1252 typographic punctuation
+    let out = ''
+    for (const ch of (text || '')) {
+        const cp = ch.codePointAt(0) ?? 0
+        if (ok(cp)) { out += ch; continue }
+        if (cp === 0x202F || cp === 0x2009 || cp === 0x2007) { out += ' '; continue } // narrow/thin spaces
+        if (cp === 0x2011) { out += '-'; continue }                                    // non-breaking hyphen
+        if (cp === 0x200B || cp === 0x200C || cp === 0x200D || cp === 0xFEFF) continue // zero-width
+        if (map[ch] !== undefined) { out += map[ch]; continue }
+        const stripped = ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        out += (stripped && ok(stripped.codePointAt(0) ?? 0)) ? stripped : ''
+    }
+    return out
 }
 
 // ─── Text wrapper ─────────────────────────────────────────────────────────────
@@ -91,7 +116,7 @@ function drawFrame(page: PDFPage) {
 /** Header for all DP pages containing the disclaimer */
 function drawDesignHeader(page: PDFPage, fontOblique: PDFFont): number {
     const { width, height } = page.getSize()
-    const disclaimer = "Les presents plans sont exclusivement destines a l'instruction administrative dans le cadre d'un dossier de declaration prealable. Ils ne peuvent etre utilises pour toute autre fin, ni pour l'execution des travaux."
+    const disclaimer = "Les présents plans sont exclusivement destinés à l'instruction administrative dans le cadre d'un dossier de déclaration préalable. Ils ne peuvent être utilisés pour toute autre fin, ni pour l'exécution des travaux."
     const startY = height - MARGIN - 16
     // Single line with reduced font size to fit across the page
     tx(page, disclaimer, MARGIN + FRAME_PAD, startY, 7.8, fontOblique, C.mid)
@@ -130,7 +155,7 @@ function drawDesignFooter(page: PDFPage, font: PDFFont, bold: PDFFont, data: DPF
     ln(page, curX, yFoot + hFoot / 2, curX + w1, yFoot + hFoot / 2, 1, C.black)
 
     // Vertically centered labels and values
-    txCentered(page, "Maitre d'ouvrage", curX + w1 / 2, yFoot + hFoot * 0.75 - 5, 9, bold, C.black)
+    txCentered(page, "Maître d'ouvrage", curX + w1 / 2, yFoot + hFoot * 0.75 - 5, 9, bold, C.black)
     const maitre = san(`${data.demandeur.prenom || ''} ${data.demandeur.nom || ''}`.trim())
     txCentered(page, maitre.substring(0, 30).toUpperCase(), curX + w1 / 2, yFoot + hFoot * 0.25 - 5, 11, font, C.nearBlack)
 
@@ -183,7 +208,7 @@ function drawDesignFooter(page: PDFPage, font: PDFFont, bold: PDFFont, data: DPF
     ln(page, curX + w5 / 2, yFoot, curX + w5 / 2, yFoot + hFoot, 1, C.black)
 
     // Headers (Top Row) - Vertically centered in top half
-    txCentered(page, 'Echelle :', curX + w5 / 4, yFoot + hFoot * 0.75 - 4, 9, font, C.nearBlack)
+    txCentered(page, 'Échelle :', curX + w5 / 4, yFoot + hFoot * 0.75 - 4, 9, font, C.nearBlack)
     txCentered(page, 'Date :', curX + (w5 * 3) / 4, yFoot + hFoot * 0.75 - 4, 9, font, C.nearBlack)
 
     // Values (Bottom Row) - Vertically centered in bottom half
@@ -334,10 +359,10 @@ async function embed(doc: PDFDocument, src: string | null) {
 // ─── Labels ───────────────────────────────────────────────────────────────────
 function natureLabel(data: DPFormData): string {
     const t = data.travaux.type
-    if (t === 'menuiseries') return 'Remplacement / installation de menuiseries exterieures'
-    if (t === 'isolation') return 'Isolation thermique par l\'exterieur (ITE)'
-    if (t === 'photovoltaique') return 'Installation de panneaux photovoltaiques en toiture'
-    return 'Non defini'
+    if (t === 'menuiseries') return 'Remplacement / installation de menuiseries extérieures'
+    if (t === 'isolation') return 'Isolation thermique par l\'extérieur (ITE)'
+    if (t === 'photovoltaique') return 'Installation de panneaux photovoltaïques en toiture'
+    return 'Non défini'
 }
 
 /** Concise, correctly-spelled French label for the declared works — drawn as crisp pdf-lib
@@ -356,11 +381,11 @@ function worksLabel(data: DPFormData): string {
         const fin: Record<string, string> = { enduit: 'enduit', bardage_bois: 'bardage bois', bardage_metal: 'bardage metal', bardage_composite: 'bardage composite' }
         const finStr = fin[tr.isolation.type_finition] || 'enduit'
         const col = tr.isolation.couleur ? ` ${tr.isolation.couleur.toLowerCase()}` : ''
-        return `Isolation par l'exterieur - finition ${finStr}${col}`
+        return `Isolation par l'extérieur - finition ${finStr}${col}`
     }
     if (tr.type === 'photovoltaique' && tr.photovoltaique) {
         const nb = tr.photovoltaique.nombre_panneaux
-        return `Pose de ${nb ? nb + ' ' : ''}panneaux photovoltaiques en toiture`
+        return `Pose de ${nb ? nb + ' ' : ''}panneaux photovoltaïques en toiture`
     }
     return natureLabel(data)
 }
@@ -468,14 +493,20 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         const titleW = 450
         const titleH = 70
         box(page, (PW - titleW) / 2, y - titleH - 20, titleW, titleH, undefined, C.black, 1.5)
-        txCentered(page, "DECLARATION PREALABLE", PW / 2, y - titleH - 20 + 28, 24, bold, C.black)
+        txCentered(page, "DÉCLARATION PRÉALABLE", PW / 2, y - titleH - 20 + 28, 24, bold, C.black)
 
         // --- Agency / Logo Area (Professional & Minimalist) ---
         const logoX = PW - MARGIN - 320
         const logoY = y - 80
-        tx(page, "BUREAU D'ETUDES", logoX, logoY, 28, font, C.black)
-        tx(page, "CONCEPTION & URBANISME", logoX, logoY - 35, 18, font, C.mid)
-        ln(page, logoX, logoY - 50, PW - MARGIN - 20, logoY - 50, 1, C.black)
+        // Reference & date — accurate identifiers rather than a placeholder agency name.
+        const idRight = PW - MARGIN - FRAME_PAD
+        const wRef = font.widthOfTextAtSize(san('REFERENCE DU DOSSIER'), 10)
+        tx(page, 'RÉFÉRENCE DU DOSSIER', idRight - wRef, logoY, 10, font, C.mid)
+        const wNum = bold.widthOfTextAtSize(san(refStr), 17)
+        tx(page, refStr, idRight - wNum, logoY - 24, 17, bold, C.black)
+        const wDate = font.widthOfTextAtSize(san(dateStr), 11)
+        tx(page, dateStr, idRight - wDate, logoY - 46, 11, font, C.mid)
+        ln(page, logoX, logoY - 58, idRight, logoY - 58, 1, C.black)
 
         y -= 180
 
@@ -564,7 +595,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         // First project line
         const ry = tY + rowH * (numRows - 2) + 8
         txCentered(page, dateStr, tableX + col1W / 2, ry, 10, font, C.black)
-        txCentered(page, "Creation du dossier de declaration prealable", tableX + col1W + col2W / 2, ry, 10, font, C.black)
+        txCentered(page, "Création du dossier de déclaration préalable", tableX + col1W + col2W / 2, ry, 10, font, C.black)
         txCentered(page, "A", tableX + col1W + col2W + col3W / 2, ry, 10, font, C.black)
     }
 
@@ -811,9 +842,9 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
             const legX = startX + 10, legY = startY + 10
             box(page, legX, legY, 150, 60, C.white, C.dark, 0.8)
             page.drawRectangle({ x: legX + 8, y: legY + 45, width: 12, height: 8, color: rgb(0.82, 0.93, 0.72), borderColor: rgb(0, 0.35, 0.8), borderWidth: 1.5 })
-            tx(page, "Parcelle concernee", legX + 26, legY + 46, 7.5, font)
+            tx(page, "Parcelle concernée", legX + 26, legY + 46, 7.5, font)
             page.drawRectangle({ x: legX + 8, y: legY + 31, width: 12, height: 8, color: rgb(0.62, 0.62, 0.62), borderColor: rgb(0.2, 0.2, 0.2), borderWidth: 0.8 })
-            tx(page, "Batiments (BD TOPO)", legX + 26, legY + 32, 7.5, font)
+            tx(page, "Bâtiments (BD TOPO)", legX + 26, legY + 32, 7.5, font)
             page.drawRectangle({ x: legX + 8, y: legY + 17, width: 12, height: 8, color: rgb(0.88, 0.88, 0.88), borderColor: C.dark, borderWidth: 0.5 })
             tx(page, "Voiries / Autres", legX + 26, legY + 18, 7.5, font)
             tx(page, "IGN - BD TOPO / Cadastre", legX + 26, legY + 4, 6, fontOblique, C.mid)
@@ -933,7 +964,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         const cW = PW - M * 2
         drawFrame(page)
         let y = drawDesignHeader(page, fontOblique)
-        y = drawTitleProfessional(page, bold, 'Plans des facades : etat existant et projeté (DP 5)', M, y)
+        y = drawTitleProfessional(page, bold, 'Plans des façades : état existant et projeté (DP 5)', M, y)
         y -= 10
 
         if (facadesDp5.length === 0) {
@@ -977,12 +1008,12 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
             }
         }
 
-        const note = "Documents presentant les modifications architecturales projetees pour l'ensemble des facades concernées. Ils permettent d'apprecier l'aspect architectural, les proportions et les materiaux mis en oeuvre."
+        const note = "Documents présentant les modifications architecturales projetées pour l'ensemble des façades concernées. Ils permettent d'apprécier l'aspect architectural, les proportions et les matériaux mis en œuvre."
         const noteY = FOOT_H + 50
         box(page, M, noteY, cW, 44, C.offWhite, C.black, 1.2)
         textBlock(page, note, M + 14, noteY + 32, 10, font, 130, 14, C.nearBlack)
 
-        drawDesignFooter(page, font, bold, data, 'DP 5', 'Plans des facades : croquis architectural', 'Sans')
+        drawDesignFooter(page, font, bold, data, 'DP 5', 'Plans des façades : croquis architectural', 'Sans')
     }
 
     // ══════════════════════ PAGE 6 – DP6 Insertion Paysagere ══════════════
@@ -995,10 +1026,10 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
             const cW = PW - M * 2
             drawFrame(page)
             let y = drawDesignHeader(page, fontOblique)
-            y = drawTitleProfessional(page, bold, 'Insertion paysagere : Comparaison visuelle', M, y)
+            y = drawTitleProfessional(page, bold, 'Insertion paysagère : comparaison visuelle', M, y)
             y -= 10
             placeholder(page, font, M, y, cW, 200, 'Aucune photo pour l\'insertion paysagere')
-            drawDesignFooter(page, font, bold, data, 'DP 6', 'Insertion paysagere : simulation apres travaux', 'Sans')
+            drawDesignFooter(page, font, bold, data, 'DP 6', 'Insertion paysagère : simulation après travaux', 'Sans')
         } else {
             for (const f of facadesToDraw) {
                 const page = addPage()
@@ -1008,15 +1039,15 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 drawFrame(page)
                 let y = drawDesignHeader(page, fontOblique)
 
-                y = drawTitleProfessional(page, bold, `Insertion paysagere : ${f.label}`, M, y)
+                y = drawTitleProfessional(page, bold, `Insertion paysagère : ${f.label}`, M, y)
                 y -= 10
 
                 const colW = (cW - 12) / 2
                 const maxImgH = Math.min(y - FOOT_H - 120, 420)
 
                 // Column headers
-                drawTitleProfessional(page, bold, 'Etat existant (Avant)', M, y, 14)
-                drawTitleProfessional(page, bold, 'Apres travaux (Simulation)', M + colW + 12, y, 14)
+                drawTitleProfessional(page, bold, 'État existant (avant)', M, y, 14)
+                drawTitleProfessional(page, bold, 'Après travaux (simulation)', M + colW + 12, y, 14)
                 y -= 10
 
                 const avImg = await embed(doc, f.before)
@@ -1046,7 +1077,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 ln(page, M, y, PW - M, y, 1, C.black)
                 
                 // Note technique block
-                const note6 = `Le document DP6 est une insertion graphique permettant d'apprecier l'integration du projet pour la ${f.label.toLowerCase()}. Cette simulation photorealiste montre le futur aspect de la construction.`
+                const note6 = `Le document DP6 est une insertion graphique permettant d'apprécier l'intégration du projet pour la ${f.label.toLowerCase()}. Cette simulation photoréaliste montre le futur aspect de la construction.`
                 const n6Lines = wrapText(note6, 110)
                 const n6H = 35 + n6Lines.length * 16 + 10
                 y -= n6H
@@ -1054,7 +1085,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
                 tx(page, 'NOTE TECHNIQUE DP 6', M + 14, y + n6H - 24, 12, bold, C.black)
                 textBlock(page, note6, M + 14, y + n6H - 44, 11, font, 110, 16, C.nearBlack)
 
-                drawDesignFooter(page, font, bold, data, 'DP 6', `Insertion paysagere (${f.label})`, 'Sans')
+                drawDesignFooter(page, font, bold, data, 'DP 6', `Insertion paysagère (${f.label})`, 'Sans')
             }
         }
     }
@@ -1074,20 +1105,20 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         const maxImgH = y - FOOT_H - 140
         
         // DP 7
-        drawTitleProfessional(page, bold, 'DP 7 : Vue rapprochee', M, y, 14)
+        drawTitleProfessional(page, bold, 'DP 7 : Vue rapprochée', M, y, 14)
         const img7 = await embed(doc, photos.dp7_vue_proche)
         if (img7) {
             const dims = img7.scaleToFit(colW, maxImgH)
             const xOff = M + (colW - dims.width) / 2
             box(page, xOff - 2, y - 25 - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
             page.drawImage(img7, { x: xOff, y: y - 25 - dims.height, width: dims.width, height: dims.height })
-            tx(page, 'Vue rapprochee depuis la voie publique', M, y - 25 - dims.height - 18, 9, fontOblique, C.dark)
+            tx(page, 'Vue rapprochée depuis la voie publique', M, y - 25 - dims.height - 18, 9, fontOblique, C.dark)
         } else {
             placeholder(page, font, M, y - 25, colW, 200, 'Photo DP 7 manquante')
         }
 
         // DP 8
-        drawTitleProfessional(page, bold, 'DP 8 : Vue eloignee', M + colW + 12, y, 14)
+        drawTitleProfessional(page, bold, 'DP 8 : Vue éloignée', M + colW + 12, y, 14)
         const img8 = await embed(doc, photos.dp8_vue_lointaine)
         if (img8) {
             const dims = img8.scaleToFit(colW, maxImgH)
