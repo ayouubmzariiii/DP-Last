@@ -42,13 +42,6 @@ const Check = ({ size = 13, color = 'var(--ac)', sw = 2.6 }: { size?: number; co
 )
 
 // ── Static content ───────────────────────────────────────────────────────────
-const HERO_DOCS = [
-    { code: 'DP1', bg: 'radial-gradient(circle at 50% 55%, var(--acb) 0 5px, transparent 6px), repeating-linear-gradient(0deg,var(--line-2) 0 1px,transparent 1px 9px), repeating-linear-gradient(90deg,var(--line-2) 0 1px,transparent 1px 9px)' },
-    { code: 'DP2', bg: 'linear-gradient(135deg,#E6EDE9,#DCE6E0)' },
-    { code: 'DP5', bg: 'repeating-linear-gradient(90deg,var(--field) 0 9px,var(--line-2) 9px 11px)' },
-    { code: 'DP7', bg: 'repeating-linear-gradient(45deg,#EFEAE0,#EFEAE0 6px,#F5F1E9 6px,#F5F1E9 12px)' },
-]
-
 const STATS = [
     { val: '18 400', label: 'Dossiers générés' },
     { val: '97 %', label: 'Jugés recevables' },
@@ -379,50 +372,39 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
 
                             {/* HERO VISUAL */}
                             <div data-hero-visual style={s('position:relative')}>
-                                <div style={s('position:relative;height:522px')}>
-                                    <div data-anim style={s('position:absolute;right:-4px;top:2px;color:var(--ac);animation:dpPulse 6s ease-in-out infinite;opacity:.5')}>
-                                        <div style={s('opacity:.13')}><SealIcon size={152} strokeWidth={1} /></div>
-                                    </div>
-                                    <div style={s('position:absolute;top:28px;right:4px;width:298px;transform:rotate(4.5deg);background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 60px -36px rgba(37,34,30,.5);padding:18px 18px 22px')}>
-                                        <div style={s('display:flex;align-items:center;justify-content:space-between;margin-bottom:14px')}><span style={s('font-family:var(--mf);font-size:10px;letter-spacing:.05em;color:var(--muted);text-transform:uppercase')}>CERFA 13703*11</span><span style={s('font-family:var(--mf);font-size:10px;color:var(--faint)')}>1/4</span></div>
-                                        <div style={s('height:9px;width:72%;border-radius:3px;background:var(--line-2);margin-bottom:9px')}></div>
-                                        <div style={s('height:9px;width:90%;border-radius:3px;background:var(--line-2);margin-bottom:9px')}></div>
-                                        <div style={s('height:9px;width:58%;border-radius:3px;background:var(--line-2);margin-bottom:16px')}></div>
-                                        <div style={s('display:grid;grid-template-columns:1fr 1fr;gap:8px')}><div style={s('height:34px;border-radius:7px;background:var(--field);border:1px solid var(--line-2)')}></div><div style={s('height:34px;border-radius:7px;background:var(--field);border:1px solid var(--line-2)')}></div></div>
-                                    </div>
-                                    <div data-anim style={s('position:absolute;top:0;left:0;width:362px;animation:dpFloat 7s ease-in-out infinite;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 44px 84px -42px rgba(37,34,30,.55);overflow:hidden')}>
-                                        <div style={s('display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line-2);background:var(--surface-2)')}>
-                                            <div style={s('display:flex;align-items:center;gap:9px')}>
-                                                <div style={s('display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:26px;height:26px;border-radius:7px;background:linear-gradient(155deg,var(--ac),var(--acd))')}><span style={s('font-family:var(--hf);font-weight:600;font-size:12px;line-height:1;color:#fff')}>dp</span></div>
-                                                <span style={s('font-family:var(--hf);font-size:14px;font-weight:600;color:var(--ink)')}>Dossier DP</span>
+                                <div style={s('position:relative;max-width:412px;margin:0 auto')}>
+                                    <div style={s('position:absolute;top:24px;right:-16px;bottom:-14px;left:22px;border-radius:22px;background:var(--act);border:1px solid var(--acb);transform:rotate(2.5deg)')}></div>
+                                    <div data-anim style={s('position:relative;animation:dpFloat 7.5s ease-in-out infinite;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:0 46px 88px -44px rgba(37,34,30,.55);overflow:hidden')}>
+                                        <div style={s('position:relative;height:210px;background:var(--field)')}>
+                                            <img src={BA_AFTER} alt="Maison après travaux déclarés" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 50%' }} />
+                                            <span style={s('position:absolute;inset:0;background:linear-gradient(to top,rgba(30,28,24,.8),rgba(30,28,24,.04) 52%)')}></span>
+                                            <span className="dp-chip is-ok" style={s('position:absolute;top:13px;right:13px')}>Prêt à déposer</span>
+                                            <div style={s('position:absolute;left:17px;right:17px;bottom:13px')}>
+                                                <div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.82)')}>Dossier DP · Extension</div>
+                                                <div style={s('font-family:var(--hf);font-size:19px;font-weight:600;color:#fff;line-height:1.15;margin-top:2px;text-shadow:0 1px 4px rgba(0,0,0,.45)')}>24 Rue des Lilas, Lyon</div>
                                             </div>
-                                            <span className="dp-chip is-ok">Prêt à déposer</span>
                                         </div>
-                                        <div style={s('padding:16px')}>
-                                            <div style={s('display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--acb);background:var(--act);border-radius:11px')}>
-                                                <Check size={17} color="var(--acd)" />
-                                                <div style={s('min-width:0')}><div style={s('font-size:13px;font-weight:600;color:var(--ink)')}>24 Rue des Lilas</div><div style={s('font-family:var(--mf);font-size:10.5px;color:var(--muted);margin-top:1px')}>69003 LYON · PARCELLE AK 0142</div></div>
+                                        <div style={s('padding:8px 20px 20px')}>
+                                            <div style={s('display:flex;align-items:center;gap:12px;padding:12px 0')}>
+                                                <span style={s('flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center')}><Check size={13} color="#fff" sw={3} /></span>
+                                                <span style={s('flex:1;font-size:14.5px;font-weight:500;color:var(--ink)')}>Analyse PLU · Zone UA</span>
+                                                <span style={s('font-family:var(--mf);font-size:11.5px;font-weight:600;color:var(--acd)')}>Conforme</span>
                                             </div>
-                                            <div style={s('position:relative;overflow:hidden;margin-top:12px;padding:13px;border:1px solid var(--line);border-radius:11px;background:var(--surface)')}>
-                                                <div style={s('display:flex;align-items:center;justify-content:space-between;margin-bottom:10px')}><span style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)')}>Analyse PLU</span><span style={s('font-family:var(--mf);font-size:10px;color:var(--acd)')}>ZONE UA</span></div>
-                                                <div style={s('display:flex;flex-wrap:wrap;gap:6px')}>
-                                                    <span className="dp-chip is-ok" style={s('font-size:11px')}>Zone UA ✓</span>
-                                                    <span className="dp-chip is-ok" style={s('font-size:11px')}>Hauteur ✓</span>
-                                                    <span className="dp-chip is-missing" style={s('font-size:11px')}>SPR · Avis ABF</span>
-                                                </div>
-                                                <div data-anim style={s('position:absolute;top:0;bottom:0;left:0;width:38%;background:linear-gradient(90deg,transparent,rgba(45,90,76,.16),transparent);animation:dpScan 2.9s linear infinite;pointer-events:none')}></div>
+                                            <div style={s('height:1px;background:var(--line-2)')}></div>
+                                            <div style={s('display:flex;align-items:center;gap:12px;padding:12px 0')}>
+                                                <span style={s('flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center')}><Check size={13} color="#fff" sw={3} /></span>
+                                                <span style={s('flex:1;font-size:14.5px;font-weight:500;color:var(--ink)')}>Pièces DP1 à DP8</span>
+                                                <span style={s('font-family:var(--mf);font-size:11.5px;font-weight:600;color:var(--acd)')}>8 / 8</span>
                                             </div>
-                                            <div style={s('display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px')}>
-                                                {HERO_DOCS.map((d) => (
-                                                    <div key={d.code} style={s('border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--field)')}>
-                                                        <div style={{ height: 40, background: d.bg }}></div>
-                                                        <div style={s('font-family:var(--mf);font-size:8.5px;letter-spacing:.04em;text-align:center;color:var(--muted);padding:4px 0')}>{d.code}</div>
-                                                    </div>
-                                                ))}
+                                            <div style={s('height:1px;background:var(--line-2)')}></div>
+                                            <div style={s('display:flex;align-items:center;gap:12px;padding:12px 0')}>
+                                                <span style={s('flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center')}><Check size={13} color="#fff" sw={3} /></span>
+                                                <span style={s('flex:1;font-size:14.5px;font-weight:500;color:var(--ink)')}>CERFA 13703*11</span>
+                                                <span style={s('font-family:var(--mf);font-size:11.5px;font-weight:600;color:var(--acd)')}>Rempli</span>
                                             </div>
-                                            <div style={s('margin-top:15px')}>
-                                                <div style={s('display:flex;justify-content:space-between;font-family:var(--mf);font-size:10px;letter-spacing:.04em;color:var(--muted);margin-bottom:6px')}><span>DOSSIER</span><span>7 / 8 PIÈCES</span></div>
-                                                <div style={s('height:7px;border-radius:4px;background:var(--line-2);overflow:hidden')}><div style={s('height:100%;width:88%;background:linear-gradient(90deg,var(--ac),var(--acd))')}></div></div>
+                                            <div style={s('margin-top:14px')}>
+                                                <div style={s('display:flex;justify-content:space-between;font-family:var(--mf);font-size:10px;letter-spacing:.04em;color:var(--muted);margin-bottom:6px')}><span>DOSSIER COMPLET</span><span style={s('color:var(--acd);font-weight:600')}>100 %</span></div>
+                                                <div style={s('height:7px;border-radius:4px;background:var(--line-2);overflow:hidden')}><div style={s('height:100%;width:100%;background:linear-gradient(90deg,var(--ac),var(--acd))')}></div></div>
                                             </div>
                                         </div>
                                     </div>
