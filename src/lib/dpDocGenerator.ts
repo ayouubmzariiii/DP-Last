@@ -357,6 +357,40 @@ async function embed(doc: PDFDocument, src: string | null) {
 }
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
+// Stable, deterministic dossier reference — the same dossier always yields the same code
+// (no Math.random, no year drift). Derived from the dossier UUID when present, else from a
+// content hash of applicant + terrain so direct API calls stay stable too.
+function fnv1a(str: string): string {
+    let h = 0x811c9dc5
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) }
+    return (h >>> 0).toString(16).toUpperCase().padStart(8, '0')
+}
+function buildReference(data: DPFormData, dossierId?: string): string {
+    const nom = san(data.demandeur?.nom || 'XX').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'XXXX'
+    const hex = (dossierId || '').replace(/[^a-fA-F0-9]/g, '').slice(0, 8).toUpperCase()
+    const code = hex.length === 8 ? hex : fnv1a([data.demandeur?.nom, data.demandeur?.prenom, data.terrain?.adresse, data.terrain?.section_cadastrale, data.terrain?.numero_parcelle]
+        .map(x => x || '').join('|'))
+    return `DP-${nom}-${code}`
+}
+
+// Whether a plan de coupe (DP3) is required: only when the works change the ground profile
+// or the built volume (terrassement, extension, surélévation, création de niveau, annexe).
+function dp3Status(data: DPFormData): { required: boolean; reason: string } {
+    const ex = data.sous_nature_existante
+    const nv = data.sous_nature_nouvelle
+    const volumeChange = !!(ex && (ex.extension || ex.surelevation || ex.creation_niveaux)) ||
+        !!(nv && (nv.veranda || nv.garage || nv.abri_jardin || nv.autre)) ||
+        data.nature_travaux === 'nouvelle_construction'
+    if (volumeChange) return {
+        required: true,
+        reason: "Le projet modifie le volume ou le profil de la construction : un plan de coupe (profil du terrain naturel et de la construction, état existant et projeté) doit être joint au dossier. Y reporter les niveaux du terrain avant et après travaux ainsi que la hauteur du bâti.",
+    }
+    return {
+        required: false,
+        reason: "Le plan de coupe (DP3) n'est exigé que lorsque les travaux modifient le profil du terrain ou le volume de la construction (terrassement, extension, surélévation, création de niveau). Le présent projet — portant sur l'aspect extérieur sans modification du terrain naturel ni du volume bâti — ne requiert pas cette pièce.",
+}
+}
+
 function natureLabel(data: DPFormData): string {
     const t = data.travaux.type
     if (t === 'menuiseries') return 'Remplacement / installation de menuiseries extérieures'
@@ -451,7 +485,7 @@ function drawImage(
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
-export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> {
+export async function generateDPDocument(data: DPFormData, opts: { dossierId?: string } = {}): Promise<Uint8Array> {
     const { demandeur: d, terrain: t, travaux: tr, photos, plans } = data
     const doc = await PDFDocument.create()
     const font = await doc.embedFont(StandardFonts.Helvetica)
@@ -466,7 +500,7 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
     const com = t.meme_adresse ? d.commune : t.commune
     const addrTrav = san(`${addr || ''}, ${cp || ''} ${com || ''}`.trim())
     const dateStr = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
-    const refStr = `DP-${new Date().getFullYear()}-${san(d.nom || 'XX').toUpperCase().substring(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`
+    const refStr = buildReference(data, opts.dossierId)
 
     // ── Geocode for maps ───────────────────────────────────────────────────
     let coords = data.terrain.coords
@@ -880,6 +914,38 @@ export async function generateDPDocument(data: DPFormData): Promise<Uint8Array> 
         }
 
         drawDesignFooter(page, font, bold, data, 'DP 2', 'Plan de masse des constructions', dp2ScaleLabel)
+    }
+
+    // ══════════════════════ PAGE 3 – DP3 Plan de coupe ═══════════════════
+    {
+        const page = addPage()
+        const M = M_INNER
+        const cW = PW - M * 2
+
+        drawFrame(page)
+        let y = drawDesignHeader(page, fontOblique)
+        y = drawTitleProfessional(page, bold, 'Plan de coupe du terrain et de la construction (DP 3)', M, y)
+        y -= 10
+
+        const dp3 = dp3Status(data)
+        const panelH = 240
+        const panelY = y - panelH
+        box(page, M, panelY, cW, panelH, C.offWhite, C.black, 1.2)
+
+        const padX = 26
+        const head = dp3.required ? 'PLAN DE COUPE À JOINDRE' : 'PIÈCE NON REQUISE POUR CE PROJET'
+        let py = panelY + panelH - 34
+        tx(page, head, M + padX, py, 13, bold, C.black)
+        ln(page, M + padX, py - 8, M + padX + bold.widthOfTextAtSize(san(head), 13), py - 8, 1, C.black)
+        py -= 30
+        py = textBlock(page, dp3.reason, M + padX, py, 12, font, 116, 17, C.nearBlack, panelY + 18)
+        if (dp3.required) {
+            const boxTop = py - 16
+            const boxH = Math.max(46, boxTop - (panelY + 18))
+            placeholder(page, font, M + padX, boxTop, cW - padX * 2, boxH, 'Plan de coupe à joindre au dossier')
+        }
+
+        drawDesignFooter(page, font, bold, data, 'DP 3', 'Plan de coupe du terrain', 'Sans')
     }
 
 

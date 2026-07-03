@@ -127,7 +127,9 @@ export async function GET(req: NextRequest) {
         if (cache) await persistCache(data)
 
         const isDP = doc === 'dp' || doc === 'dossier'
-        const bytes = isDP ? await generateDPDocument(data) : await generateCerfaPdf(data)
+        const bytes = isDP
+            ? await generateDPDocument(data, { dossierId: '7e57d055-0000-4000-8000-000000000001' })
+            : await generateCerfaPdf(data)
         const filename = isDP ? 'TEST_Dossier_DP.pdf' : 'TEST_CERFA_13703.pdf'
 
         return new NextResponse(Buffer.from(bytes), {

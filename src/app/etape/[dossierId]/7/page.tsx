@@ -94,7 +94,7 @@ export default function Etape7() {
         setGeneratingDP(true)
         setError(null)
         try {
-            const res = await fetch('/api/generate-dp', {
+            const res = await fetch(`/api/generate-dp?ref=${encodeURIComponent(dossierId)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
