@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { acquirePluContent } from '@/lib/pluExtractor'
+import { resolvePluDocUrl } from '@/lib/pluDoc'
 import { DPFormData } from '@/lib/models'
 import { getTravauxDef } from '@/lib/travauxRegistry'
 
@@ -295,7 +296,7 @@ function evaluateProject(travaux: any, rules: any, overlays: any) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { plu, travaux, description_projet } = body
+        const { plu, travaux, description_projet, coords } = body
 
         if (!travaux || !travaux.type) {
             return NextResponse.json({ error: 'Travaux details are required' }, { status: 400 })
@@ -306,8 +307,13 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'AI API key not configured' }, { status: 503 })
         }
 
-        const docUrl: string | undefined = plu?.zone?.url_doc
+        let docUrl: string | undefined = plu?.zone?.url_doc
         const zoneLibelle: string | undefined = plu?.zone?.libelle
+        // Recover the règlement URL if fetch-plu couldn't resolve it (apicarto is intermittently
+        // flaky). Without this the analysis silently degrades to a rules-free "estimation".
+        if (!docUrl && !plu?.isRnu && coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lon)) {
+            docUrl = await resolvePluDocUrl(coords.lat, coords.lon)
+        }
 
         // Fast path: serve a cached extraction (rules change rarely) WITHOUT re-downloading or
         // re-OCR'ing the règlement. Only the deterministic evaluation re-runs (cheap).
@@ -609,6 +615,7 @@ ${fieldSpecText}
             source,
             textLength: pdfText.length,
             extractedText: pdfText,
+            docUrl: docUrl || plu?.zone?.url_doc || '',   // resolved URL, so the client can show the PDF
         }, { status: 200 })
 
     } catch (err: any) {

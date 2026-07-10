@@ -36,7 +36,9 @@ export default function Etape4() {
                 body: JSON.stringify({
                     plu: terrain.plu,
                     travaux: travauxArg,
-                    description_projet: travauxArg.description_projet || terrain.description_projet
+                    description_projet: travauxArg.description_projet || terrain.description_projet,
+                    // Lets the API recover the règlement URL if it wasn't resolved during fetch-plu.
+                    coords: terrain.meme_adresse ? formData.demandeur.coords : terrain.coords,
                 })
             })
             if (!res.ok) throw new Error("Erreur lors de la communication avec l'assistant PLU.")
@@ -46,6 +48,8 @@ export default function Etape4() {
             updateTerrain({
                 plu: {
                     ...terrain.plu,
+                    // Persist the (possibly recovered) règlement URL so the PDF viewer can show it.
+                    zone: { ...(terrain.plu?.zone || {}), url_doc: data.docUrl || terrain.plu?.zone?.url_doc },
                     analysisReport: data.report,
                     extractedRules: data.extractedRules,
                     evaluationResult: data.evaluationResult,
