@@ -516,8 +516,10 @@ export const defaultTravaux: Travaux = {
         facade: 'Versant de toiture donnant sur la rue',
         description: 'Création de 2 fenêtres de toit (velux) sur le versant visible depuis la rue.',
     },
-    // Description shown in "Description & Surfaces" (default type = menuiseries).
-    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en PVC blanc (RAL 9016), sans modification des dimensions ni des proportions des baies existantes.',
+    // Description shown in "Description & Surfaces" — must equal travauxDescription(menuiseries)
+    // (i.e. menuiseries.description) so Étape 3's selectType recognises it as auto and refreshes it
+    // when another type is chosen.
+    description_projet: 'Remplacement des fenêtres existantes par des fenêtres PVC blanc (RAL 9016), double vitrage 4/16/4 argon.',
     surfaces: {
         existante: '95',
         creee: '0',

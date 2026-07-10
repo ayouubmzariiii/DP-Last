@@ -3,7 +3,7 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { TypeTravaux } from '@/lib/models'
-import { TRAVAUX_LIST, getTravauxDef } from '@/lib/travauxRegistry'
+import { TRAVAUX_LIST, getTravauxDef, travauxDescription } from '@/lib/travauxRegistry'
 
 // Selection cards are derived from the travaux registry — adding a work type there makes its
 // card appear here automatically (its detail sub-form is still rendered per-type below).
@@ -30,7 +30,18 @@ export default function Etape3() {
     const stepFatals = fatalIssues(issuesForStep(formData, 3))
 
     const selectType = (type: TypeTravaux) => {
-        updateTravaux({ type })
+        // Refresh the shared "Description du projet" so it matches the newly-selected type — but only
+        // when the current text is auto-generated (empty or one of the types' default descriptions),
+        // never when the user has written their own.
+        const cur = (t.description_projet || '').trim()
+        const autoSet = new Set(
+            TRAVAUX_LIST.map(d => travauxDescription({ ...formData, travaux: { ...formData.travaux, type: d.id } }).trim())
+        )
+        const patch: Partial<typeof t> = { type }
+        if (!cur || autoSet.has(cur)) {
+            patch.description_projet = travauxDescription({ ...formData, travaux: { ...formData.travaux, type } })
+        }
+        updateTravaux(patch)
     }
 
     const updateMen = (data: Partial<typeof t.menuiseries>) => {

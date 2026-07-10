@@ -330,3 +330,14 @@ export function travauxWorksLabel(data: DPFormData): string {
     const def = getTravauxDef(data.travaux.type)
     return def ? def.worksLabel(data) : travauxNatureLabel(data)
 }
+
+/** Type-specific "Description du projet" sentence for the selected works: the sub-form's own
+ *  description when filled, else a generated one. Used to pre-fill Étape 3's description field so
+ *  it reflects the chosen type instead of a stale one from a previously-selected type. */
+export function travauxDescription(data: DPFormData): string {
+    const def = getTravauxDef(data.travaux.type)
+    if (!def) return ''
+    const sub = (data.travaux as unknown as Record<string, { description?: string } | undefined>)[def.id]
+    const own = sub?.description?.trim()
+    return own || def.worksLabel(data)
+}
