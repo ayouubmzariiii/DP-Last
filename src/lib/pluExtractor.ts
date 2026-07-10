@@ -19,20 +19,46 @@ const MAX_RASTER_PAGES = 10       // cap pages we OCR via vision
 const RASTER_SCALE = 2.0          // ~144 dpi — legible for OCR without huge payloads
 
 // ── Download with a timeout ──────────────────────────────────────────────────
-async function download(url: string, timeoutMs = 20_000): Promise<Buffer | null> {
+async function download(url: string, timeoutMs = 30_000): Promise<Buffer | null> {
     try {
         const controller = new AbortController()
         const id = setTimeout(() => controller.abort(), timeoutMs)
-        const res = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(id))
-        if (!res.ok) return null
+        const res = await fetch(url, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0 (DP-Travaux)', 'Accept': 'application/pdf,*/*' },
+        }).finally(() => clearTimeout(id))
+        if (!res.ok) { console.warn('[pluExtractor] download HTTP', res.status, url); return null }
         return Buffer.from(await res.arrayBuffer())
-    } catch {
+    } catch (e: any) {
+        console.warn('[pluExtractor] download failed:', e?.message || e)
         return null
     }
 }
 
-// ── Plain-text extraction via pdf-parse v2 (class API: new PDFParse().getText()) ─
+// ── Plain-text extraction ─────────────────────────────────────────────────────
+// Primary: pdfjs-dist directly. Text extraction needs NO canvas, so this loads reliably in the
+// Next.js server bundle — unlike pdf-parse's wrapper, whose runtime import can silently fail there
+// (the real cause of "règlement non récupéré" even when the PDF URL is valid and viewable). pdf-parse
+// is kept as a fallback for any environment where the pdfjs import is blocked.
 async function extractText(buffer: Buffer): Promise<string> {
+    try {
+        const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs')
+        const doc = await pdfjs.getDocument({
+            data: new Uint8Array(buffer), useSystemFonts: true, disableFontFace: true, isEvalSupported: false,
+        }).promise
+        let out = ''
+        const max = Math.min(doc.numPages, 500)
+        for (let i = 1; i <= max; i++) {
+            const page = await doc.getPage(i)
+            const tc = await page.getTextContent()
+            out += tc.items.map((it: any) => (typeof it?.str === 'string' ? it.str : '')).join(' ') + '\n'
+            if (out.length > MAX_TEXT_CHARS) break
+        }
+        try { await doc.destroy?.() } catch { /* ignore */ }
+        if (out.trim().length > 0) return out.trim()
+    } catch (e: any) {
+        console.warn('[pluExtractor] pdfjs extractText failed, trying pdf-parse:', e?.message || e)
+    }
     try {
         const { PDFParse }: any = await import('pdf-parse')
         const parser = new PDFParse({ data: new Uint8Array(buffer) })
@@ -41,7 +67,7 @@ async function extractText(buffer: Buffer): Promise<string> {
         try { await parser.destroy?.() } catch { /* ignore */ }
         return text
     } catch (e) {
-        console.error('[pluExtractor] extractText failed:', e)
+        console.error('[pluExtractor] extractText failed (pdfjs + pdf-parse):', e)
         return ''
     }
 }

@@ -208,7 +208,7 @@ export default function Etape4() {
                                         {plu.isRnu ? 'Commune régie par le Règlement National d\'Urbanisme (RNU)' :
                                          plu.pdfType === 'text' ? 'Règlement PDF converti en texte' :
                                          plu.pdfType === 'scanned' ? 'Règlement scanné — lecture par vision IA (OCR)' :
-                                         'Analyse estimative (règlement communal non récupéré)'}
+                                         (plu.zone?.url_doc ? 'Analyse estimative — règlement non lu automatiquement' : 'Analyse estimative (règlement communal non récupéré)')}
                                         {plu.source === 'estimation' && (
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FBF1DC', color: '#8A6D1F', border: '1px solid #EBD9A8' }}>ESTIMATION</span>
                                         )}
@@ -220,6 +220,8 @@ export default function Etape4() {
                                             `Le règlement de la zone d'urbanisme (${plu.zone?.libelle || 'inconnue'}) a été téléchargé avec succès. Notre système a extrait ${plu.textLength || 0} caractères de texte brut pour l'analyse IA.`
                                         ) : plu.pdfType === 'scanned' ? (
                                             `Le règlement fourni par la commune est un document scanné (images). Ses pages ont été rasterisées et lues par un modèle de vision (OCR) afin d'en extraire les règles réelles de la zone ${plu.zone?.libelle || ''}.`
+                                        ) : plu.zone?.url_doc ? (
+                                            `Le règlement de la zone (${plu.zone?.libelle || 'inconnue'}) a bien été trouvé (consultable ci-dessous) mais n'a pas pu être lu automatiquement cette fois. L'analyse s'appuie donc sur le type de zone, les règles nationales (art. R.111-27) et les contraintes patrimoniales/risques détectées (fiables). Relancez l'analyse ou vérifiez directement le PDF ci-dessous.`
                                         ) : (
                                             `Le règlement écrit de la commune n'a pas pu être récupéré. Cette analyse est une estimation fondée sur le type de zone détecté (${plu.zone?.libelle || 'zone urbaine'}), les règles nationales d'urbanisme (art. R.111-27) et les contraintes réellement détectées ci-dessous (sismicité, inondation, SPR, Monuments Historiques — fiables). À confirmer avec le règlement officiel de la commune.`
                                         )}
