@@ -34,42 +34,50 @@ export default function Etape2() {
         }
     }
 
-    // Auto-geocode terrain address if address exists but coords do not
+    // Resolve the terrain coordinates whenever they're missing — this is what unlocks the PLU and
+    // cadastral-reference auto-fill downstream. Handles BOTH cases (previously the same-address case
+    // was skipped, which left the parcel unresolved when coords weren't carried over from Étape 1):
+    //   • même adresse : inherit the applicant's coords, else geocode the inherited address;
+    //   • adresse différente : geocode the works address.
     useEffect(() => {
-        const autoGeocodeTerrain = async () => {
-            if (t.adresse && !t.coords && !t.meme_adresse && !loadingPLU) {
-                setLoadingPLU(true)
-                setPluError(null)
-                try {
-                    const q = `${t.adresse}, ${t.code_postal} ${t.commune}`
-                    const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=1`)
-                    if (!response.ok) throw new Error("Erreur de géocodage de l'adresse du terrain")
-                    const data = await response.json()
-                    if (data.features && data.features.length > 0) {
-                        const feature = data.features[0]
-                        const coords = {
-                            lat: feature.geometry.coordinates[1],
-                            lon: feature.geometry.coordinates[0]
-                        }
-                        updateTerrain({ coords })
-                        // Now fetch PLU for these coords
-                        const res = await fetch(`/api/fetch-plu?lat=${coords.lat}&lon=${coords.lon}&commune=${encodeURIComponent(t.commune || d.commune || '')}`)
-                        if (!res.ok) throw new Error("Erreur de récupération du PLU")
-                        const pluData = await res.json()
-                        updateTerrain({ plu: pluData })
-                    } else {
-                        setPluError("Impossible de localiser l'adresse du terrain pour le PLU.")
-                    }
-                } catch (err: any) {
+        if (t.coords) return
+        // Same address as the applicant → reuse their coordinates directly when available.
+        if (t.meme_adresse && d.coords) { updateTerrain({ coords: d.coords }); return }
+
+        const addr = t.meme_adresse ? d.adresse : t.adresse
+        const cp = t.meme_adresse ? d.code_postal : t.code_postal
+        const com = t.meme_adresse ? d.commune : t.commune
+        if (!addr || loadingPLU) return
+
+        let cancelled = false
+        ;(async () => {
+            setLoadingPLU(true)
+            setPluError(null)
+            try {
+                const q = `${addr}, ${cp || ''} ${com || ''}`.trim()
+                const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=1`)
+                if (!response.ok) throw new Error("Erreur de géocodage de l'adresse du terrain")
+                const data = await response.json()
+                if (cancelled) return
+                const feature = data.features?.[0]
+                if (feature) {
+                    // Setting coords triggers the PLU fetch + cadastral auto-fill effects below.
+                    updateTerrain({ coords: { lat: feature.geometry.coordinates[1], lon: feature.geometry.coordinates[0] } })
+                } else {
+                    setPluError("Impossible de localiser l'adresse du terrain pour le PLU.")
+                }
+            } catch (err: any) {
+                if (!cancelled) {
                     console.error("Auto-geocode terrain failed:", err)
                     setPluError(err.message || "Erreur lors de la localisation automatique du terrain.")
-                } finally {
-                    setLoadingPLU(false)
                 }
+            } finally {
+                if (!cancelled) setLoadingPLU(false)
             }
-        }
-        autoGeocodeTerrain()
-    }, [t.adresse, t.coords, t.meme_adresse])
+        })()
+        return () => { cancelled = true }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [t.coords, t.meme_adresse, t.adresse, d.coords, d.adresse])
 
     // Auto-fetch PLU when coordinates are available but PLU is not yet loaded
     useEffect(() => {
