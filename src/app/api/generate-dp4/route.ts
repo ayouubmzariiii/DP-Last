@@ -15,13 +15,48 @@ export async function POST(req: NextRequest) {
             applicantInfo = `Le demandeur est un particulier.`
         }
 
+        // ── Grounding context from the PLU / heritage / risk data already fetched (fetch-plu) ──────
+        // The "Intégration dans l'environnement" section must reflect the REAL zoning and heritage
+        // constraints of the parcel, not generic prose. We surface the verified facts and instruct
+        // the model to use them WITHOUT inventing regulation article numbers it hasn't been given.
+        const plu = formData.terrain?.plu || {}
+        const ov = plu.overlays || {}
+        const zoningLines: string[] = []
+        if (plu.isRnu) {
+            zoningLines.push(`- La commune est au Règlement National d'Urbanisme (RNU) : pas de PLU local applicable.`)
+        } else if (plu.zone?.libelle) {
+            const z = plu.zone
+            zoningLines.push(`- Zone du PLU : ${z.libelle}${z.typezone ? ` (type ${z.typezone})` : ''}${z.nomzone ? ` — ${z.nomzone}` : ''}.`)
+        }
+        if (Array.isArray(plu.prescriptions) && plu.prescriptions.length) {
+            zoningLines.push(`- Prescriptions/servitudes relevées : ${plu.prescriptions.slice(0, 6).map((p: any) => p.libelle).join(' ; ')}.`)
+        }
+        if (ov.hasSPR) {
+            zoningLines.push(`- Le terrain est situé en Site Patrimonial Remarquable (${ov.sprName || 'SPR'}) : l'avis de l'Architecte des Bâtiments de France (ABF) est requis ; insister sur le respect de l'aspect patrimonial (teintes, matériaux traditionnels, proportions).`)
+        }
+        if (Array.isArray(ov.monumentsWithin500m) && ov.monumentsWithin500m.length) {
+            const nearest = ov.monumentsWithin500m.slice().sort((a: any, b: any) => (a.distance || 0) - (b.distance || 0))[0]
+            zoningLines.push(`- Abords d'un monument historique : ${ov.monumentsWithin500m.length} monument(s) dans un rayon de 500 m (le plus proche : ${nearest?.title || 'monument'} à environ ${nearest?.distance ?? '?'} m). Projet soumis à l'avis de l'ABF ; souligner l'insertion respectueuse du bâti protégé.`)
+        }
+        if (ov.seismicClass && ov.seismicClass !== 'inconnue') {
+            zoningLines.push(`- Zone de sismicité : ${ov.seismicClass}.`)
+        }
+        if (ov.hasPPRN) zoningLines.push(`- Commune couverte par un Plan de Prévention des Risques Naturels (PPRN).`)
+        if (ov.hasPPRT) zoningLines.push(`- Commune couverte par un Plan de Prévention des Risques Technologiques (PPRT).`)
+        if (ov.hasFloodRisk) zoningLines.push(`- Aléa inondation recensé sur la commune.`)
+
+        const zoningContext = zoningLines.length
+            ? `\nCONTEXTE RÉGLEMENTAIRE ET PATRIMONIAL DU TERRAIN (données officielles vérifiées — à exploiter dans la rubrique « INTEGRATION DANS L'ENVIRONNEMENT ») :\n${zoningLines.join('\n')}\n`
+            : ''
+
         const systemPrompt = `Tu es un expert en urbanisme francais. Rédige une Notice Descriptive (DP4) pour un dossier de Demande Préalable de Travaux.
-            
+
 CONTEXTE DU PROJET (Ne pas inclure ces infos mot pour mot dans la réponse) :
 ${applicantInfo}
 La commune du projet est située à: ${formData.terrain.commune || ''} (${formData.terrain.code_postal || ''}).
 Le projet concerne: ${formData.travaux.type} (${formData.terrain.description_projet || formData.travaux.description_projet || 'Rénovation extérieure'}).
-IMPÉRATIF DE COHÉRENCE : la notice doit décrire EXACTEMENT et UNIQUEMENT les travaux déclarés ci-dessus. N'invente, n'ajoute et ne mentionne AUCUN autre travaux (pas d'isolation par l'extérieur, de réfection de toiture ou de panneaux photovoltaïques) s'ils ne font pas explicitement partie du projet déclaré.
+${zoningContext}IMPÉRATIF DE COHÉRENCE : la notice doit décrire EXACTEMENT et UNIQUEMENT les travaux déclarés ci-dessus. N'invente, n'ajoute et ne mentionne AUCUN autre travaux (pas d'isolation par l'extérieur, de réfection de toiture ou de panneaux photovoltaïques) s'ils ne font pas explicitement partie du projet déclaré.
+IMPÉRATIF PATRIMONIAL : n'exploite les contraintes réglementaires ci-dessus que si elles sont fournies. N'invente AUCUN numéro d'article de règlement, hauteur, retrait ou pourcentage qui ne t'a pas été donné. Si une contrainte patrimoniale (SPR, abords MH, ABF) est indiquée, mentionne le respect de ces prescriptions dans la rubrique intégration.
 
 CONSIGNES HYPER STRICTES ET IMPÉRATIVES (POUR L'INTÉGRATION PDF) :
 1. NE METS AUCUN TITRE GÉNÉRAL (ex: pas de "NOTICE DESCRIPTIVE", pas de "Dossier n°").

@@ -78,6 +78,33 @@ export default function Etape2() {
         }
     }, [t.coords, t.plu])
 
+    // Auto-fill the références cadastrales from the terrain coordinates. IGN's apicarto resolves the
+    // exact parcel containing the point (real point-in-polygon on the Plan Cadastral Informatisé), so
+    // the applicant doesn't have to look up section/numéro by hand. Only EMPTY fields are filled —
+    // anything the user already typed is left untouched.
+    useEffect(() => {
+        if (!t.coords) return
+        if (t.section_cadastrale && t.numero_parcelle) return
+        const { lat, lon } = t.coords
+        let cancelled = false
+        ;(async () => {
+            try {
+                const res = await fetch(`/api/cadastre?lat=${lat}&lon=${lon}`)
+                if (!res.ok) return
+                const p = await res.json()
+                if (cancelled || !p?.section || !p?.numero) return
+                const patch: Partial<typeof t> = {}
+                if (!t.prefixe_cadastral && p.prefixe) patch.prefixe_cadastral = p.prefixe
+                if (!t.section_cadastrale) patch.section_cadastrale = p.section
+                if (!t.numero_parcelle) patch.numero_parcelle = p.numero
+                if (!t.surface_terrain && p.contenance) patch.surface_terrain = String(p.contenance)
+                if (Object.keys(patch).length) updateTerrain(patch)
+            } catch { /* non-blocking: manual entry always remains available */ }
+        })()
+        return () => { cancelled = true }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [t.coords, t.section_cadastrale, t.numero_parcelle])
+
     // Dynamic Cadastre functions migrated from Etape 6
     const addCadastre = () => {
         const current = formData.cadastrales_multiparcelles || []
