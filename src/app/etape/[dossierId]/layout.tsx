@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { usePathname, useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDPContext } from '@/lib/context'
-import SealIcon from '@/components/SealIcon'
+import Logo from '@/components/Logo'
 
 const STEPS = [
     { num: 1, label: 'Demandeur' },
@@ -51,9 +51,7 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
                 <div style={{ maxWidth: 1240, margin: '0 auto', padding: '13px 24px' }} className="flex items-center gap-4">
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-3 shrink-0">
-                        <div className="flex items-center justify-center text-white" style={{ width: 36, height: 36, borderRadius: 10, background: AC, boxShadow: '0 6px 16px -8px rgba(45,90,76,.6)' }}>
-                            <SealIcon size={20} stroke="#fff" strokeWidth={1.5} />
-                        </div>
+                        <Logo size={36} />
                         <div className="hidden sm:block">
                             <div style={{ fontFamily: 'var(--hf)', fontSize: 15, fontWeight: 600, lineHeight: 1.1 }}>DP Travaux</div>
                             <div style={{ fontFamily: 'var(--mf)', fontSize: 10, letterSpacing: '.05em', color: '#9A9286', textTransform: 'uppercase' }}>Cerfa 16702*03</div>

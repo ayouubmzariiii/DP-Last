@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import Logo from '@/components/Logo'
 
 interface DossierFiles {
     situation: boolean
@@ -117,9 +119,12 @@ export default function ProfilePage() {
     return (
         <div className="animate-fadeIn" style={{ maxWidth: 880, margin: '0 auto', padding: '44px 24px 80px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 32 }}>
-                <div className="dp-page-head" style={{ marginBottom: 0 }}>
-                    <span className="dp-eyebrow">Mon espace</span>
-                    <h1 className="dp-page-title">Mon <span className="accent">profil</span></h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                    <Link href="/" aria-label="Accueil DP Travaux"><Logo size={46} /></Link>
+                    <div className="dp-page-head" style={{ marginBottom: 0 }}>
+                        <span className="dp-eyebrow">Mon espace</span>
+                        <h1 className="dp-page-title">Mon <span className="accent">profil</span></h1>
+                    </div>
                 </div>
                 <button onClick={logout} className="dp-btn-secondary" style={{ flexShrink: 0 }}>Se déconnecter</button>
             </div>

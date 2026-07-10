@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Logo from '@/components/Logo'
 
 // Pixel-matched to the Claude Design prototype ("DP Travaux.dc.html" — Login / Register):
 // centred 66px logo tile, dp-page-head, 440px column, 24px padding, centred short rule,
@@ -48,10 +49,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             <div className="animate-fadeIn" style={{ width: '100%', maxWidth: 440 }}>
                 <div className="dp-page-head" style={{ textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: 66, height: 66, borderRadius: 18, background: 'linear-gradient(155deg,var(--ac),var(--acd))', boxShadow: '0 18px 36px -14px rgba(45,90,76,.6)' }}>
-                            <span style={{ fontFamily: 'var(--hf)', fontWeight: 600, fontSize: 32, lineHeight: 1, letterSpacing: '-.03em', color: '#fff' }}>dp</span>
-                            <span style={{ width: 22, height: 2, borderRadius: 2, background: 'rgba(255,255,255,.55)' }} />
-                        </div>
+                        <Logo size={66} />
                     </div>
                     <span className="dp-eyebrow">Déclaration Préalable</span>
                     <h1 className="dp-page-title">{isRegister ? <>Créer un <span className="accent">compte</span></> : <>Se <span className="accent">connecter</span></>}</h1>
