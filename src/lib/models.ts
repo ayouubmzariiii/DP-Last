@@ -538,7 +538,7 @@ export const defaultFormData: DPFormData = {
 }
 
 export const emptyDemandeur: Demandeur = {
-    civilite: 'M', nom: '', prenom: '', date_naissance: '', lieu_naissance: '', departement_naissance: '', pays_naissance: '',
+    civilite: 'M', nom: '', prenom: '', date_naissance: '', lieu_naissance: '', departement_naissance: '', pays_naissance: 'France',
     adresse: '', lieu_dit: '', code_postal: '', commune: '', boite_postale: '', cedex: '', pays: 'France', division_territoriale: '', indicatif_etranger: '',
     telephone: '', email: '', est_societe: false, nom_societe: '', type_societe: '', siret: '', representant_nom: '', representant_prenom: '',
 }

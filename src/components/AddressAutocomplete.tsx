@@ -25,6 +25,8 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
     const [loading, setLoading] = useState(false)
     const [isValid, setIsValid] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const seqRef = useRef(0)
 
     useEffect(() => {
         setQuery(initialValue)
@@ -38,7 +40,10 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
             }
         }
         document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
     }, [])
 
     const searchAddress = async (q: string) => {
@@ -47,10 +52,13 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
             return
         }
 
+        // Ignore out-of-order responses: only the latest keystroke's results should win.
+        const seq = ++seqRef.current
         setLoading(true)
         try {
             const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=5`)
             const data = await response.json()
+            if (seq !== seqRef.current) return
             const results = data.features.map((f: any) => ({
                 label: f.properties.label,
                 name: f.properties.name,
@@ -68,7 +76,7 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
         } catch (error) {
             console.error('Error fetching addresses:', error)
         } finally {
-            setLoading(false)
+            if (seq === seqRef.current) setLoading(false)
         }
     }
 
@@ -76,7 +84,11 @@ export default function AddressAutocomplete({ placeholder, initialValue = '', on
         const val = e.target.value
         setQuery(val)
         setIsValid(false)
-        searchAddress(val)
+        // Debounce: wait for a ~250 ms typing pause before hitting the API, so the field stays
+        // responsive and we don't fire a request per keystroke.
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        if (val.trim().length < 3) { setSuggestions([]); return }
+        debounceRef.current = setTimeout(() => searchAddress(val), 250)
     }
 
     const handleSelect = (suggestion: AddressSuggestion) => {

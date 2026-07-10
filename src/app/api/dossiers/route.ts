@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { desc, eq } from 'drizzle-orm'
-import { db, dossiers } from '@/lib/db'
+import { db, dossiers, users } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 import { emptyFormData } from '@/lib/models'
+
+// Split a stored "Prénom Nom" into its parts for the CERFA. French forms carry the given name(s)
+// first and the family name last, so the last token is the nom and everything before it the prénom
+// (keeps compound first names like "Jean-Pierre Marie" intact). Always user-editable afterwards.
+function splitFullName(full: string): { prenom: string; nom: string } {
+    const parts = (full || '').trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return { prenom: '', nom: '' }
+    if (parts.length === 1) return { prenom: '', nom: parts[0] }
+    return { prenom: parts.slice(0, -1).join(' '), nom: parts[parts.length - 1] }
+}
 
 export const runtime = 'nodejs'
 
@@ -32,10 +42,32 @@ export async function POST(req: NextRequest) {
     try { body = await req.json() } catch { /* empty body is fine */ }
     const title = (typeof body.title === 'string' && body.title.trim()) ? body.title.trim().slice(0, 120) : 'Nouveau dossier'
 
+    // Pre-fill the applicant identity from the signed-in account so Étape 1 opens already populated
+    // (nom, prénom, email, téléphone) — the client only confirms it instead of retyping. Deep-clone
+    // the empty template so we never mutate the shared default object.
+    const data: typeof emptyFormData = JSON.parse(JSON.stringify(emptyFormData))
+    try {
+        const [acct] = await db
+            .select({ fullName: users.fullName, email: users.email, phone: users.phone })
+            .from(users).where(eq(users.id, session.userId)).limit(1)
+        if (acct) {
+            const { prenom, nom } = splitFullName(acct.fullName || '')
+            data.demandeur = {
+                ...data.demandeur,
+                nom: nom || data.demandeur.nom,
+                prenom: prenom || data.demandeur.prenom,
+                email: acct.email || data.demandeur.email,
+                telephone: acct.phone || data.demandeur.telephone,
+            }
+        }
+    } catch (e) {
+        console.warn('[dossiers POST] identity pre-fill skipped:', e)
+    }
+
     const [row] = await db.insert(dossiers).values({
         userId: session.userId,
         title,
-        data: emptyFormData,
+        data,
         status: 'draft',
         lastStep: 1,
     }).returning({
