@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { acquirePluContent } from '@/lib/pluExtractor'
+import { acquirePluContent, targetZoneChapter } from '@/lib/pluExtractor'
 import { resolvePluDocUrl } from '@/lib/pluDoc'
 import { DPFormData } from '@/lib/models'
 import { getTravauxDef } from '@/lib/travauxRegistry'
@@ -296,7 +296,9 @@ function evaluateProject(travaux: any, rules: any, overlays: any) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { plu, travaux, description_projet, coords } = body
+        // reglementText / reglementImages: the règlement already extracted in the BROWSER (pdfjs) —
+        // the browser fetches + parses the PDF reliably even when the server can't, so we prefer it.
+        const { plu, travaux, description_projet, coords, reglementText, reglementImages } = body
 
         if (!travaux || !travaux.type) {
             return NextResponse.json({ error: 'Travaux details are required' }, { status: 400 })
@@ -332,7 +334,13 @@ export async function POST(req: NextRequest) {
         let pdfType: 'text' | 'scanned' | 'missing' | 'error' = 'missing'
         let pdfText = ''
         let pluImages: string[] = []
-        if (docUrl && !plu?.isRnu) {
+        if (!plu?.isRnu && typeof reglementText === 'string' && reglementText.trim().length > 400) {
+            // Text extracted in the browser → zone-scope it and use it directly.
+            pdfType = 'text'; pdfText = targetZoneChapter(reglementText, zoneLibelle).text
+        } else if (!plu?.isRnu && Array.isArray(reglementImages) && reglementImages.length > 0) {
+            // Scanned/image règlement rasterised in the browser → vision-OCR.
+            pdfType = 'scanned'; pluImages = reglementImages.filter((u: any) => typeof u === 'string' && u.startsWith('data:')).slice(0, 10)
+        } else if (docUrl && !plu?.isRnu) {
             const content = await acquirePluContent(docUrl, zoneLibelle)
             if (content.kind === 'text') { pdfType = 'text'; pdfText = content.text }
             else if (content.kind === 'images') { pdfType = 'scanned'; pluImages = content.images }

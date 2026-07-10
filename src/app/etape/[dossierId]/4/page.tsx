@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { isProtectedSector, pluAspectConflicts } from '@/lib/validation'
@@ -30,6 +30,20 @@ export default function Etape4() {
         setAnalyzing(true)
         setError(null)
         try {
+            // Extract the règlement in the BROWSER (reliable — same fetch that powers the viewer):
+            // clean text for text PDFs, or rendered page images for scanned/image règlements (OCR).
+            let reglementText: string | undefined
+            let reglementImages: string[] | undefined
+            const docUrl = terrain.plu?.zone?.url_doc
+            if (docUrl && !terrain.plu?.isRnu) {
+                try {
+                    const { extractReglementClient } = await import('@/lib/pluClientExtract')
+                    const ex = await extractReglementClient(docUrl)
+                    reglementText = ex.text
+                    reglementImages = ex.images
+                } catch { /* server will fall back to its own retrieval */ }
+            }
+
             const res = await fetch('/api/analyze-plu', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -39,6 +53,8 @@ export default function Etape4() {
                     description_projet: travauxArg.description_projet || terrain.description_projet,
                     // Lets the API recover the règlement URL if it wasn't resolved during fetch-plu.
                     coords: terrain.meme_adresse ? formData.demandeur.coords : terrain.coords,
+                    reglementText,
+                    reglementImages,
                 })
             })
             if (!res.ok) throw new Error("Erreur lors de la communication avec l'assistant PLU.")
@@ -79,12 +95,8 @@ export default function Etape4() {
         try { await runAnalysis(nextTravaux) } finally { setApplying(false) }
     }
 
-    // Auto-run analysis on mount if not already present
-    useEffect(() => {
-        if (plu && !hasReport && !analyzing && !error) {
-            runAnalysis()
-        }
-    }, [plu, hasReport])
+    // Analysis is started on demand via the "Analyser avec l'IA" button (below), not automatically —
+    // reading the règlement + querying the model is a heavy step the user chooses to run.
 
     const getParsedSections = () => {
         if (!plu?.analysisReport) return {}
@@ -192,6 +204,23 @@ export default function Etape4() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                ) : !hasReport ? (
+                    <div className="dp-card text-center py-12">
+                        <span className="text-4xl">🏛️</span>
+                        <h3 className="font-bold t-ink mt-4 text-lg">Analyse du règlement d'urbanisme</h3>
+                        <p className="text-xs t-ink2 mt-2 max-w-md mx-auto leading-relaxed">
+                            Lancez l'analyse : nous lisons le règlement PLU de votre zone, le confrontons à votre projet et détectons les éventuelles non-conformités (avis ABF, matériaux, teintes, toiture…).
+                        </p>
+                        <button onClick={() => runAnalysis()} className="dp-btn-primary mt-6 mx-auto inline-flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            Analyser avec l'IA
+                        </button>
+                        {plu?.zone?.url_doc && (
+                            <a href={plu.zone.url_doc} target="_blank" rel="noopener noreferrer" className="block mt-3 text-[11px] t-ink2 hover:t-accent underline">
+                                Consulter le règlement officiel (PDF) ↗
+                            </a>
+                        )}
                     </div>
                 ) : (
                     <div className="space-y-6">
