@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react'
-import { DPFormData, defaultFormData, emptyFormData } from '@/lib/models'
+import { DPFormData, testModeFormData, emptyFormData } from '@/lib/models'
 
 interface DPContextType {
     formData: DPFormData
@@ -156,7 +156,7 @@ export function DPProvider({ children }: { children: ReactNode }) {
         suppressSaveRef.current = true
         setIsTestMode(newMode)
         setCurrentDossierId(null)
-        setFormData(newMode ? defaultFormData : emptyFormData)
+        setFormData(newMode ? testModeFormData : emptyFormData)
     }
 
     const updateDemandeur = (data: Partial<DPFormData['demandeur']>) =>
@@ -176,7 +176,7 @@ export function DPProvider({ children }: { children: ReactNode }) {
 
     const resetForm = () => {
         suppressSaveRef.current = true
-        setFormData(isTestMode ? defaultFormData : emptyFormData)
+        setFormData(isTestMode ? testModeFormData : emptyFormData)
     }
 
     return (

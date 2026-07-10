@@ -537,6 +537,29 @@ export const defaultFormData: DPFormData = {
     cerfa: defaultCerfaData
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TEST-MODE fixture for the wizard UI (the "Mode test" toggle). It is the same demo dossier as
+// defaultFormData, but with every AUTOMATICALLY-DERIVED field emptied so you can watch the real
+// auto-fill pipeline populate them (and confirm it works) instead of demo values masking it:
+//   • coords            ← geocoded from the address (api-adresse)
+//   • cadastral ref      ← résolue depuis la parcelle (/api/cadastre)  [préfixe / section / numéro]
+//   • surface_terrain    ← contenance officielle de la parcelle (/api/cadastre)
+//   • plu                ← zonage + patrimoine + risques (/api/fetch-plu)
+// Manually-entered fields (identité, adresse, travaux, photos, surface plancher) stay filled.
+// NB: defaultFormData deliberately keeps the FULL data — the offline server harness
+// (/api/dev/test-dossier) bypasses these UI effects and must render a complete dossier on its own.
+export const testModeFormData: DPFormData = (() => {
+    const d = JSON.parse(JSON.stringify(defaultFormData)) as DPFormData
+    d.demandeur.coords = undefined
+    d.terrain.coords = undefined
+    d.terrain.prefixe_cadastral = ''
+    d.terrain.section_cadastrale = ''
+    d.terrain.numero_parcelle = ''
+    d.terrain.surface_terrain = ''
+    d.terrain.plu = undefined
+    return d
+})()
+
 export const emptyDemandeur: Demandeur = {
     civilite: 'M', nom: '', prenom: '', date_naissance: '', lieu_naissance: '', departement_naissance: '', pays_naissance: 'France',
     adresse: '', lieu_dit: '', code_postal: '', commune: '', boite_postale: '', cedex: '', pays: 'France', division_territoriale: '', indicatif_etranger: '',
