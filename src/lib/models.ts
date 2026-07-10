@@ -364,15 +364,15 @@ export const defaultDemandeur: Demandeur = {
     lieu_naissance: 'Lyon',
     departement_naissance: '69',
     pays_naissance: 'France',
-    adresse: '3 Rue Victor Hugo',
+    adresse: '3 Rue de la République',
     lieu_dit: '',
-    code_postal: '38200',
-    commune: 'Vienne',
-    coords: { lat: 45.52595, lon: 4.87822 },
+    code_postal: '24200',
+    commune: 'Sarlat-la-Canéda',
+    coords: { lat: 44.89084, lon: 1.21553 },
     boite_postale: '',
-    cedex: '38201 Vienne Cedex',
+    cedex: '',
     pays: 'France',
-    division_territoriale: 'Auvergne-Rhône-Alpes',
+    division_territoriale: 'Nouvelle-Aquitaine',
     indicatif_etranger: '',
     telephone: '06 12 34 56 78',
     email: 'pierre.martin@exemple.fr',
@@ -385,25 +385,26 @@ export const defaultDemandeur: Demandeur = {
 }
 
 export const defaultTerrain: Terrain = {
-    // Real, valid data: 3 Rue Victor Hugo, 38200 Vienne (INSEE 38544) — real coordinates and a
-    // real cadastral parcel (section BC n°0179, 235 m²) located in the SPR of Vienne's old centre.
-    adresse: '3 Rue Victor Hugo',
+    // Real, valid data: 3 Rue de la République, 24200 Sarlat-la-Canéda (INSEE 24520) — real
+    // coordinates and a real cadastral parcel (section BH n°0172, 199 m²), in the PSMV (secteur
+    // sauvegardé) of Sarlat's medieval centre, ringed by 37 Monuments Historiques < 500 m.
+    adresse: '3 Rue de la République',
     lieu_dit: '',
-    code_postal: '38200',
-    commune: 'Vienne',
-    coords: { lat: 45.52595, lon: 4.87822 },
+    code_postal: '24200',
+    commune: 'Sarlat-la-Canéda',
+    coords: { lat: 44.89084, lon: 1.21553 },
     prefixe_cadastral: '000',
-    section_cadastrale: 'BC',
-    numero_parcelle: '0179',
-    surface_terrain: '235',
+    section_cadastrale: 'BH',
+    numero_parcelle: '0172',
+    surface_terrain: '199',
     surface_plancher: '95',
-    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en PVC blanc (RAL 9016). Immeuble situé dans le secteur sauvegardé du centre ancien de Vienne.',
+    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en PVC blanc (RAL 9016). Immeuble situé dans le secteur sauvegardé (PSMV) du centre ancien de Sarlat-la-Canéda.',
     meme_adresse: true,
-    // Pre-baked PLU result so TEST MODE is 100% consistent and never depends on live IGN/LLM.
-    // The values are REAL for this parcel: zone Ua (centre ancien), Site Patrimonial Remarquable,
-    // 22 Monuments Historiques < 500 m, sismicité 3 — so it correctly triggers an ABF review.
+    // Pre-baked PLU result so TEST MODE stays consistent offline. REAL for this parcel: secteur
+    // sauvegardé (PSMV), 37 Monuments Historiques < 500 m — maximum ABF constraints. The declared
+    // works (PVC menuiseries) are deliberately NON-CONFORMING so the app flags a violation.
     plu: {
-        zone: { libelle: 'Ua', typezone: 'U', nomzone: 'Zone urbaine centrale', libelong: 'Zone urbaine centrale — centre ancien de Vienne.', url_doc: 'https://data.geopf.fr/annexes/gpu/documents/DU_38544/5157663c8c93f203cf389aeaa135cea0/38544_reglement_20250610.pdf' },
+        zone: { libelle: 'PSMV', typezone: 'U', nomzone: 'Secteur sauvegardé — centre ancien', libelong: 'Plan de Sauvegarde et de Mise en Valeur (PSMV) du centre ancien de Sarlat-la-Canéda.', url_doc: '' },
         prescriptions: [],
         fetchedAt: '2026-06-29T00:00:00.000Z',
         isRnu: false,
@@ -411,48 +412,52 @@ export const defaultTerrain: Terrain = {
         source: 'reglement',
         pdfType: 'text',
         textLength: 24650,
-        extractedText: "ZONE Ua — CENTRE ANCIEN — DISPOSITIONS APPLICABLES\n\nArticle Ua 11 — Aspect extérieur\nLa commune étant couverte par un Site Patrimonial Remarquable (SPR), tous les travaux modifiant l'aspect extérieur sont soumis à l'avis de l'Architecte des Bâtiments de France (ABF). Les menuiseries seront de préférence en bois peint ; l'aluminium thermolaqué de teinte sobre peut être admis sous réserve de l'accord de l'ABF. Les teintes vives sont proscrites ; les tons doivent s'inscrire dans la palette du centre ancien. Les toitures seront en tuiles canal de terre cuite.\n\nArticle Ua 9 — Emprise au sol\nNon réglementée en centre ancien (continuité du bâti existant).\n\nArticle Ua 10 — Hauteur\nLa hauteur doit respecter celle des constructions voisines.\n[EXTRAIT — DONNÉES DE DÉMONSTRATION]",
+        extractedText: "PSMV — SECTEUR SAUVEGARDÉ — DISPOSITIONS APPLICABLES\n\nAspect extérieur\nLe centre ancien de Sarlat est couvert par un Plan de Sauvegarde et de Mise en Valeur (PSMV) : tous les travaux modifiant l'aspect extérieur sont soumis à l'avis conforme de l'Architecte des Bâtiments de France (ABF). Les menuiseries seront en bois peint ; le PVC est proscrit. Les teintes vives sont interdites ; les tons doivent s'inscrire dans la palette du centre ancien. Les toitures seront en lauze ou en tuile plate de terre cuite ; les couvertures métalliques (bac acier, zinc) sont proscrites. Les clôtures sur rue reprendront les murs de pierre traditionnels. Les panneaux solaires visibles depuis l'espace public sont interdits.\n\nHauteur\nLa hauteur doit respecter celle des constructions voisines.\n[EXTRAIT — DONNÉES DE DÉMONSTRATION]",
         overlays: {
-            seismicZone: '3', seismicClass: '3 - MODEREE',
+            seismicZone: '1', seismicClass: '1 - TRES FAIBLE',
             hasFloodRisk: false, floodRisks: [],
             hasPPRN: false, pprnList: [],
             hasPPRT: false, pprtList: [],
-            hasSPR: true, sprName: 'Site Patrimonial Remarquable de Vienne',
+            hasSPR: true, sprName: 'Secteur sauvegardé de Sarlat-la-Canéda (PSMV)',
             monumentsWithin500m: [
-                { reference: 'PA00117287', title: 'Temple d\'Auguste et de Livie', distance: 180, protection: 'Classé MH' },
-                { reference: 'PA00117277', title: 'Cathédrale Saint-Maurice', distance: 290, protection: 'Classé MH' },
-                { reference: 'PA00117286', title: 'Porte de la Cour de l\'Ambulance', distance: 120, protection: 'Inscrit MH' },
+                { reference: 'PA00082904', title: 'Maison de La Boétie', distance: 60, protection: 'Classé MH' },
+                { reference: 'PA00082900', title: 'Cathédrale Saint-Sacerdos', distance: 110, protection: 'Classé MH' },
+                { reference: 'PA00082906', title: 'Hôtel de Maleville', distance: 90, protection: 'Classé MH' },
             ],
         },
         extractedRules: {
-            zone_code: 'Ua',
-            facade: { allowed: true, allowed_materials: ['bois', 'aluminium thermolaqué', 'pierre'], forbidden_materials: ['pvc', 'tôle'], allowed_colors: [], forbidden_colors: ['couleurs vives'], color_restrictions: 'Teintes de la palette du centre ancien, validées par l\'ABF ; tons sobres.', excerpts: ['Article Ua 11 — Avis de l\'ABF obligatoire (Site Patrimonial Remarquable).'] },
-            extension: { max_area_m2: 20, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: ['Article Ua 10 — Hauteur en cohérence avec le bâti voisin.'] },
-            roof: { max_height_m: 9, allowed_materials: ['tuile canal'], forbidden_materials: [], allowed_slopes: 'Pentes traditionnelles locales', excerpts: ['Article Ua 11 — Toitures en tuiles canal de terre cuite.'] },
-            window_openings: { allowed: true, conditions: 'Proportions et partitions conformes au bâti ancien.', excerpts: [] },
-            heritage_override: { ABF_review: true, excerpts: ['SPR — avis conforme de l\'ABF requis.'] },
+            zone_code: 'PSMV',
+            facade: { allowed: true, allowed_materials: ['bois', 'pierre', 'enduit à la chaux'], forbidden_materials: ['pvc', 'tôle', 'bac acier'], allowed_colors: [], forbidden_colors: ['couleurs vives'], color_restrictions: 'Teintes de la palette du centre ancien, validées par l\'ABF ; tons sobres.', excerpts: ['PSMV — avis conforme de l\'ABF obligatoire (secteur sauvegardé).'] },
+            extension: { max_area_m2: 20, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: ['Hauteur en cohérence avec le bâti voisin.'] },
+            roof: { max_height_m: 9, allowed_materials: ['lauze', 'tuile plate terre cuite'], forbidden_materials: ['bac acier', 'zinc'], allowed_slopes: 'Fortes pentes traditionnelles (lauze)', excerpts: ['Toitures en lauze ou tuile plate ; couvertures métalliques proscrites.'] },
+            window_openings: { allowed: true, conditions: 'Proportions et partitions conformes au bâti ancien ; percements limités sur les versants visibles.', excerpts: [] },
+            heritage_override: { ABF_review: true, excerpts: ['PSMV — avis conforme de l\'ABF requis.'] },
         },
         evaluationResult: {
             status: 'NON CONFORME',
             decision: 'REFUS_PROBABLE_ABF',
             violations: [
-                'Menuiseries PVC interdites en zone Ua (Site Patrimonial Remarquable de Vienne) : l\'article Ua 11 impose le bois peint ou l\'aluminium thermolaqué d\'une teinte validée par l\'ABF. Des fenêtres PVC blanc seront très probablement refusées par l\'Architecte des Bâtiments de France.',
+                'Menuiseries PVC interdites dans le secteur sauvegardé (PSMV) de Sarlat-la-Canéda : le règlement impose le bois peint. Des fenêtres PVC blanc seront très probablement refusées par l\'Architecte des Bâtiments de France.',
             ],
             warnings: [
-                'Projet en Site Patrimonial Remarquable et à proximité de plusieurs Monuments Historiques : avis conforme de l\'Architecte des Bâtiments de France (ABF) obligatoire, ce qui porte le délai d\'instruction à 2 mois.',
-                'Remplacer le PVC par du bois peint (ou, à défaut, un aluminium thermolaqué de teinte sobre validée par l\'ABF) avant tout dépôt pour éviter un refus.',
+                'Projet en secteur sauvegardé (PSMV) et à proximité de plusieurs Monuments Historiques : avis conforme de l\'Architecte des Bâtiments de France (ABF) obligatoire, ce qui porte le délai d\'instruction à 2 mois.',
+                'Remplacer le PVC par du bois peint d\'une teinte validée par l\'ABF avant tout dépôt pour éviter un refus.',
             ],
         },
-        analysisReport: "### STATUT DE CONFORMITÉ\nNON CONFORME. Le projet prévoit des menuiseries en PVC blanc, or le PVC est interdit en zone Ua (centre ancien de Vienne) couverte par un Site Patrimonial Remarquable. En l'état, la déclaration s'expose à un avis défavorable de l'Architecte des Bâtiments de France (ABF).\n\n### DÉCRYPTAGE DE LA ZONE D'URBANISME\nLa zone Ua correspond au centre ancien de Vienne, à forte valeur patrimoniale. Toute modification de l'aspect extérieur y est encadrée par le règlement du SPR et soumise à l'avis conforme de l'ABF.\n\n### RÈGLES PLU CLÉS À CONSEILLER\n- Menuiseries : PVC PROSCRIT ; bois peint préconisé, aluminium thermolaqué de teinte sobre admis sous réserve de l'ABF.\n- Avis de l'ABF obligatoire (Site Patrimonial Remarquable) — délai 2 mois.\n- Teintes : palette du centre ancien, tons sobres ; teintes vives proscrites.\n- Toitures : tuiles canal de terre cuite.\n\n### RISQUES ET ALERTES PATRIMONIALES\nSite Patrimonial Remarquable de Vienne et 22 Monuments Historiques recensés dans un rayon de 500 m (Temple d'Auguste et de Livie, Cathédrale Saint-Maurice…). Avis conforme de l'ABF requis. Commune en zone de sismicité modérée (3).\n\n### RECOMMANDATIONS CONSTRUCTIVES\n- Abandonner le PVC : opter pour du bois peint ou un aluminium thermolaqué d'une teinte validée par l'ABF.\n- Joindre un nuancier et un détail des profils de menuiseries.\n- Conserver les proportions et partitions des baies existantes.\n- Anticiper le délai d'instruction de 2 mois lié à l'avis de l'ABF.",
+        analysisReport: "### STATUT DE CONFORMITÉ\nNON CONFORME. Le projet prévoit des menuiseries en PVC blanc, or le PVC est interdit dans le secteur sauvegardé (PSMV) du centre ancien de Sarlat-la-Canéda. En l'état, la déclaration s'expose à un avis défavorable de l'Architecte des Bâtiments de France (ABF).\n\n### DÉCRYPTAGE DE LA ZONE D'URBANISME\nLe PSMV couvre le centre médiéval de Sarlat, à très forte valeur patrimoniale. Toute modification de l'aspect extérieur y est encadrée par le règlement du secteur sauvegardé et soumise à l'avis conforme de l'ABF.\n\n### RÈGLES PLU CLÉS À CONSEILLER\n- Menuiseries : PVC PROSCRIT ; bois peint imposé.\n- Avis de l'ABF obligatoire (secteur sauvegardé PSMV) — délai 2 mois.\n- Teintes : palette du centre ancien, tons sobres ; teintes vives interdites.\n- Toitures : lauze ou tuile plate de terre cuite ; bac acier / zinc proscrits.\n- Panneaux solaires visibles depuis la rue : interdits.\n\n### RISQUES ET ALERTES PATRIMONIALES\nSecteur sauvegardé (PSMV) de Sarlat-la-Canéda et 37 Monuments Historiques recensés dans un rayon de 500 m (Maison de La Boétie, Cathédrale Saint-Sacerdos, Hôtel de Maleville…). Avis conforme de l'ABF requis. Commune en zone de sismicité très faible (1).\n\n### RECOMMANDATIONS CONSTRUCTIVES\n- Abandonner le PVC : opter pour du bois peint d'une teinte validée par l'ABF.\n- Joindre un nuancier et un détail des profils de menuiseries.\n- Conserver les proportions et partitions des baies existantes.\n- Anticiper le délai d'instruction de 2 mois lié à l'avis de l'ABF.",
     },
 }
 
+// TEST FIXTURE — every work type carries DELIBERATELY NON-CONFORMING details for the Sarlat PSMV
+// (secteur sauvegardé), so selecting any type shows an "illegal" project the app can flag:
+//   menuiseries  PVC (bois peint imposé)           · isolation    bardage métal + teinte vive
+//   photovoltaïque  panneaux visibles depuis la rue · clôture      PVC 2,20 m sur rue (mur pierre imposé)
+//   ravalement   peinture bleu vif hors nuancier    · toiture      bac acier (lauze/tuile imposée)
+//   ouverture    velux sur le versant visible de la rue
 export const defaultTravaux: Travaux = {
     type: 'menuiseries',
     menuiseries: {
         type: 'fenetre',
-        // TEST FIXTURE: deliberately non-conforming — PVC is forbidden for joinery in Vienne's
-        // Site Patrimonial Remarquable (zone Ua). Lets you see the app flag a PLU/ABF violation.
         materiau: 'pvc',
         couleur: 'Blanc',
         couleur_ral: 'RAL 9016',
@@ -463,12 +468,12 @@ export const defaultTravaux: Travaux = {
         description: 'Remplacement des fenêtres existantes par des fenêtres PVC blanc (RAL 9016), double vitrage 4/16/4 argon.',
     },
     isolation: {
-        type_finition: 'enduit',
-        couleur: 'Beige sablé',
-        epaisseur_isolant: '14',
-        materiau_isolant: 'Laine de roche',
-        facades_concernees: ['Façade avant', 'Façade arrière'],
-        description: '',
+        type_finition: 'bardage_metal',
+        couleur: 'Rouge vif',
+        epaisseur_isolant: '16',
+        materiau_isolant: 'Polystyrène expansé (PSE)',
+        facades_concernees: ['Toutes les façades'],
+        description: 'ITE avec bardage métallique rouge vif sur la façade en pierre donnant sur rue.',
     },
     photovoltaique: {
         nombre_panneaux: '12',
@@ -478,13 +483,40 @@ export const defaultTravaux: Travaux = {
         orientation: 'Sud',
         inclinaison: '30',
         integration: 'surimposition',
-        description: '',
+        description: 'Pose de 12 panneaux en surimposition sur le versant de toiture visible depuis la rue.',
     },
-    cloture: { type_cloture: '', materiau: '', couleur: '', hauteur: '', longueur: '', sur_voie: true, description: '' },
-    ravalement: { finition: 'enduit', couleur: '', materiau: '', facades_concernees: [], description: '' },
-    toiture: { operation: 'refection_identique', materiau_couverture: '', couleur: '', description: '' },
-    ouverture: { type_ouverture: 'fenetre', operation: 'creation', nombre: '', largeur: '', hauteur: '', facade: '', description: '' },
-    // Kept coherent with the declared works (menuiseries only) and with terrain.surface_plancher (95).
+    cloture: {
+        type_cloture: 'panneaux',
+        materiau: 'PVC',
+        couleur: 'Blanc',
+        hauteur: '2.20',
+        longueur: '15',
+        sur_voie: true,
+        description: 'Clôture en panneaux PVC blancs de 2,20 m de haut en limite sur rue.',
+    },
+    ravalement: {
+        finition: 'peinture',
+        couleur: 'Bleu vif',
+        materiau: 'Peinture acrylique',
+        facades_concernees: ['Façade avant'],
+        description: 'Ravalement de la façade sur rue avec une peinture acrylique bleu vif.',
+    },
+    toiture: {
+        operation: 'changement_materiau',
+        materiau_couverture: 'Bac acier gris',
+        couleur: 'Gris anthracite',
+        description: 'Remplacement de la couverture existante par du bac acier gris anthracite.',
+    },
+    ouverture: {
+        type_ouverture: 'fenetre_toit',
+        operation: 'creation',
+        nombre: '2',
+        largeur: '114',
+        hauteur: '140',
+        facade: 'Versant de toiture donnant sur la rue',
+        description: 'Création de 2 fenêtres de toit (velux) sur le versant visible depuis la rue.',
+    },
+    // Description shown in "Description & Surfaces" (default type = menuiseries).
     description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en PVC blanc (RAL 9016), sans modification des dimensions ni des proportions des baies existantes.',
     surfaces: {
         existante: '95',
@@ -571,10 +603,10 @@ export const defaultFormData: DPFormData = {
     surface_creee: '0',
     surface_supprimee: '0',
     date_signature: new Date().toISOString().split('T')[0],
-    lieu_signature: 'Vienne',
+    lieu_signature: 'Sarlat-la-Canéda',
 
     engagement: {
-        lieu: 'Vienne',
+        lieu: 'Sarlat-la-Canéda',
         date: new Date().toISOString().split('T')[0],
         signature: false
     },
