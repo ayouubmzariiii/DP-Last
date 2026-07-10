@@ -661,8 +661,12 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 target(page, M + cW / 2, (y + newY) / 2)
                 north(page, bold, M + cW - 26, y - 20)
             }
-            // Graphic scale bar + computed ratio (the IGN/captured map spans dp1Span metres across its width).
-            const pxPerMeter = dims.width / dp1Span
+            // Graphic scale bar + computed ratio. dp1Span is the map's horizontal extent expressed
+            // in Web-Mercator units; convert to TRUE ground metres with cos(lat) before deriving the
+            // scale. Web Mercator over-states ground distance by 1/cos(lat) (~45% at 46°N), so a plan
+            // built on the raw projected units would be filed at the wrong scale.
+            const groundFactor = coords ? Math.cos(coords.lat * Math.PI / 180) : 1
+            const pxPerMeter = dims.width / (dp1Span * groundFactor)
             const imgLeft = M + (cW - dims.width) / 2
             scaleBar(page, font, imgLeft + 10, newY + 12, pxPerMeter)
             dp1ScaleLabel = scaleRatioLabel(pxPerMeter)
@@ -696,13 +700,21 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         // flat screenshot. Fall back to the captured image, then to an IGN ortho image.
         let vectorData = null
         if (coords) {
-            vectorData = await getVectorMapData(coords, 120) // 120m wide bbox: enough context
+            // ~200 mercator-unit box (~140 m ground at 46°N): wide enough to keep neighbouring
+            // parcels/buildings in frame for setback context without starving the auto-fit view.
+            vectorData = await getVectorMapData(coords, 200)
         }
 
         if (vectorData && vectorData.cadastre && vectorData.cadastre.features && maxMapH > 80) {
             // ── Professional architectural plan rendering (Refined) ──────────
             const featuresC = vectorData.cadastre.features || []
             const featuresB = vectorData.bati?.features || []
+
+            // Web-Mercator → ground-metre correction factor. All cadastre/BD-TOPO geometry is in
+            // EPSG:3857, whose units over-state true ground distance by 1/cos(lat). Every printed
+            // cote (building dims, setbacks) and the scale bar/ratio must be corrected by cos(lat),
+            // otherwise the plan de masse is filed ~45% out of scale.
+            const gf = coords ? Math.cos(coords.lat * Math.PI / 180) : Math.cos(46 * Math.PI / 180)
 
             const getCoordArrays = (feat: any) => {
                 const t = feat.geometry?.type
@@ -853,18 +865,18 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 const bl = mc(bMinX, bMinY), br = mc(bMaxX, bMinY)
                 const tr = mc(bMaxX, bMaxY)
 
-                dimLabel(page, font, bl.x, bl.y - 12, br.x, br.y - 12, `${wM.toFixed(1)} m`)
-                dimLabel(page, font, br.x + 12, br.y, tr.x + 12, tr.y, `${hM.toFixed(1)} m`)
+                dimLabel(page, font, bl.x, bl.y - 12, br.x, br.y - 12, `${(wM * gf).toFixed(1)} m`)
+                dimLabel(page, font, br.x + 12, br.y, tr.x + 12, tr.y, `${(hM * gf).toFixed(1)} m`)
 
                 // Setback cotes: distance from the building to each parcel boundary (a core
                 // plan-de-masse requirement). Drawn only where the gap is meaningful (>1 m).
                 if (targetParcel) {
                     const gapL = bMinX - tpMinX, gapR = tpMaxX - bMaxX
                     const gapB = bMinY - tpMinY, gapT = tpMaxY - bMaxY
-                    if (gapL > 1) { const a = mc(tpMinX, bCy), b = mc(bMinX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapL.toFixed(1)} m`) }
-                    if (gapR > 1) { const a = mc(bMaxX, bCy), b = mc(tpMaxX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapR.toFixed(1)} m`) }
-                    if (gapB > 1) { const a = mc(bCx, tpMinY), b = mc(bCx, bMinY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapB.toFixed(1)} m`) }
-                    if (gapT > 1) { const a = mc(bCx, bMaxY), b = mc(bCx, tpMaxY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${gapT.toFixed(1)} m`) }
+                    if (gapL > 1) { const a = mc(tpMinX, bCy), b = mc(bMinX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapL * gf).toFixed(1)} m`) }
+                    if (gapR > 1) { const a = mc(bMaxX, bCy), b = mc(tpMaxX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapR * gf).toFixed(1)} m`) }
+                    if (gapB > 1) { const a = mc(bCx, tpMinY), b = mc(bCx, bMinY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapB * gf).toFixed(1)} m`) }
+                    if (gapT > 1) { const a = mc(bCx, bMaxY), b = mc(bCx, tpMaxY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapT * gf).toFixed(1)} m`) }
                 }
             }
 
@@ -892,8 +904,9 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             }
 
             // Graphic scale bar + true scale ratio (échelle graphique — robust to print scaling).
-            scaleBar(page, font, startX + drawW - 150, startY + 14, scale)
-            dp2ScaleLabel = scaleRatioLabel(scale)
+            // `scale` is px per Web-Mercator unit; divide by cos(lat) to get px per true ground metre.
+            scaleBar(page, font, startX + drawW - 150, startY + 14, scale / gf)
+            dp2ScaleLabel = scaleRatioLabel(scale / gf)
 
             y = startY - 20
         } else {

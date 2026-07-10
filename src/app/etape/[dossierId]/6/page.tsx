@@ -247,6 +247,11 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
         const [cx, cy] = geoData.center
         const VW = 640, VH = 360
 
+        // EPSG:3857 → ground-metre correction. Mercator units over-state true distance by 1/cos(lat);
+        // derive lat from the box centre (inverse Mercator) so on-screen cotes match the filed PDF.
+        const R = 6378137
+        const gf = Math.cos(2 * Math.atan(Math.exp(cy / R)) - Math.PI / 2)
+
         const getCoords = (feat: any) => {
             const t = feat.geometry?.type
             if (t === 'Polygon') return feat.geometry.coordinates
@@ -346,7 +351,7 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
                 const svgH = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2)
                 if (svgW < 12 && svgH < 12) return
 
-                const wlabel = `${wM.toFixed(1)} m`
+                const wlabel = `${(wM * gf).toFixed(1)} m`
                 const wmx = (bl.x + br.x) / 2, wmy = (bl.y + br.y) / 2 + 10
                 bldDimLines.push(
                     <g key={`w${bi}`}>
@@ -357,7 +362,7 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
                         <text x={wmx} y={wmy + 2.5} textAnchor="middle" fontSize={8} fontWeight="700" fill="#000">{wlabel}</text>
                     </g>
                 )
-                const hlabel = `${hM.toFixed(1)} m`
+                const hlabel = `${(hM * gf).toFixed(1)} m`
                 const hmx = (tr.x + br.x) / 2 + 10, hmy = (tr.y + br.y) / 2
                 bldDimLines.push(
                     <g key={`h${bi}`}>
@@ -396,7 +401,7 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
                         <line x1={p2.x} y1={p2.y} x2={ox2} y2={oy2} stroke="#2D5A4C" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
                         <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#2D5A4C" strokeWidth={1} />
                         <rect x={mx - 14} y={my - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
-                        <text x={mx} y={my + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#2D5A4C">{distM.toFixed(1)} m</text>
+                        <text x={mx} y={my + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#2D5A4C">{(distM * gf).toFixed(1)} m</text>
                     </g>
                 )
             }
