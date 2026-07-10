@@ -397,7 +397,7 @@ export const defaultTerrain: Terrain = {
     numero_parcelle: '0179',
     surface_terrain: '235',
     surface_plancher: '95',
-    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en aluminium gris anthracite (RAL 7016). Immeuble situé dans le secteur sauvegardé du centre ancien de Vienne.',
+    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en PVC blanc (RAL 9016). Immeuble situé dans le secteur sauvegardé du centre ancien de Vienne.',
     meme_adresse: true,
     // Pre-baked PLU result so TEST MODE is 100% consistent and never depends on live IGN/LLM.
     // The values are REAL for this parcel: zone Ua (centre ancien), Site Patrimonial Remarquable,
@@ -433,15 +433,17 @@ export const defaultTerrain: Terrain = {
             heritage_override: { ABF_review: true, excerpts: ['SPR — avis conforme de l\'ABF requis.'] },
         },
         evaluationResult: {
-            status: 'CONFORMITÉ INCERTAINE',
-            decision: 'DECLARATION_PREALABLE_ABF',
-            violations: [],
+            status: 'NON CONFORME',
+            decision: 'REFUS_PROBABLE_ABF',
+            violations: [
+                'Menuiseries PVC interdites en zone Ua (Site Patrimonial Remarquable de Vienne) : l\'article Ua 11 impose le bois peint ou l\'aluminium thermolaqué d\'une teinte validée par l\'ABF. Des fenêtres PVC blanc seront très probablement refusées par l\'Architecte des Bâtiments de France.',
+            ],
             warnings: [
-                'Le projet se situe en Site Patrimonial Remarquable (SPR) et à proximité de plusieurs Monuments Historiques : l\'avis conforme de l\'Architecte des Bâtiments de France (ABF) est obligatoire, ce qui porte le délai d\'instruction à 2 mois.',
-                'En secteur sauvegardé, le bois peint est préconisé ; l\'aluminium gris anthracite (RAL 7016) peut être accepté s\'il est thermolaqué et d\'une teinte validée par l\'ABF — à confirmer avant dépôt.',
+                'Projet en Site Patrimonial Remarquable et à proximité de plusieurs Monuments Historiques : avis conforme de l\'Architecte des Bâtiments de France (ABF) obligatoire, ce qui porte le délai d\'instruction à 2 mois.',
+                'Remplacer le PVC par du bois peint (ou, à défaut, un aluminium thermolaqué de teinte sobre validée par l\'ABF) avant tout dépôt pour éviter un refus.',
             ],
         },
-        analysisReport: "### STATUT DE CONFORMITÉ\nLe remplacement de menuiseries en aluminium gris anthracite (RAL 7016) se situe en zone Ua (centre ancien) couverte par un Site Patrimonial Remarquable. Le projet relève d'une déclaration préalable avec avis conforme de l'ABF — conformité à confirmer avec l'Architecte des Bâtiments de France.\n\n### DÉCRYPTAGE DE LA ZONE D'URBANISME\nLa zone Ua correspond au centre ancien de Vienne, à forte valeur patrimoniale. Toute modification de l'aspect extérieur y est encadrée par le règlement du SPR et soumise à l'ABF.\n\n### RÈGLES PLU CLÉS À CONSEILLER\n- Avis de l'ABF obligatoire (Site Patrimonial Remarquable) — délai 2 mois.\n- Menuiseries : bois peint préconisé ; aluminium thermolaqué de teinte sobre admis sous réserve.\n- Teintes : palette du centre ancien, tons sobres ; teintes vives proscrites.\n- Toitures : tuiles canal de terre cuite.\n\n### RISQUES ET ALERTES PATRIMONIALES\nSite Patrimonial Remarquable de Vienne et 22 Monuments Historiques recensés dans un rayon de 500 m (Temple d'Auguste et de Livie, Cathédrale Saint-Maurice…). Avis conforme de l'ABF requis. Commune en zone de sismicité modérée (3).\n\n### RECOMMANDATIONS CONSTRUCTIVES\n- Privilégier le bois peint ou, à défaut, un aluminium thermolaqué d'une teinte validée par l'ABF.\n- Joindre un nuancier et un détail des profils de menuiseries.\n- Conserver les proportions et partitions des baies existantes.\n- Anticiper le délai d'instruction de 2 mois lié à l'avis de l'ABF.",
+        analysisReport: "### STATUT DE CONFORMITÉ\nNON CONFORME. Le projet prévoit des menuiseries en PVC blanc, or le PVC est interdit en zone Ua (centre ancien de Vienne) couverte par un Site Patrimonial Remarquable. En l'état, la déclaration s'expose à un avis défavorable de l'Architecte des Bâtiments de France (ABF).\n\n### DÉCRYPTAGE DE LA ZONE D'URBANISME\nLa zone Ua correspond au centre ancien de Vienne, à forte valeur patrimoniale. Toute modification de l'aspect extérieur y est encadrée par le règlement du SPR et soumise à l'avis conforme de l'ABF.\n\n### RÈGLES PLU CLÉS À CONSEILLER\n- Menuiseries : PVC PROSCRIT ; bois peint préconisé, aluminium thermolaqué de teinte sobre admis sous réserve de l'ABF.\n- Avis de l'ABF obligatoire (Site Patrimonial Remarquable) — délai 2 mois.\n- Teintes : palette du centre ancien, tons sobres ; teintes vives proscrites.\n- Toitures : tuiles canal de terre cuite.\n\n### RISQUES ET ALERTES PATRIMONIALES\nSite Patrimonial Remarquable de Vienne et 22 Monuments Historiques recensés dans un rayon de 500 m (Temple d'Auguste et de Livie, Cathédrale Saint-Maurice…). Avis conforme de l'ABF requis. Commune en zone de sismicité modérée (3).\n\n### RECOMMANDATIONS CONSTRUCTIVES\n- Abandonner le PVC : opter pour du bois peint ou un aluminium thermolaqué d'une teinte validée par l'ABF.\n- Joindre un nuancier et un détail des profils de menuiseries.\n- Conserver les proportions et partitions des baies existantes.\n- Anticiper le délai d'instruction de 2 mois lié à l'avis de l'ABF.",
     },
 }
 
@@ -449,14 +451,16 @@ export const defaultTravaux: Travaux = {
     type: 'menuiseries',
     menuiseries: {
         type: 'fenetre',
-        materiau: 'aluminium',
-        couleur: 'Gris anthracite',
-        couleur_ral: 'RAL 7016',
+        // TEST FIXTURE: deliberately non-conforming — PVC is forbidden for joinery in Vienne's
+        // Site Patrimonial Remarquable (zone Ua). Lets you see the app flag a PLU/ABF violation.
+        materiau: 'pvc',
+        couleur: 'Blanc',
+        couleur_ral: 'RAL 9016',
         nombre: '4',
         largeur: '120',
         hauteur: '115',
         remplacement: true,
-        description: 'Remplacement des fenêtres existantes par des fenêtres aluminium bicolore (blanc intérieur / anthracite extérieur) avec double vitrage 4/16/4 argon.',
+        description: 'Remplacement des fenêtres existantes par des fenêtres PVC blanc (RAL 9016), double vitrage 4/16/4 argon.',
     },
     isolation: {
         type_finition: 'enduit',
@@ -481,7 +485,7 @@ export const defaultTravaux: Travaux = {
     toiture: { operation: 'refection_identique', materiau_couverture: '', couleur: '', description: '' },
     ouverture: { type_ouverture: 'fenetre', operation: 'creation', nombre: '', largeur: '', hauteur: '', facade: '', description: '' },
     // Kept coherent with the declared works (menuiseries only) and with terrain.surface_plancher (95).
-    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) en aluminium gris anthracite (RAL 7016), sans modification des dimensions ni des proportions des baies existantes.',
+    description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en PVC blanc (RAL 9016), sans modification des dimensions ni des proportions des baies existantes.',
     surfaces: {
         existante: '95',
         creee: '0',

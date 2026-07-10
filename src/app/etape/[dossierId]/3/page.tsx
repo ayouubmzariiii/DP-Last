@@ -58,27 +58,32 @@ export default function Etape3() {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Selection des travaux */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Selection des travaux — compact cards, wrapped and centred so the row of 7
+                        packs tightly and the trailing card is centred rather than left dangling. */}
+                    <div className="flex flex-wrap gap-3 justify-center">
                         {TRAVAUX_TYPES.map((item) => (
                             <button
                                 key={item.id}
                                 type="button"
                                 onClick={() => selectType(item.id)}
                                 className="travaux-card text-left"
-                                style={t.type === item.id ? (COLOR_MAP_ACTIVE[item.color] || COLOR_MAP_ACTIVE.emerald) : {}}
+                                style={{ flex: '1 1 230px', maxWidth: 300, padding: 16, ...(t.type === item.id ? (COLOR_MAP_ACTIVE[item.color] || COLOR_MAP_ACTIVE.emerald) : {}) }}
                             >
                                 {t.type === item.id && (
-                                    <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'var(--ac)' }}>
-                                        <svg className="w-3.5 h-3.5" style={{ color: 'var(--surface)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'var(--ac)' }}>
+                                        <svg className="w-3 h-3" style={{ color: 'var(--surface)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                         </svg>
                                     </div>
                                 )}
-                                <div className="text-3xl mb-3">{item.icon}</div>
-                                <div className="font-bold t-ink mb-1">{item.title}</div>
-                                <div className="text-xs font-semibold t-ink2 mb-2">{item.subtitle}</div>
-                                <p className="text-xs t-ink2 leading-relaxed">{item.desc}</p>
+                                <div className="flex items-center gap-2.5 mb-1.5" style={{ paddingRight: 18 }}>
+                                    <span className="shrink-0" style={{ fontSize: 22, lineHeight: 1 }}>{item.icon}</span>
+                                    <div className="min-w-0">
+                                        <div className="font-bold t-ink text-sm leading-tight">{item.title}</div>
+                                        <div className="text-[11px] font-semibold t-ink2 mt-0.5">{item.subtitle}</div>
+                                    </div>
+                                </div>
+                                <p className="text-[11.5px] t-ink2 leading-snug clamp-2">{item.desc}</p>
                             </button>
                         ))}
                     </div>
