@@ -42,6 +42,10 @@ export default function Etape3() {
     const updatePV = (data: Partial<typeof t.photovoltaique>) => {
         updateTravaux({ photovoltaique: { ...t.photovoltaique!, ...data } })
     }
+    const updateClo = (data: Partial<typeof t.cloture>) => updateTravaux({ cloture: { ...t.cloture!, ...data } })
+    const updateRav = (data: Partial<typeof t.ravalement>) => updateTravaux({ ravalement: { ...t.ravalement!, ...data } })
+    const updateToit = (data: Partial<typeof t.toiture>) => updateTravaux({ toiture: { ...t.toiture!, ...data } })
+    const updateOuv = (data: Partial<typeof t.ouverture>) => updateTravaux({ ouverture: { ...t.ouverture!, ...data } })
 
     return (
         <>
@@ -62,7 +66,7 @@ export default function Etape3() {
                                 type="button"
                                 onClick={() => selectType(item.id)}
                                 className="travaux-card text-left"
-                                style={t.type === item.id ? COLOR_MAP_ACTIVE[item.color] : {}}
+                                style={t.type === item.id ? (COLOR_MAP_ACTIVE[item.color] || COLOR_MAP_ACTIVE.emerald) : {}}
                             >
                                 {t.type === item.id && (
                                     <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'var(--ac)' }}>
@@ -239,6 +243,151 @@ export default function Etape3() {
                                                 <div className="text-xs t-ink2 mt-0.5">{opt.desc}</div>
                                             </button>
                                         ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sous-formulaire Clôture */}
+                    {t.type === 'cloture' && (
+                        <div className="dp-card animate-fadeIn">
+                            <h3 className="dp-section-title">🧱 Détails de la clôture</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Type de clôture *</label>
+                                    <select className="dp-select" value={t.cloture?.type_cloture || ''} onChange={e => updateClo({ type_cloture: e.target.value as never })}>
+                                        <option value="">-- Sélectionner --</option>
+                                        <option value="mur">Mur plein</option>
+                                        <option value="mur_bahut">Mur-bahut + grille / grillage</option>
+                                        <option value="grillage">Grillage</option>
+                                        <option value="panneaux">Panneaux rigides</option>
+                                        <option value="claire_voie">Clôture à claire-voie</option>
+                                    </select>
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Matériau</label>
+                                    <input className="dp-input" placeholder="ex: Aluminium, PVC, bois, maçonnerie" value={t.cloture?.materiau || ''} onChange={e => updateClo({ materiau: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Couleur</label>
+                                    <input className="dp-input" placeholder="ex: Gris anthracite RAL 7016" value={t.cloture?.couleur || ''} onChange={e => updateClo({ couleur: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Hauteur (m) *</label>
+                                    <input className="dp-input" type="number" step="0.01" placeholder="ex: 1.80" value={t.cloture?.hauteur || ''} onChange={e => updateClo({ hauteur: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Longueur (m)</label>
+                                    <input className="dp-input" type="number" placeholder="ex: 15" value={t.cloture?.longueur || ''} onChange={e => updateClo({ longueur: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Implantation</label>
+                                    <div className="flex gap-3 mt-1">
+                                        {[{ v: true, l: 'Sur rue / voie publique' }, { v: false, l: 'Limite séparative' }].map(o => (
+                                            <button key={String(o.v)} type="button" onClick={() => updateClo({ sur_voie: o.v })} className={`toggle-btn ${t.cloture?.sur_voie === o.v ? 'active' : ''}`}>{o.l}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sous-formulaire Ravalement */}
+                    {t.type === 'ravalement' && (
+                        <div className="dp-card animate-fadeIn">
+                            <h3 className="dp-section-title">🎨 Détails du ravalement</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Finition *</label>
+                                    <select className="dp-select" value={t.ravalement?.finition || ''} onChange={e => updateRav({ finition: e.target.value as never })}>
+                                        <option value="">-- Sélectionner --</option>
+                                        <option value="enduit">Enduit</option>
+                                        <option value="peinture">Peinture / ravalement peint</option>
+                                        <option value="pierre_apparente">Pierre apparente (rejointoiement)</option>
+                                        <option value="bardage">Bardage</option>
+                                    </select>
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Teinte / couleur *</label>
+                                    <input className="dp-input" placeholder="ex: Ton pierre, RAL 1015" value={t.ravalement?.couleur || ''} onChange={e => updateRav({ couleur: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group md:col-span-2">
+                                    <label className="dp-label">Façades concernées</label>
+                                    <div className="flex gap-2 flex-wrap mt-1">
+                                        {['Façade avant', 'Façade arrière', 'Pignon droit', 'Pignon gauche', 'Toutes les façades'].map(f => {
+                                            const selected = t.ravalement?.facades_concernees?.includes(f)
+                                            return (
+                                                <button key={f} type="button" onClick={() => { const ex = t.ravalement?.facades_concernees || []; updateRav({ facades_concernees: selected ? ex.filter(x => x !== f) : [...ex, f] }) }} className={`toggle-btn ${selected ? 'active' : ''}`}>{f}</button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sous-formulaire Toiture */}
+                    {t.type === 'toiture' && (
+                        <div className="dp-card animate-fadeIn">
+                            <h3 className="dp-section-title">🏘️ Détails de la toiture</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Opération *</label>
+                                    <select className="dp-select" value={t.toiture?.operation || ''} onChange={e => updateToit({ operation: e.target.value as never })}>
+                                        <option value="refection_identique">Réfection à l'identique</option>
+                                        <option value="changement_materiau">Changement de matériau de couverture</option>
+                                    </select>
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Matériau de couverture *</label>
+                                    <input className="dp-input" placeholder="ex: Tuile terre cuite, ardoise, zinc, bac acier" value={t.toiture?.materiau_couverture || ''} onChange={e => updateToit({ materiau_couverture: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Teinte / couleur</label>
+                                    <input className="dp-input" placeholder="ex: Rouge nuancé, ardoise" value={t.toiture?.couleur || ''} onChange={e => updateToit({ couleur: e.target.value })} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sous-formulaire Ouverture */}
+                    {t.type === 'ouverture' && (
+                        <div className="dp-card animate-fadeIn">
+                            <h3 className="dp-section-title">🚪 Détails de l'ouverture</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Type d'ouverture *</label>
+                                    <select className="dp-select" value={t.ouverture?.type_ouverture || ''} onChange={e => updateOuv({ type_ouverture: e.target.value as never })}>
+                                        <option value="">-- Sélectionner --</option>
+                                        <option value="fenetre">Fenêtre</option>
+                                        <option value="porte">Porte</option>
+                                        <option value="porte_fenetre">Porte-fenêtre</option>
+                                        <option value="fenetre_toit">Fenêtre de toit (velux)</option>
+                                    </select>
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Opération *</label>
+                                    <select className="dp-select" value={t.ouverture?.operation || ''} onChange={e => updateOuv({ operation: e.target.value as never })}>
+                                        <option value="creation">Création</option>
+                                        <option value="agrandissement">Agrandissement</option>
+                                        <option value="suppression">Suppression</option>
+                                    </select>
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Nombre</label>
+                                    <input className="dp-input" type="number" placeholder="ex: 1" value={t.ouverture?.nombre || ''} onChange={e => updateOuv({ nombre: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Façade concernée</label>
+                                    <input className="dp-input" placeholder="ex: Façade arrière, pan de toiture Sud" value={t.ouverture?.facade || ''} onChange={e => updateOuv({ facade: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group md:col-span-2">
+                                    <label className="dp-label">Dimensions (largeur × hauteur en cm)</label>
+                                    <div className="flex gap-3">
+                                        <input className="dp-input" type="number" placeholder="Largeur (cm)" value={t.ouverture?.largeur || ''} onChange={e => updateOuv({ largeur: e.target.value })} />
+                                        <span className="flex items-center t-ink2 font-semibold">×</span>
+                                        <input className="dp-input" type="number" placeholder="Hauteur (cm)" value={t.ouverture?.hauteur || ''} onChange={e => updateOuv({ hauteur: e.target.value })} />
                                     </div>
                                 </div>
                             </div>

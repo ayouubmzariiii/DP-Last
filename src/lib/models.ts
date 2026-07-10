@@ -3,7 +3,7 @@ import { TEST_DP4_NOTICE } from './testCache'
 
 export type Civilite = 'M' | 'Mme' | 'Société' | ''
 
-export type TypeTravaux = 'menuiseries' | 'isolation' | 'photovoltaique' | ''
+export type TypeTravaux = 'menuiseries' | 'isolation' | 'photovoltaique' | 'cloture' | 'ravalement' | 'toiture' | 'ouverture' | ''
 
 export type TypeMenuiserie = 'fenetre' | 'porte' | 'volet' | 'baie_vitree' | ''
 export type MateriauMenuiserie = 'pvc' | 'aluminium' | 'bois' | 'mixte' | ''
@@ -160,11 +160,48 @@ export interface TravauxPhotovoltaique {
     description: string
 }
 
+// ── Tier 1 work types (registry-driven; aspect-only, no new surface/volume) ──────────────────────
+export interface TravauxCloture {
+    type_cloture: 'mur' | 'mur_bahut' | 'grillage' | 'panneaux' | 'claire_voie' | ''
+    materiau: string
+    couleur: string
+    hauteur: string   // mètres
+    longueur: string  // mètres
+    sur_voie: boolean // clôture implantée sur voie / espace public
+    description: string
+}
+export interface TravauxRavalement {
+    finition: 'enduit' | 'peinture' | 'pierre_apparente' | 'bardage' | ''
+    couleur: string
+    materiau: string
+    facades_concernees: string[]
+    description: string
+}
+export interface TravauxToiture {
+    operation: 'refection_identique' | 'changement_materiau' | ''
+    materiau_couverture: string
+    couleur: string
+    description: string
+}
+export interface TravauxOuverture {
+    type_ouverture: 'fenetre' | 'porte' | 'porte_fenetre' | 'fenetre_toit' | ''
+    operation: 'creation' | 'agrandissement' | 'suppression' | ''
+    nombre: string
+    largeur: string  // cm
+    hauteur: string  // cm
+    facade: string
+    description: string
+}
+
 export interface Travaux {
     type: TypeTravaux
     menuiseries?: TravauxMenuiseries
     isolation?: TravauxIsolation
     photovoltaique?: TravauxPhotovoltaique
+    cloture?: TravauxCloture
+    ravalement?: TravauxRavalement
+    toiture?: TravauxToiture
+    ouverture?: TravauxOuverture
     description_projet?: string
     surfaces?: {
         existante: string
@@ -439,6 +476,10 @@ export const defaultTravaux: Travaux = {
         integration: 'surimposition',
         description: '',
     },
+    cloture: { type_cloture: '', materiau: '', couleur: '', hauteur: '', longueur: '', sur_voie: true, description: '' },
+    ravalement: { finition: 'enduit', couleur: '', materiau: '', facades_concernees: [], description: '' },
+    toiture: { operation: 'refection_identique', materiau_couverture: '', couleur: '', description: '' },
+    ouverture: { type_ouverture: 'fenetre', operation: 'creation', nombre: '', largeur: '', hauteur: '', facade: '', description: '' },
     // Kept coherent with the declared works (menuiseries only) and with terrain.surface_plancher (95).
     description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) en aluminium gris anthracite (RAL 7016), sans modification des dimensions ni des proportions des baies existantes.',
     surfaces: {
@@ -577,6 +618,10 @@ export const emptyTravaux: Travaux = {
     menuiseries: { type: 'fenetre', materiau: 'aluminium', couleur: '', couleur_ral: '', nombre: '', largeur: '', hauteur: '', remplacement: true, description: '' },
     isolation: { type_finition: 'enduit', couleur: '', epaisseur_isolant: '', materiau_isolant: '', facades_concernees: [], description: '' },
     photovoltaique: { nombre_panneaux: '', surface_totale: '', puissance_kw: '', marque: '', orientation: '', inclinaison: '', integration: 'surimposition', description: '' },
+    cloture: { type_cloture: '', materiau: '', couleur: '', hauteur: '', longueur: '', sur_voie: true, description: '' },
+    ravalement: { finition: 'enduit', couleur: '', materiau: '', facades_concernees: [], description: '' },
+    toiture: { operation: 'refection_identique', materiau_couverture: '', couleur: '', description: '' },
+    ouverture: { type_ouverture: 'fenetre', operation: 'creation', nombre: '', largeur: '', hauteur: '', facade: '', description: '' },
     description_projet: '', surfaces: { existante: '', creee: '', supprimee: '' }
 }
 

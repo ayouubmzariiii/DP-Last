@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { acquirePluContent } from '@/lib/pluExtractor'
+import { DPFormData } from '@/lib/models'
+import { getTravauxDef } from '@/lib/travauxRegistry'
 
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
@@ -255,6 +257,16 @@ export async function POST(req: NextRequest) {
 - Orientation: ${pv.orientation}
 - Inclinaison: ${pv.inclinaison}°
 - Description complémentaire: ${pv.description || 'Aucune'}`
+        }
+        // Registry-driven fallback for work types without a bespoke block above (clôture,
+        // ravalement, toiture, ouverture…) so the PLU analysis always receives a works description.
+        if (!worksDescription) {
+            const def = getTravauxDef(travaux.type)
+            if (def) {
+                worksDescription = `${def.natureLabel}:
+- ${def.worksLabel({ travaux } as DPFormData)}
+- Description complémentaire: ${travaux.description_projet || 'Aucune'}`
+            }
         }
 
         const zoneText = plu?.zone 

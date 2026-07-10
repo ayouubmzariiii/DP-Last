@@ -47,6 +47,16 @@ const MATERIAU_LABEL: Record<string, string> = {
 const FINITION_LABEL: Record<string, string> = {
     enduit: 'enduit', bardage_bois: 'bardage bois', bardage_metal: 'bardage metal', bardage_composite: 'bardage composite',
 }
+const CLOTURE_LABEL: Record<string, string> = {
+    mur: 'Mur plein', mur_bahut: 'Mur-bahut surmonté d’une grille', grillage: 'Grillage',
+    panneaux: 'Panneaux rigides', claire_voie: 'Clôture à claire-voie',
+}
+const RAVALEMENT_LABEL: Record<string, string> = {
+    enduit: 'enduit', peinture: 'peinture', pierre_apparente: 'pierre apparente', bardage: 'bardage',
+}
+const OUVERTURE_LABEL: Record<string, string> = {
+    fenetre: 'fenêtre', porte: 'porte', porte_fenetre: 'porte-fenêtre', fenetre_toit: 'fenêtre de toit (velux)',
+}
 
 const blank = (v?: string) => !v || !v.trim()
 
@@ -151,6 +161,152 @@ export const TRAVAUX_REGISTRY: Record<TravauxId, TravauxTypeDef> = {
             if (!pv) return out
             if (blank(pv.nombre_panneaux)) out.push({ id: 'pv_nb', message: 'Nombre de panneaux non précisé.', field: 'nombre_panneaux' })
             if (blank(pv.integration)) out.push({ id: 'pv_int', message: 'Mode d’intégration (surimposition / intégré) non précisé.', field: 'integration' })
+            return out
+        },
+    },
+
+    cloture: {
+        id: 'cloture',
+        icon: '🧱',
+        title: 'Clôture',
+        subtitle: 'Mur, grillage, panneaux',
+        desc: 'Édification ou modification d’une clôture (mur, mur-bahut, grillage, panneaux) sur rue ou en limite séparative',
+        color: 'stone',
+        descLabel: 'Détails de la clôture (matériau, hauteur, couleur, implantation) :',
+        descPlaceholder: 'Ex: Mur-bahut de 0,60 m surmonté d’un grillage rigide gris anthracite, hauteur totale 1,80 m, sur rue.',
+        cerfaNature: 'cloture',
+        createsSurface: false,
+        requiresDP3: false,
+        natureLabel: 'Édification / modification d’une clôture',
+        worksLabel: (data) => {
+            const c = data.travaux.cloture
+            if (!c) return TRAVAUX_REGISTRY.cloture.natureLabel
+            const t = CLOTURE_LABEL[c.type_cloture] || 'Clôture'
+            const mat = c.materiau ? ` ${c.materiau.toLowerCase()}` : ''
+            const h = c.hauteur ? `, hauteur ${c.hauteur} m` : ''
+            return `${t}${mat}${h}`.trim()
+        },
+        aiDescription: (data) => {
+            const c = data.travaux.cloture
+            if (!c) return ''
+            const t = (CLOTURE_LABEL[c.type_cloture] || 'clôture').toLowerCase()
+            return `Installation d’une clôture de type « ${t} »${c.materiau ? ' en ' + c.materiau : ''}${c.couleur ? ' ' + c.couleur : ''} en limite de propriété${c.sur_voie ? ' sur rue' : ''}, hauteur ${c.hauteur || '1,80'} m.`
+        },
+        validate: (data) => {
+            const c = data.travaux.cloture
+            const out: TravauxWarning[] = []
+            if (!c) return out
+            if (!c.type_cloture) out.push({ id: 'clo_type', message: 'Type de clôture non précisé.', field: 'type_cloture' })
+            if (blank(c.hauteur)) out.push({ id: 'clo_haut', message: 'Hauteur de la clôture non précisée (souvent plafonnée par le PLU).', field: 'hauteur' })
+            return out
+        },
+    },
+
+    ravalement: {
+        id: 'ravalement',
+        icon: '🎨',
+        title: 'Ravalement de façade',
+        subtitle: 'Enduit, peinture, pierre',
+        desc: 'Ravalement ou réfection de l’aspect des façades (enduit, peinture, pierre apparente) sans modifier les ouvertures',
+        color: 'clay',
+        descLabel: 'Détails du ravalement (finition, teinte, façades concernées) :',
+        descPlaceholder: 'Ex: Ravalement de la façade sur rue, enduit gratté ton pierre (teinte RAL 1015).',
+        cerfaNature: 'existante',
+        createsSurface: false,
+        requiresDP3: false,
+        natureLabel: 'Ravalement de façade',
+        worksLabel: (data) => {
+            const r = data.travaux.ravalement
+            if (!r) return TRAVAUX_REGISTRY.ravalement.natureLabel
+            const fin = RAVALEMENT_LABEL[r.finition] || 'enduit'
+            const col = r.couleur ? ` ${r.couleur.toLowerCase()}` : ''
+            return `Ravalement de façade - ${fin}${col}`
+        },
+        aiDescription: (data) => {
+            const r = data.travaux.ravalement
+            if (!r) return ''
+            const fin = RAVALEMENT_LABEL[r.finition] || 'enduit'
+            return `Ravalement des façades : ${fin}${r.couleur ? ' teinte ' + r.couleur : ''}. Façades concernées : ${r.facades_concernees?.join(', ') || 'toutes les façades'}. Ne pas modifier les ouvertures ni la volumétrie du bâti.`
+        },
+        validate: (data) => {
+            const r = data.travaux.ravalement
+            const out: TravauxWarning[] = []
+            if (!r) return out
+            if (blank(r.couleur)) out.push({ id: 'rav_col', message: 'Teinte du ravalement non précisée (souvent imposée par le nuancier communal).', field: 'couleur' })
+            return out
+        },
+    },
+
+    toiture: {
+        id: 'toiture',
+        icon: '🏘️',
+        title: 'Toiture',
+        subtitle: 'Réfection, couverture',
+        desc: 'Réfection de toiture ou changement du matériau de couverture (tuile, ardoise, zinc) sans modifier le volume',
+        color: 'terracotta',
+        descLabel: 'Détails de la toiture (matériau de couverture, teinte, opération) :',
+        descPlaceholder: 'Ex: Réfection de la toiture à l’identique en tuiles canal terre cuite ton rouge nuancé.',
+        cerfaNature: 'existante',
+        createsSurface: false,
+        requiresDP3: false,
+        natureLabel: 'Réfection / modification de toiture',
+        worksLabel: (data) => {
+            const t = data.travaux.toiture
+            if (!t) return TRAVAUX_REGISTRY.toiture.natureLabel
+            const op = t.operation === 'changement_materiau' ? 'Changement de couverture' : 'Réfection de toiture'
+            const mat = t.materiau_couverture ? ` - ${t.materiau_couverture.toLowerCase()}` : ''
+            const col = t.couleur ? ` ${t.couleur.toLowerCase()}` : ''
+            return `${op}${mat}${col}`
+        },
+        aiDescription: (data) => {
+            const t = data.travaux.toiture
+            if (!t) return ''
+            return `Réfection de la toiture${t.materiau_couverture ? ' en ' + t.materiau_couverture : ''}${t.couleur ? ' teinte ' + t.couleur : ''}, à l’identique de la pente et du volume existants.`
+        },
+        validate: (data) => {
+            const t = data.travaux.toiture
+            const out: TravauxWarning[] = []
+            if (!t) return out
+            if (blank(t.materiau_couverture)) out.push({ id: 'toit_mat', message: 'Matériau de couverture non précisé (souvent imposé par le PLU).', field: 'materiau_couverture' })
+            return out
+        },
+    },
+
+    ouverture: {
+        id: 'ouverture',
+        icon: '🚪',
+        title: 'Création d’ouverture',
+        subtitle: 'Fenêtre, porte, velux',
+        desc: 'Création, agrandissement ou suppression d’une ouverture en façade ou en toiture (fenêtre, porte, fenêtre de toit)',
+        color: 'blue',
+        descLabel: 'Détails de l’ouverture (type, dimensions, façade concernée) :',
+        descPlaceholder: 'Ex: Création d’une fenêtre de toit (velux) 78×98 cm sur le pan de toiture arrière.',
+        cerfaNature: 'existante',
+        createsSurface: false,
+        requiresDP3: false,
+        natureLabel: 'Création / modification d’une ouverture',
+        worksLabel: (data) => {
+            const o = data.travaux.ouverture
+            if (!o) return TRAVAUX_REGISTRY.ouverture.natureLabel
+            const op = o.operation === 'agrandissement' ? 'Agrandissement' : o.operation === 'suppression' ? 'Suppression' : 'Création'
+            const type = OUVERTURE_LABEL[o.type_ouverture] || 'ouverture'
+            const nb = o.nombre ? `${o.nombre} ` : ''
+            return `${op} de ${nb}${type}`
+        },
+        aiDescription: (data) => {
+            const o = data.travaux.ouverture
+            if (!o) return ''
+            const type = OUVERTURE_LABEL[o.type_ouverture] || 'ouverture'
+            const op = o.operation === 'agrandissement' ? 'Agrandissement' : o.operation === 'suppression' ? 'Suppression' : 'Création'
+            const dim = o.largeur && o.hauteur ? ` (${o.largeur}×${o.hauteur} cm)` : ''
+            return `${op} de ${o.nombre || 'une'} ${type}${dim}${o.facade ? ' sur ' + o.facade : ''}, en cohérence avec les proportions des baies existantes.`
+        },
+        validate: (data) => {
+            const o = data.travaux.ouverture
+            const out: TravauxWarning[] = []
+            if (!o) return out
+            if (!o.type_ouverture) out.push({ id: 'ouv_type', message: 'Type d’ouverture non précisé.', field: 'type_ouverture' })
+            if (!o.operation) out.push({ id: 'ouv_op', message: 'Opération (création / agrandissement / suppression) non précisée.', field: 'operation' })
             return out
         },
     },
