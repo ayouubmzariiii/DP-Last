@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import ParcelPicker from '@/components/ParcelPicker'
 import { issuesForStep, fatalIssues } from '@/lib/validation'
 
 export default function Etape2() {
@@ -248,6 +249,26 @@ export default function Etape2() {
                     {/* Cadastre */}
                     <div className="dp-card">
                         <h3 className="dp-section-title">Références cadastrales</h3>
+
+                        {/* Interactive parcel picker — the reference is pre-filled from the address, but
+                            a geocoded point can land on an adjacent parcel, so let the user confirm/correct
+                            it visually in one click. Selecting a parcel fills the fields below (and the
+                            official surface). */}
+                        {t.coords && (
+                            <div className="mb-5">
+                                <ParcelPicker
+                                    coords={t.coords}
+                                    selected={{ section: t.section_cadastrale, numero: t.numero_parcelle }}
+                                    onSelect={(p) => updateTerrain({
+                                        prefixe_cadastral: p.prefixe,
+                                        section_cadastrale: p.section,
+                                        numero_parcelle: p.numero,
+                                        ...(p.contenance ? { surface_terrain: String(p.contenance) } : {}),
+                                    })}
+                                />
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="dp-form-group">
                                 <label className="dp-label">Préfixe</label>

@@ -379,6 +379,9 @@ textarea.dp-input { resize: vertical; min-height: 100px; font-family: inherit; }
 .info-box-amber { background: #FBF1DC; border: 1px solid #EBD9A8; color: #8A6D1F; }
 .info-box-green { background: var(--act); border: 1px solid var(--acb); color: var(--acd); }
 
+/* Interactive cadastral parcels (ParcelPicker) — hover feedback on the clickable polygons. */
+.parcel-hit:hover { fill: rgba(45,90,76,0.18) !important; }
+
 /* ─── Minimal safety net ─────────────────────────────────────────────────────
    The step pages were refactored off the old dark-slate theme onto the design
    tokens, so the bulk slate/blue/violet remaps are no longer needed (and would
