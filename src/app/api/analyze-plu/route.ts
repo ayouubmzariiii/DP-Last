@@ -3,15 +3,25 @@ import { acquirePluContent } from '@/lib/pluExtractor'
 import { DPFormData } from '@/lib/models'
 import { getTravauxDef } from '@/lib/travauxRegistry'
 
-export const maxDuration = 120
+export const maxDuration = 300
 export const dynamic = 'force-dynamic'
+
+// tencent/hy3 is a reasoning model — accurate but slow (a real règlement takes ~1–2 min). Cap the
+// règlement text fed to it so the reasoning stays bounded, and time-box each call so a slow/hung
+// model can never exhaust the route (the deterministic verdict is returned regardless).
+const PLU_TEXT_CAP = 18000
+const PLU_CALL_TIMEOUT_MS = 100_000
 
 // Models (override via env). Default to OpenRouter's free auto-router, which is vision-capable
 // and works with any OpenRouter key (no credits required). For higher accuracy on legal text /
 // scanned règlements, set OPENROUTER_PLU_MODEL (and optionally OPENROUTER_VISION_MODEL) to a
 // stronger model your key can access, e.g. 'google/gemini-3.5-flash'.
-const PLU_MODEL = process.env.OPENROUTER_PLU_MODEL || 'openrouter/free'
-const PLU_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || PLU_MODEL
+// Text extraction: tencent/hy3 (a text-to-text REASONING model). It does NOT accept the
+// json_object response format and needs a large token budget (reasoning chain + JSON output) —
+// see callOpenRouter. Override with OPENROUTER_PLU_MODEL.
+const PLU_MODEL = process.env.OPENROUTER_PLU_MODEL || 'tencent/hy3:free'
+// Vision (scanned règlements) needs a vision-capable model; hy3 is text-only, so keep a router here.
+const PLU_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || 'openrouter/free'
 
 // In-memory extraction cache keyed by document URL + zone (règlements change rarely → big
 // reliability/latency/cost win for repeat addresses in the same zone).
@@ -19,23 +29,33 @@ type CachedExtraction = { report: string; extractedRules: any; pdfType: string; 
 const extractionCache = new Map<string, CachedExtraction>()
 const CACHE_TTL_MS = 24 * 3600 * 1000
 
-async function callOpenRouter(apiKey: string, model: string, content: any, maxTokens = 2400): Promise<string> {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
-            'X-Title': 'DP Travaux PLU Scanner',
-        },
-        body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content }],
-            temperature: 0.15,
-            max_tokens: maxTokens,
-            response_format: { type: 'json_object' },
-        }),
-    })
+async function callOpenRouter(apiKey: string, model: string, content: any, maxTokens = 8000): Promise<string> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), PLU_CALL_TIMEOUT_MS)
+    let res: Response
+    try {
+        res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
+                'X-Title': 'DP Travaux PLU Scanner',
+            },
+            // No response_format: reasoning models (tencent/hy3) reject json_object; the JSON is parsed
+            // out of the reply by parseRulesJson. max_tokens must be large enough for the reasoning
+            // chain PLUS the JSON output, otherwise the reply is truncated with an empty content.
+            body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content }],
+                temperature: 0.15,
+                max_tokens: maxTokens,
+            }),
+            signal: controller.signal,
+        })
+    } finally {
+        clearTimeout(timer)
+    }
     if (!res.ok) throw new Error(`OpenRouter Error: ${res.status} ${await res.text()}`)
     const data = await res.json()
     return data.choices?.[0]?.message?.content || ''
@@ -299,7 +319,7 @@ URL Règlement complet: ${plu.zone.url_doc || 'Non fourni'}`
             pdfContextPrompt = `ATTENTION : La commune n'est pas couverte par un plan local d'urbanisme (PLU) mais est régie directement par le RÈGLEMENT NATIONAL D'URBANISME (RNU).
 Tu dois te baser sur les règles nationales d'urbanisme (RNU), notamment l'article L. 111-1-2 (constructibilité limitée), l'article R. 111-21 (aspect extérieur et insertion paysagère) pour formuler ton analyse.`
         } else if (pdfType === 'text') {
-            pdfContextPrompt = `TEXTE DU RÈGLEMENT PLU DE LA ZONE EXTRAIT DU DOCUMENT PDF :\n${pdfText}\n`
+            pdfContextPrompt = `TEXTE DU RÈGLEMENT PLU DE LA ZONE EXTRAIT DU DOCUMENT PDF :\n${pdfText.slice(0, PLU_TEXT_CAP)}\n`
         } else if (pdfType === 'scanned') {
             pdfContextPrompt = `IMPORTANT : Le règlement PLU est un document scanné — ses pages sont JOINTES EN IMAGES à ce message. Lis attentivement ces images (OCR), repère le chapitre de la zone ${plu?.zone?.libelle || ''}, et extrais-en les règles réelles (matériaux, couleurs, toiture, ouvertures). Ne te contente pas de généralités : cite les passages lus.`
         } else {

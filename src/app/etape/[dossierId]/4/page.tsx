@@ -15,6 +15,7 @@ export default function Etape4() {
     const [analyzing, setAnalyzing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [showExtractedText, setShowExtractedText] = useState(false)
+    const [showPdf, setShowPdf] = useState(false)
     const [ack, setAck] = useState(false)
 
     const plu = terrain.plu
@@ -224,6 +225,39 @@ export default function Etape4() {
                                                     {plu.extractedText.slice(0, 8000)}
                                                     {plu.extractedText.length > 8000 && '\n\n[... LE TEXTE DU DOCUMENT EST TRONQUÉ POUR LE PRÉVIEW ...]'}
                                                 </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {plu.zone?.url_doc && !plu.isRnu && (
+                                        <div className="mt-3">
+                                            <div className="flex items-center gap-4 flex-wrap">
+                                                <button
+                                                    onClick={() => setShowPdf(!showPdf)}
+                                                    className="text-[11px] font-bold t-accent hover:underline transition-colors uppercase tracking-wider flex items-center gap-1.5"
+                                                >
+                                                    {showPdf ? 'Masquer le règlement (PDF)' : 'Afficher le règlement officiel (PDF)'}
+                                                    <svg className={`w-3 h-3 transition-transform ${showPdf ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </button>
+                                                <a
+                                                    href={plu.zone.url_doc}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[11px] font-bold t-ink2 hover:t-accent hover:underline transition-colors uppercase tracking-wider flex items-center gap-1.5"
+                                                >
+                                                    Ouvrir dans un nouvel onglet
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                    </svg>
+                                                </a>
+                                            </div>
+                                            {showPdf && (
+                                                <object data={plu.zone.url_doc} type="application/pdf" className="mt-2.5 w-full rounded-lg" style={{ height: 480, border: '1px solid var(--line)' }}>
+                                                    <iframe src={plu.zone.url_doc} title="Règlement PLU" className="w-full rounded-lg" style={{ height: 480, border: '1px solid var(--line)' }} />
+                                                    <p className="p-3 text-xs t-ink2">Aperçu indisponible — <a href={plu.zone.url_doc} target="_blank" rel="noopener noreferrer" className="t-accent underline">ouvrir le PDF</a>.</p>
+                                                </object>
                                             )}
                                         </div>
                                     )}
