@@ -3,6 +3,7 @@ import { DPFormData } from './models'
 import * as fs from 'fs'
 import * as path from 'path'
 import { geocodeAddress, getIGNMapUrl, getVectorMapData } from './ignMaps'
+import { getTravauxDef, travauxNatureLabel, travauxWorksLabel } from './travauxRegistry'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -378,7 +379,8 @@ function buildReference(data: DPFormData, dossierId?: string): string {
 function dp3Status(data: DPFormData): { required: boolean; reason: string } {
     const ex = data.sous_nature_existante
     const nv = data.sous_nature_nouvelle
-    const volumeChange = !!(ex && (ex.extension || ex.surelevation || ex.creation_niveaux)) ||
+    const volumeChange = !!getTravauxDef(data.travaux.type)?.requiresDP3 ||
+        !!(ex && (ex.extension || ex.surelevation || ex.creation_niveaux)) ||
         !!(nv && (nv.veranda || nv.garage || nv.abri_jardin || nv.autre)) ||
         data.nature_travaux === 'nouvelle_construction'
     if (volumeChange) return {
@@ -392,36 +394,14 @@ function dp3Status(data: DPFormData): { required: boolean; reason: string } {
 }
 
 function natureLabel(data: DPFormData): string {
-    const t = data.travaux.type
-    if (t === 'menuiseries') return 'Remplacement / installation de menuiseries extérieures'
-    if (t === 'isolation') return 'Isolation thermique par l\'extérieur (ITE)'
-    if (t === 'photovoltaique') return 'Installation de panneaux photovoltaïques en toiture'
-    return 'Non défini'
+    return travauxNatureLabel(data)
 }
 
 /** Concise, correctly-spelled French label for the declared works — drawn as crisp pdf-lib
- *  vector text on the DP5 croquis (the AI renders the drawing text-free; see buildAICroquisPrompt). */
+ *  vector text on the DP5 croquis (the AI renders the drawing text-free; see buildAICroquisPrompt).
+ *  Delegates to the travaux registry (single source of truth). */
 function worksLabel(data: DPFormData): string {
-    const tr = data.travaux
-    if (tr.type === 'menuiseries' && tr.menuiseries) {
-        const m = tr.menuiseries
-        const mat: Record<string, string> = { pvc: 'PVC', aluminium: 'aluminium', bois: 'bois', mixte: 'mixte bois-aluminium' }
-        const matStr = mat[m.materiau] || m.materiau || ''
-        const col = m.couleur ? ` ${m.couleur.toLowerCase()}` : ''
-        const ral = m.couleur_ral ? ` (${m.couleur_ral})` : ''
-        return `Remplacement des menuiseries${matStr ? ` en ${matStr}` : ''}${col}${ral}`.trim()
-    }
-    if (tr.type === 'isolation' && tr.isolation) {
-        const fin: Record<string, string> = { enduit: 'enduit', bardage_bois: 'bardage bois', bardage_metal: 'bardage metal', bardage_composite: 'bardage composite' }
-        const finStr = fin[tr.isolation.type_finition] || 'enduit'
-        const col = tr.isolation.couleur ? ` ${tr.isolation.couleur.toLowerCase()}` : ''
-        return `Isolation par l'extérieur - finition ${finStr}${col}`
-    }
-    if (tr.type === 'photovoltaique' && tr.photovoltaique) {
-        const nb = tr.photovoltaique.nombre_panneaux
-        return `Pose de ${nb ? nb + ' ' : ''}panneaux photovoltaïques en toiture`
-    }
-    return natureLabel(data)
+    return travauxWorksLabel(data)
 }
 
 /** Draw a crisp works annotation (callout box + leader line) over a croquis image.

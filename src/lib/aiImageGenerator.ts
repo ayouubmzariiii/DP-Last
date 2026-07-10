@@ -5,20 +5,7 @@
  * reaches the browser.
  */
 import { DPFormData } from './models'
-
-// ── Lookup maps ───────────────────────────────────────────────────────────────
-const MAT_EN: Record<string, string> = {
-    pvc: 'white uPVC (polyvinyl chloride)',
-    aluminium: 'brushed anodized aluminium',
-    bois: 'solid wood with natural grain',
-    mixte: 'wood-aluminium composite',
-}
-const FINITION_EN: Record<string, string> = {
-    enduit: 'smooth exterior render / mineral plaster coating',
-    bardage_bois: 'horizontal wood cladding boards (bardage bois)',
-    bardage_metal: 'flat metal / steel cladding panels',
-    bardage_composite: 'composite HPL fiber-cement cladding panels',
-}
+import { getTravauxDef } from './travauxRegistry'
 
 // ── Prompt builders ───────────────────────────────────────────────────────────
 export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: string): string {
@@ -29,15 +16,8 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
     if (customInstruction) {
         rawDescription = customInstruction
     } else {
-        if (travaux.type === 'menuiseries' && travaux.menuiseries) {
-            rawDescription = travaux.menuiseries.description || `Remplacement de menuiseries (${travaux.menuiseries.nombre || 1} ${travaux.menuiseries.type || 'fenêtre'}) en ${travaux.menuiseries.materiau || 'pvc'} ${travaux.menuiseries.couleur || ''}`
-        }
-        else if (travaux.type === 'isolation' && travaux.isolation) {
-            rawDescription = `Isolation thermique par l'extérieur. Finition demandée : ${travaux.isolation.type_finition || 'enduit'} ${travaux.isolation.couleur ? 'couleur ' + travaux.isolation.couleur : ''}. Façades concernées : ${travaux.isolation.facades_concernees?.join(', ') || 'Toutes les façades'}.`
-        }
-        else if (travaux.type === 'photovoltaique' && travaux.photovoltaique) {
-            rawDescription = `Installation de ${travaux.photovoltaique.nombre_panneaux || '10'} panneaux photovoltaïques sur la toiture. Orientation : ${travaux.photovoltaique.orientation || 'Sud'}.`
-        }
+        // Per-type "après travaux" description comes from the travaux registry (single source).
+        rawDescription = getTravauxDef(travaux.type)?.aiDescription(data) || ''
     }
 
     return `Edit the attached photograph. Return the SAME photograph, pixel-for-pixel identical, with ONLY the requested modification applied. This is an in-place photo edit — it is NOT a request to imagine, redraw or generate a new building.

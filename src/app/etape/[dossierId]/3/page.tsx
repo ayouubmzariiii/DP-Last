@@ -3,33 +3,13 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { TypeTravaux } from '@/lib/models'
+import { TRAVAUX_LIST, getTravauxDef } from '@/lib/travauxRegistry'
 
-const TRAVAUX_TYPES = [
-    {
-        id: 'menuiseries' as TypeTravaux,
-        icon: '🪟',
-        title: 'Menuiseries',
-        subtitle: 'Fenêtres, portes, volets',
-        desc: 'Remplacement ou installation de menuiseries extérieures avec spécification des matériaux et couleurs',
-        color: 'blue',
-    },
-    {
-        id: 'isolation' as TypeTravaux,
-        icon: '🏠',
-        title: 'Isolation Thermique Extérieure',
-        subtitle: 'Enduit ou bardage',
-        desc: 'Application d\'un système d\'isolation par l\'extérieur avec finition en enduit, bardage bois, métal ou composite',
-        color: 'emerald',
-    },
-    {
-        id: 'photovoltaique' as TypeTravaux,
-        icon: '☀️',
-        title: 'Panneaux Photovoltaïques',
-        subtitle: 'Installation en toiture',
-        desc: 'Pose de panneaux solaires photovoltaïques sur une toiture existante, en surimposition ou intégrés',
-        color: 'amber',
-    },
-]
+// Selection cards are derived from the travaux registry — adding a work type there makes its
+// card appear here automatically (its detail sub-form is still rendered per-type below).
+const TRAVAUX_TYPES = TRAVAUX_LIST.map(d => ({
+    id: d.id as TypeTravaux, icon: d.icon, title: d.title, subtitle: d.subtitle, desc: d.desc, color: d.color,
+}))
 
 const COLOR_MAP_ACTIVE: Record<string, React.CSSProperties> = {
     blue: { borderColor: 'var(--ac)', background: 'var(--act)', color: 'var(--ac)' },
@@ -279,22 +259,14 @@ export default function Etape3() {
                             <div className="space-y-5">
                                 <div className="dp-form-group">
                                     <label className="dp-label">
-                                        {t.type === 'menuiseries' ? 'Détails des menuiseries (couleurs, matériaux, ouvertures) :' :
-                                         t.type === 'isolation' ? 'Détails de la finition (type d\'enduit, coloris exact, façades) :' :
-                                         t.type === 'photovoltaique' ? 'Détails de l\'installation (type de pose, visibilité rue) :' :
-                                         'Courte description de votre projet ou de vos travaux :'}
+                                        {getTravauxDef(t.type)?.descLabel || 'Courte description de votre projet ou de vos travaux :'}
                                     </label>
                                     <textarea
                                         value={t.description_projet || ''}
                                         onChange={e => updateTravaux({ description_projet: e.target.value })}
                                         rows={4}
                                         className="dp-input"
-                                        placeholder={
-                                            t.type === 'menuiseries' ? 'Ex: Remplacement des 4 fenêtres bois par du PVC blanc RAL 9016. Pose en rénovation.' :
-                                            t.type === 'isolation' ? 'Ex: Application d\'un enduit grésé ton pierre. Pose de bardage bois naturel sur le pignon droit.' :
-                                            t.type === 'photovoltaique' ? 'Ex: Pose de 12 panneaux noirs en surimposition sur le pan de toiture Sud.' :
-                                            'Décrivez succinctement les travaux envisagés...'
-                                        }
+                                        placeholder={getTravauxDef(t.type)?.descPlaceholder || 'Décrivez succinctement les travaux envisagés...'}
                                     />
                                 </div>
 

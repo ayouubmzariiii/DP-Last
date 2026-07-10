@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { DPFormData } from './models'
+import { getTravauxDef } from './travauxRegistry'
 
 export type Severity = 'fatal' | 'warn'
 export type StepId = 1 | 2 | 3 | 4 | 7
@@ -119,16 +120,9 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
     if (blank(tr.type)) {
         add(3, 'Travaux', 'fatal', 'trav_type', 'Type de travaux non sélectionné.', 'type')
     } else {
-        if (tr.type === 'menuiseries' && tr.menuiseries) {
-            if (blank(tr.menuiseries.materiau)) add(3, 'Travaux', 'warn', 'men_mat', 'Matériau des menuiseries non précisé.', 'materiau')
-            if (blank(tr.menuiseries.couleur)) add(3, 'Travaux', 'warn', 'men_col', 'Couleur des menuiseries non précisée (souvent exigée par le PLU).', 'couleur')
-        } else if (tr.type === 'isolation' && tr.isolation) {
-            if (blank(tr.isolation.type_finition)) add(3, 'Travaux', 'warn', 'iso_fin', 'Type de finition de l’ITE non précisé.', 'type_finition')
-            if (blank(tr.isolation.couleur)) add(3, 'Travaux', 'warn', 'iso_col', 'Couleur de finition non précisée.', 'couleur')
-        } else if (tr.type === 'photovoltaique' && tr.photovoltaique) {
-            if (blank(tr.photovoltaique.nombre_panneaux)) add(3, 'Travaux', 'warn', 'pv_nb', 'Nombre de panneaux non précisé.', 'nombre_panneaux')
-            if (blank(tr.photovoltaique.integration)) add(3, 'Travaux', 'warn', 'pv_int', 'Mode d’intégration (surimposition / intégré) non précisé.', 'integration')
-        }
+        // Per-type warnings come from the travaux registry (single source of truth).
+        const def = getTravauxDef(tr.type)
+        if (def) for (const w of def.validate(data)) add(3, 'Travaux', 'warn', w.id, w.message, w.field)
     }
     if (blank(tr.description_projet)) add(3, 'Travaux', 'warn', 'trav_desc', 'Description du projet non renseignée.', 'description_projet')
 

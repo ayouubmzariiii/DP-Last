@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, PageSizes } from 'pdf-lib'
 import { DPFormData } from './models'
 import { isProtectedSector } from './validation'
+import { getTravauxDef } from './travauxRegistry'
 import path from 'path'
 
 // ─── French transliteration (no accented chars in PDF StandardFonts) ─────────
@@ -183,11 +184,13 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         checkBox('T3L_lotnon', !data.terrain_lotissement)
 
         // ── 4.1 NATURE DES TRAVAUX ─────────────────────────────────────────────
-        const isCloture = (data.travaux.type as string) === 'cloture'
-        const isNouvelle = data.nature_travaux === 'nouvelle_construction'
-        checkBox('C2ZA1_nouvelle', isNouvelle && !isCloture)
-        checkBox('C2ZB1_existante', !isNouvelle && !isCloture)
-        checkBox('C2ZC3_cloture', isCloture)
+        // The §4.1 box is decided by the work type's registry entry (single source of truth),
+        // falling back to the dossier's nature_travaux flag when no type is set.
+        const travauxDef = getTravauxDef(data.travaux.type)
+        const nature = travauxDef?.cerfaNature ?? (data.nature_travaux === 'nouvelle_construction' ? 'nouvelle' : 'existante')
+        checkBox('C2ZA1_nouvelle', nature === 'nouvelle')
+        checkBox('C2ZB1_existante', nature === 'existante')
+        checkBox('C2ZC3_cloture', nature === 'cloture')
         setField('C2ZD1_description', data.terrain.description_projet || data.travaux.description_projet || '')
 
         // ── 4.2 TYPE DE TRAVAUX (sous-nature) ──────────────────────────────────
@@ -256,7 +259,8 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         const hasFacades = ph.facades.some(f => f.before) || (ph.facades.length > 0 && !!ph.facade_avant)
         const hasAfter = ph.facades.some(f => f.after)
         const hasCroquis = ph.facades.some(f => f.croquis)
-        const dp3Required = isNouvelle
+        const dp3Required = !!travauxDef?.requiresDP3
+            || nature === 'nouvelle'
             || !!(se && (se.extension || se.surelevation || se.creation_niveaux))
             || !!(sn && (sn.veranda || sn.garage || sn.abri_jardin || sn.autre))
         checkBox('P5PA2', !!p.dp1_carte_situation)            // DPC1 — plan de situation (obligatoire)
