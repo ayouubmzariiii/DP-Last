@@ -56,7 +56,7 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
                         </div>
                         <div className="hidden sm:block">
                             <div style={{ fontFamily: 'var(--hf)', fontSize: 15, fontWeight: 600, lineHeight: 1.1 }}>DP Travaux</div>
-                            <div style={{ fontFamily: 'var(--mf)', fontSize: 10, letterSpacing: '.05em', color: '#9A9286', textTransform: 'uppercase' }}>Cerfa 13703*</div>
+                            <div style={{ fontFamily: 'var(--mf)', fontSize: 10, letterSpacing: '.05em', color: '#9A9286', textTransform: 'uppercase' }}>Cerfa 16702*03</div>
                         </div>
                     </Link>
 

@@ -12,7 +12,7 @@ import { buildAIAfterImagePrompt, buildAICroquisPrompt } from '@/lib/aiImageGene
 // test fixture (defaultFormData) with a single GET, so the output can be inspected
 // instantly after each feature change. NOT available in production.
 //
-//   GET /api/dev/test-dossier?doc=cerfa            → CERFA 13703 PDF (instant)
+//   GET /api/dev/test-dossier?doc=cerfa            → CERFA 16702 PDF (instant)
 //   GET /api/dev/test-dossier?doc=dp               → DP dossier PDF  (instant — uses the CACHED
 //                                                     AI pieces baked into the fixture, no AI call)
 //   GET /api/dev/test-dossier?doc=dp&fresh=1       → regenerate the DP4 notice + a façade
@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
         const bytes = isDP
             ? await generateDPDocument(data, { dossierId: '7e57d055-0000-4000-8000-000000000001' })
             : await generateCerfaPdf(data)
-        const filename = isDP ? 'TEST_Dossier_DP.pdf' : 'TEST_CERFA_13703.pdf'
+        const filename = isDP ? 'TEST_Dossier_DP.pdf' : 'TEST_CERFA_16702.pdf'
 
         return new NextResponse(Buffer.from(bytes), {
             status: 200,

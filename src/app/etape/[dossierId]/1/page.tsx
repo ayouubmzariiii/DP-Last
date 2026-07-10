@@ -92,7 +92,7 @@ export default function Etape1() {
                 <div className="dp-page-head">
                     <span className="dp-eyebrow">Étape 01 / 07 · Demandeur</span>
                     <h2 className="dp-page-title">Vos informations <span className="accent">personnelles</span></h2>
-                    <p className="dp-page-sub">Ces informations figureront sur le formulaire CERFA 13703*.</p>
+                    <p className="dp-page-sub">Ces informations figureront sur le formulaire CERFA 16702*03.</p>
                     <div className="dp-rule" />
                 </div>
 

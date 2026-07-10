@@ -76,7 +76,7 @@ export default function Etape7() {
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `CERFA_13703_${demandeur.nom}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
+            a.download = `CERFA_16702_${demandeur.nom}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
             a.click()
             URL.revokeObjectURL(url)
             setCerfaDone(true)
@@ -371,7 +371,7 @@ export default function Etape7() {
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--acb)' }}>📋</div>
                                     <div>
-                                        <div className="font-bold t-ink">CERFA n°13703*</div>
+                                        <div className="font-bold t-ink">CERFA n°16702*03</div>
                                         <div className="text-xs t-ink2">Formulaire officiel rempli</div>
                                     </div>
                                     {cerfaDone && <span className="ml-auto t-ok text-xl">✅</span>}

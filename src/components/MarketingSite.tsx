@@ -84,7 +84,7 @@ const BA_AFTER = '/test/cache/after-principale.jpg'
 
 const FEATURES = [
     { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v5c0 4.6-3.1 7.7-7 9-3.9-1.3-7-4.4-7-9V6l7-3z" /><path d="M9 12l2 2 4-4" /></svg>, title: 'Analyse PLU automatique', body: 'Votre projet croisé au règlement de votre parcelle, pour repérer les blocages avant la mairie.' },
-    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h5" /></svg>, title: 'Formulaire CERFA pré-rempli', body: 'Le 13703*11 rempli à partir de vos réponses, sans case oubliée.' },
+    { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h5" /></svg>, title: 'Formulaire CERFA pré-rempli', body: 'Le 16702*03 rempli à partir de vos réponses, sans case oubliée.' },
     { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-5.1 1.9L12 16.6l-1.9-4.9L5 9.8l5.1-1.9z" /><path d="M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" /></svg>, title: 'Vues « après » par IA', body: 'L\'insertion paysagère « après » (DP6) générée à partir de vos photos.' },
     { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 12l9 5 9-5" /><path d="M3 16.5l9 5 9-5" /></svg>, title: 'Toutes les pièces réunies', body: 'DP1 à DP8 dans un dossier unique, prêt à imprimer ou déposer en ligne.' },
     { icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l9-5 9 5" /><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8" /><path d="M3 21h18" /></svg>, title: 'Secteurs protégés & ABF', body: 'Détection des sites patrimoniaux et des avis ABF obligatoires.' },
@@ -98,7 +98,7 @@ const STEPS_DETAIL = [
     { n: '4', title: 'L\'analyse PLU', tag: 'Automatique', body: 'La vérification de conformité qui évite le refus en mairie.', bullets: ['Règlement de votre zone', 'Détection SPR, ABF', 'Matériaux autorisés / interdits'] },
     { n: '5', title: 'Les photos', tag: '≈ 3 min', body: 'Les vues du terrain exigées par le formulaire CERFA.', bullets: ['Pièces DP7 et DP8', 'Cadrage guidé', 'Vues « après » par IA'] },
     { n: '6', title: 'Les plans', tag: 'Générés', body: 'Les documents graphiques réglementaires et la notice.', bullets: ['DP1, DP2, DP3', 'Notice descriptive DP4', 'Insertion par façade'] },
-    { n: '7', title: 'La génération', tag: 'Le livrable', body: 'Votre dossier complet, vérifié et prêt à déposer.', bullets: ['CERFA 13703*11 rempli', 'Toutes les pièces (PDF/ZIP)', 'Guide de dépôt en mairie'] },
+    { n: '7', title: 'La génération', tag: 'Le livrable', body: 'Votre dossier complet, vérifié et prêt à déposer.', bullets: ['CERFA 16702*03 rempli', 'Toutes les pièces (PDF/ZIP)', 'Guide de dépôt en mairie'] },
 ]
 
 const REQ_RED = s('font-size:11px;color:#B4442F;font-weight:600')
@@ -144,7 +144,7 @@ const ELIG_KEYS = ['menuiseries', 'ite', 'solaire', 'cloture', 'abri', 'piscine'
 interface Plan { key: string; name: string; price: string; unit: string; per: string; tag: string; highlight: boolean; kind: 'primary' | 'secondary'; cta: string; desc: string; features: string[] }
 const PLANS_USAGE: Plan[] = [
     { key: 'd', name: 'Découverte', price: '0', unit: '€', per: 'pour toujours', tag: '', highlight: false, kind: 'secondary', cta: 'Commencer', desc: 'Pour créer et vérifier votre dossier, sans payer.', features: ['Parcours guidé complet', 'Analyse PLU de votre parcelle', 'Aperçu du CERFA et des pièces', 'Mode test avec filigrane', 'Sauvegarde de vos projets'] },
-    { key: 'o', name: 'Dossier complet', price: '59', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer en mairie.', features: ['Tout de Découverte, plus :', 'CERFA 13703*11 pré-rempli', 'Pièces DP1 à DP8 assemblées', 'Vues « après » générées par IA', 'Notice descriptive rédigée', 'Export PDF & ZIP sans filigrane', '1 série de modifications incluse'] },
+    { key: 'o', name: 'Dossier complet', price: '59', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer en mairie.', features: ['Tout de Découverte, plus :', 'CERFA 16702*03 pré-rempli', 'Pièces DP1 à DP8 assemblées', 'Vues « après » générées par IA', 'Notice descriptive rédigée', 'Export PDF & ZIP sans filigrane', '1 série de modifications incluse'] },
     { key: 'p', name: 'Pack Rénovation', price: '149', unit: '€', per: '3 dossiers', tag: '', highlight: false, kind: 'secondary', cta: 'Choisir le pack', desc: 'Plusieurs chantiers ? Économisez.', features: ['Tout de Dossier complet', '3 dossiers, quand vous voulez', 'Modifications illimitées 6 mois', 'Assistance par email prioritaire'] },
 ]
 const PLANS_ABO: Plan[] = [
@@ -399,7 +399,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                             <div style={s('height:1px;background:var(--line-2)')}></div>
                                             <div style={s('display:flex;align-items:center;gap:12px;padding:12px 0')}>
                                                 <span style={s('flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center')}><Check size={13} color="#fff" sw={3} /></span>
-                                                <span style={s('flex:1;font-size:14.5px;font-weight:500;color:var(--ink)')}>CERFA 13703*11</span>
+                                                <span style={s('flex:1;font-size:14.5px;font-weight:500;color:var(--ink)')}>CERFA 16702*03</span>
                                                 <span style={s('font-family:var(--mf);font-size:11.5px;font-weight:600;color:var(--acd)')}>Rempli</span>
                                             </div>
                                             <div style={s('margin-top:14px')}>
@@ -986,7 +986,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <div style={s('max-width:300px')}>
                             <div style={s('display:flex;align-items:center;gap:11px;margin-bottom:16px')}>
                                 <div style={s('display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:38px;height:38px;border-radius:10px;background:linear-gradient(155deg,var(--ac),var(--acd))')}><span style={s('font-family:var(--hf);font-weight:600;font-size:18px;line-height:1;color:#fff')}>dp</span><span style={s('width:13px;height:1.5px;border-radius:2px;background:rgba(255,255,255,.5)')}></span></div>
-                                <div><div style={s('font-family:var(--hf);font-size:16px;font-weight:600;color:#fff')}>DP Travaux</div><div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.08em;color:rgba(255,255,255,.5);text-transform:uppercase')}>CERFA 13703*11</div></div>
+                                <div><div style={s('font-family:var(--hf);font-size:16px;font-weight:600;color:#fff')}>DP Travaux</div><div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.08em;color:rgba(255,255,255,.5);text-transform:uppercase')}>CERFA 16702*03</div></div>
                             </div>
                             <p style={s('font-size:13.5px;line-height:1.6;color:rgba(255,255,255,.6);margin:0 0 16px')}>La déclaration préalable de travaux, du premier champ au dossier déposable. Analyse PLU incluse.</p>
                             <div style={s('display:inline-flex;align-items:center;gap:8px;font-family:var(--mf);font-size:11px;letter-spacing:.03em;color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);padding:7px 12px;border-radius:9px')}>Données hébergées en France</div>
@@ -1021,7 +1021,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                     </div>
                     <div style={s('border-top:1px solid rgba(255,255,255,.12);margin-top:40px;padding-top:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap')}>
                         <div style={s('font-size:12.5px;color:rgba(255,255,255,.5)')}>© 2026 DP Travaux · Service indépendant, non affilié à l&apos;administration française.</div>
-                        <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.04em;color:rgba(255,255,255,.4)')}>Formulaire CERFA n° 13703*11</div>
+                        <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.04em;color:rgba(255,255,255,.4)')}>Formulaire CERFA n° 16702*03</div>
                     </div>
                 </div>
             </footer>

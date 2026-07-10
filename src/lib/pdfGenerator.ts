@@ -6,34 +6,47 @@ import path from 'path'
 // ─── French transliteration (no accented chars in PDF StandardFonts) ─────────
 function s(text: string): string {
     const map: Record<string, string> = {
-        'e\u0301': 'e', 'e\u0300': 'e', 'e\u0302': 'e', 'e\u0308': 'e',
-        'a\u0300': 'a', 'a\u0302': 'a', 'a\u0308': 'a',
-        'o\u0302': 'o', 'o\u0308': 'o',
-        'u\u0302': 'u', 'u\u0300': 'u', 'u\u0308': 'u',
-        'i\u0302': 'i', 'i\u0308': 'i',
-        '\u00e9': 'e', '\u00e8': 'e', '\u00ea': 'e', '\u00eb': 'e',
-        '\u00e0': 'a', '\u00e2': 'a', '\u00e4': 'a',
-        '\u00f4': 'o', '\u00f6': 'o',
-        '\u00fb': 'u', '\u00f9': 'u', '\u00fc': 'u',
-        '\u00ee': 'i', '\u00ef': 'i',
-        '\u00e7': 'c', '\u00e6': 'ae', '\u0153': 'oe',
-        '\u00c9': 'E', '\u00c8': 'E', '\u00ca': 'E',
-        '\u00c0': 'A', '\u00c2': 'A',
-        '\u00d4': 'O', '\u00db': 'U', '\u00ce': 'I',
-        '\u00c7': 'C', '\u00c6': 'AE', '\u0152': 'OE',
-        '\u2013': '-', '\u2014': '-', '\u2019': "'", '\u2018': "'",
-        '\u00b0': 'deg', '\u00b2': 'm2', '\u00d7': 'x', '\u20ac': 'EUR',
-        '\u00ab': '"', '\u00bb': '"', '\u2026': '...', '\u2022': '-',
+        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+        'à': 'a', 'â': 'a', 'ä': 'a',
+        'ô': 'o', 'ö': 'o',
+        'û': 'u', 'ù': 'u', 'ü': 'u',
+        'î': 'i', 'ï': 'i',
+        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+        'à': 'a', 'â': 'a', 'ä': 'a',
+        'ô': 'o', 'ö': 'o',
+        'û': 'u', 'ù': 'u', 'ü': 'u',
+        'î': 'i', 'ï': 'i',
+        'ç': 'c', 'æ': 'ae', 'œ': 'oe',
+        'É': 'E', 'È': 'E', 'Ê': 'E',
+        'À': 'A', 'Â': 'A',
+        'Ô': 'O', 'Û': 'U', 'Î': 'I',
+        'Ç': 'C', 'Æ': 'AE', 'Œ': 'OE',
+        '–': '-', '—': '-', '’': "'", '‘': "'",
+        '°': 'deg', '²': 'm2', '×': 'x', '€': 'EUR',
+        '«': '"', '»': '"', '…': '...', '•': '-',
     }
     return (text || '').replace(/[^\x00-\x7F]/g, c => map[c] ?? '')
 }
 
 /**
- * Generates the Cerfa 13703* PDF by loading the base PDF and filling all fields.
+ * Generates the Cerfa 16702*03 PDF ("Déclaration préalable — Constructions et travaux non soumis
+ * à permis de construire") by loading the base PDF and filling all fields.
  * Reads cerfa.pdf directly from the filesystem (server) or via fetch (browser).
+ *
+ * Field-name reference (16702*03 AcroForm), mapped from the app's DPFormData:
+ *   1. Déclarant particulier  D1N/D1P/D1A/D1C/D1D/D1E   · morale D2D/D2R/D2S/D2J/D2N/D2P
+ *   2. Coordonnées            D3N/D3V/D3W/D3L/D3C/D3B/D3X/D3T/D3K/D3P/D3D · email D5GE1/D5GE2 · D5A
+ *   3. Terrain                T2Q/T2V/T2W/T2L/T2C · cadastre T2F/T2S/T2N/T2T (+P2/P3) · total D5T
+ *   4. Nature                 C2ZA1 (nouvelle) / C2ZB1 (existante) / C2ZC3 (clôture) · desc C2ZD1
+ *      Type                   C5ZE1..C5ZE6 / C5ZK1..K3 · destination C2ZF1/C2ZF2
+ *      Surface de plancher    Habitation-Logement row = W2L{A..F}1 · totals row W2S{A..F}1
+ *   5. Législation connexe    X1{T,E,D,C,A,L,U,V} = Oui / X1*0 = Non · heritage X2R/X2H/X2C
+ *   7. Engagement             E1L/E1D
+ *   Bordereau pièces jointes  DPC1=P5PA2 DPC2=P5PB1 DPC3=P3GE1 DPC4=P3GD1 DPC5=P5PC1
+ *                             DPC6=P3GF1 DPC7=P3GG1 DPC8=P3GH1 DPC11=P4CD1
  */
 export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
-    const { demandeur, terrain, travaux } = data
+    const { demandeur, terrain } = data
 
     try {
         let pdfBytes: ArrayBuffer
@@ -60,21 +73,19 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         }
 
         const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
-
         const form = pdfDoc.getForm()
 
         // Helper: safely set a text field (handles missing fields gracefully)
         const setField = (name: string, value: string) => {
             if (!value) return
             try {
-                const field = form.getTextField(name.trim())
-                field.setText(s(value))
+                form.getTextField(name.trim()).setText(s(value))
             } catch {
                 console.debug(`[CERFA] Field not found or not text: "${name}"`)
             }
         }
 
-        // Helper: safely check/uncheck a checkbox
+        // Helper: safely check/uncheck a checkbox (pdf-lib resolves the field's on-value, /Oui here)
         const checkBox = (name: string, val: boolean) => {
             try {
                 const field = form.getCheckBox(name.trim())
@@ -85,281 +96,200 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
             }
         }
 
-        // Helper: set fragmented fields like "2_adresse_code_postal_1" to "5". 
-        const setFragmented = (prefix: string, value: string, max: number) => {
-            if (!value) return
-            const cleanValue = s(value).replace(/\s+/g, '') // remove spaces for zip, phone, siret
-            for (let i = 0; i < max; i++) {
-                if (cleanValue[i]) {
-                    setField(`${prefix}_${i + 1}`, cleanValue[i])
-                }
-            }
-        }
-
-        // Helper: set email specifically. Example: "jean.martin@example.com" -> email_1 = jean.martin, email_2 = example.com
-        const setEmailField = (prefix: string, emailStr: string) => {
-            if (!emailStr) return
-            const parts = emailStr.split('@')
-            setField(`${prefix}_1`, parts[0] || '')
-            if (parts.length > 1) {
-                setField(`${prefix}_2`, parts.slice(1).join('@'))
-            }
-        }
-
-
-        // Helper: set date specifically. Example: "15/06/1984" -> j_1, j_2, m_1, m_2, a_1, a_2, a_3, a_4
-        const setDateField = (prefix: string, dateStr: string) => {
-            if (!dateStr) return
-            let j, m, a;
+        // 16702 date fields are 8-char comb fields (maxLen 8): the slashes are pre-printed, so we
+        // write DDMMYYYY digits only. Accepts "JJ/MM/AAAA" or ISO "AAAA-MM-JJ".
+        const formatDate = (dateStr: string): string => {
+            if (!dateStr) return ''
+            let j = '', m = '', a = ''
             if (dateStr.includes('-')) {
-                const parts = dateStr.split('-')
-                if (parts.length === 3) {
-                    a = parts[0].padStart(4, '0')
-                    m = parts[1].padStart(2, '0')
-                    j = parts[2].padStart(2, '0')
-                }
+                const [Y, M, D] = dateStr.split('-')
+                a = Y || ''; m = M || ''; j = D || ''
             } else {
-                const parts = dateStr.split('/')
-                if (parts.length === 3) {
-                    j = parts[0].padStart(2, '0')
-                    m = parts[1].padStart(2, '0')
-                    a = parts[2].padStart(4, '0')
-                }
+                const [D, M, Y] = dateStr.split('/')
+                j = D || ''; m = M || ''; a = Y || ''
             }
-            if (j && m && a) {
-                setField(`${prefix}_j_1`, j[0])
-                setField(`${prefix}_j_2`, j[1])
-                setField(`${prefix}_m_1`, m[0])
-                setField(`${prefix}_m_2`, m[1])
-                setField(`${prefix}_a_1`, a[0])
-                setField(`${prefix}_a_2`, a[1])
-                setField(`${prefix}_a_3`, a[2])
-                setField(`${prefix}_a_4`, a[3])
-            }
+            if (!j || !m || !a) return ''
+            return j.padStart(2, '0') + m.padStart(2, '0') + a.padStart(4, '0')
         }
 
+        // Split "jean.martin@example.com" across the form's two email cells (before/after @).
+        const setEmail = (f1: string, f2: string, emailStr: string) => {
+            if (!emailStr) return
+            const [local, ...rest] = emailStr.split('@')
+            setField(f1, local || '')
+            if (rest.length) setField(f2, rest.join('@'))
+        }
+
+        // "12 rue des Lilas" → { numero: "12", voie: "rue des Lilas" }
         const extractAddress = (fullAddress: string) => {
-            // Regex enforces word boundary so "rue" doesn't falsely get captured as an address number suffix (like "bis")
-            const match = fullAddress.match(/^(\d+(?:\s*(?:bis|ter|quater|[a-zA-Z]\b))?)\s+(.*)$/i);
-            if (match) {
-                return { numero: match[1].trim(), voie: match[2].trim() };
-            }
-            return { numero: '', voie: fullAddress };
+            const match = (fullAddress || '').match(/^(\d+(?:\s*(?:bis|ter|quater|[a-zA-Z]\b))?)\s+(.*)$/i)
+            return match ? { numero: match[1].trim(), voie: match[2].trim() } : { numero: '', voie: fullAddress || '' }
         }
 
-        const c = data.cerfa
-        if (!c) {
-            console.warn('[CERFA] data.cerfa sub-object missing, fallback logic initiated.')
-            return generateFallbackCerfa(data)
-        }
-
-        // ── 1. DECLARANT (PERSONNE PHYSIQUE OR MORALE) ──────────────────────────────
+        // ── 1. DÉCLARANT (personne physique ou morale) ─────────────────────────
         if (!demandeur.est_societe) {
-            setField('1_1_nom', demandeur.nom)
-            setField('1_1_prenom', demandeur.prenom)
-            setDateField('1_1_date', demandeur.date_naissance)
-            setField('1_1_commune', demandeur.lieu_naissance)
-            setFragmented('1_1_departement', demandeur.departement_naissance, 3)
-            setField('1_1_pays', demandeur.pays_naissance)
-
-            // clear 1.2
-            setField('1_2_morale_denomination', '')
-            setField('1_2_morale_raison_sociale', '')
-            setField('1_2_morale_type_societe', '')
-            setField('1_2_morale_represantant_nom', '')
-            setField('1_2_morale_represantant_prenom', '')
-            setFragmented('1_2_morale_num_siret', '', 14)
+            setField('D1N_nom', demandeur.nom)
+            setField('D1P_prenom', demandeur.prenom)
+            setField('D1A_naissance', formatDate(demandeur.date_naissance))
+            setField('D1C_commune', demandeur.lieu_naissance)
+            setField('D1D_dept', demandeur.departement_naissance)
+            setField('D1E_pays', demandeur.pays_naissance)
         } else {
-            // clear 1.1
-            setField('1_1_nom', '')
-            setField('1_1_prenom', '')
-            setDateField('1_1_date', '')
-            setField('1_1_commune', '')
-            setFragmented('1_1_departement', '', 3)
-            setField('1_1_pays', '')
-
-            setField('1_2_morale_denomination', demandeur.nom_societe)
-            setField('1_2_morale_raison_sociale', demandeur.nom_societe)
-            setField('1_2_morale_type_societe', demandeur.type_societe)
-            setField('1_2_morale_represantant_nom', demandeur.representant_nom)
-            setField('1_2_morale_represantant_prenom', demandeur.representant_prenom)
-            setFragmented('1_2_morale_num_siret', demandeur.siret, 14)
+            setField('D2D_denomination', demandeur.nom_societe)
+            setField('D2R_raison', demandeur.nom_societe)
+            setField('D2S_siret', (demandeur.siret || '').replace(/\s+/g, ''))
+            setField('D2J_type', demandeur.type_societe)
+            setField('D2N_nom', demandeur.representant_nom)
+            setField('D2P_prenom', demandeur.representant_prenom)
         }
 
-        // ── 2 DECLARANT ADDRESS ──────────────────────────────
-        const declarantAddr = extractAddress(demandeur.adresse);
-        setField('2_adresse_numero', declarantAddr.numero)
-        setField('2_adresse_voie', declarantAddr.voie)
-        setField('2_adresse_lieu', demandeur.lieu_dit)
-        setField('2_adresse_localité', demandeur.commune)
-        setFragmented('2_adresse_code_postal', demandeur.code_postal, 5)
-        setFragmented('2_adresse_BP', demandeur.boite_postale, 3)
-        setFragmented('2_adresse_cedex', demandeur.cedex, 2)
-        setField('2_adresse_declarant_etranger_pays', demandeur.pays)
-        setField('2_adresse_declarant_etranger_division_territoriale', demandeur.division_territoriale)
-        setFragmented('2_adresse_telephone', demandeur.telephone, 10)
-        setFragmented('2_adresse_indicatif_etranger', demandeur.indicatif_etranger, 4)
-        setEmailField('2_adresse_email', demandeur.email)
-        // Respect the applicant's actual choice (collected in Étape 1), don't force-tick.
-        checkBox('2_adresse-si_reponse_email_checkbox', !!data.accord_dematerialisation)
+        // ── 2. COORDONNÉES DU DÉCLARANT ────────────────────────────────────────
+        const declarantAddr = extractAddress(demandeur.adresse)
+        setField('D3N_numero', declarantAddr.numero)
+        setField('D3V_voie', declarantAddr.voie)
+        setField('D3W_lieudit', demandeur.lieu_dit)
+        setField('D3L_localite', demandeur.commune)
+        setField('D3C_code', (demandeur.code_postal || '').replace(/\s+/g, ''))
+        setField('D3B_boite', demandeur.boite_postale)
+        setField('D3X_cedex', demandeur.cedex)
+        setField('D3T_telephone', (demandeur.telephone || '').replace(/\s+/g, ''))
+        setField('D3K_indicatif', demandeur.indicatif_etranger)
+        setField('D3P_pays', demandeur.pays)
+        setField('D3D_division', demandeur.division_territoriale)
+        setEmail('D5GE1_email', 'D5GE2_email', demandeur.email)
+        checkBox('D5A_acceptation', !!data.accord_dematerialisation)
 
-        // ── 2BIS CO-DÉCLARANT (optional second applicant — joint owners/couples) ──
-        const co = data.co_demandeur
-        if (co?.actif && !co.est_societe) {
-            setField('2BIS_particulier_nom', co.nom)
-            setField('2BIS_particulier_prenom', co.prenom)
-        } else if (co?.actif && co.est_societe) {
-            setField('2BIS_morale_denomination', co.nom_societe)
-            setField('2BIS_morale_raison_sociale', co.nom_societe)
-            setField('2BIS_morale_type_societe', co.type_societe)
-            setField('2BIS_morale_represantant_nom', co.representant_nom)
-            setField('2BIS_morale_represantant_prenom', co.representant_prenom)
-            setFragmented('2BIS_morale_num_siret', co.siret, 14)
-        } else {
-            // Inactive → clear all 2BIS fields.
-            setField('2BIS_particulier_nom', '')
-            setField('2BIS_particulier_prenom', '')
-            setField('2BIS_morale_denomination', '')
-            setField('2BIS_morale_raison_sociale', '')
-            setField('2BIS_morale_type_societe', '')
-            setField('2BIS_morale_represantant_nom', '')
-            setField('2BIS_morale_represantant_prenom', '')
-            setFragmented('2BIS_morale_num_siret', '', 14)
-        }
+        // ── 3. TERRAIN ─────────────────────────────────────────────────────────
+        const landAddr = extractAddress(terrain.adresse)
+        setField('T2Q_numero', landAddr.numero)
+        setField('T2V_voie', landAddr.voie)
+        setField('T2W_lieudit', terrain.lieu_dit)
+        setField('T2L_localite', terrain.commune)
+        setField('T2C_code', (terrain.code_postal || '').replace(/\s+/g, ''))
 
-        // ── 3 TERRAIN (LAND) ──────────────────────────────
-        const landAddr = extractAddress(terrain.adresse);
-        setField('3_terrain_addresse_numero', landAddr.numero)
-        setField('3_terrain_addresse_voie', landAddr.voie)
-        setField('3_terrain_addresse_lieu-dit', terrain.lieu_dit)
-        setField('3_terrain_addresse_localité', terrain.commune)
-        setFragmented('3_terrain_addresse_code_postal', terrain.code_postal, 5)
-        checkBox('3_terrain_si_lotissement_checkbox', !!data.terrain_lotissement)
+        // Cadastre — main parcel + up to two supplementary parcels (Étape 2).
+        setField('T2F_prefixe', terrain.prefixe_cadastral)
+        setField('T2S_section', terrain.section_cadastrale)
+        setField('T2N_numero', terrain.numero_parcelle)
+        setField('T2T_superficie', (terrain.surface_terrain || '').toString().replace(/[^0-9]/g, ''))
+        const extra = data.cadastrales_multiparcelles || []
+        if (extra[0]) { setField('T2FP2_prefixe', extra[0].prefixe); setField('T2SP2_section', extra[0].section); setField('T2NP2_numero', extra[0].numero) }
+        if (extra[1]) { setField('T2FP3_prefixe', extra[1].prefixe); setField('T2SP3_section', extra[1].section); setField('T2NP3_numero', extra[1].numero) }
+        setField('D5T_total', (terrain.surface_terrain || '').toString().replace(/[^0-9]/g, ''))
 
-        // Maps the single cadastre from Etape 2 into the multi-slot array on the PDF
-        setFragmented('3_terrain_cadastrales_prefixe', terrain.prefixe_cadastral, 3)
-        setFragmented('3_terrain_cadastrales_section', terrain.section_cadastrale, 2)
-        setFragmented('3_terrain_cadastrales_numero', terrain.numero_parcelle, 4)
-        setField('3_terrain_cadastrales_parcelle_superficie_m2', terrain.surface_terrain)
+        // 3.2 Situation juridique — lotissement from the declared value; the other (optional)
+        // statuses (CU / ZAC / AFU / PUP) are left blank for the user to complete if applicable.
+        checkBox('T3I_lotoui', !!data.terrain_lotissement)
+        checkBox('T3L_lotnon', !data.terrain_lotissement)
 
-        // ── 4 PROJECT TYPE ──────────────────────────────
-        // The app strictly creates renovation dossiers (Menuiseries, Isolation, PV)
-        checkBox('4_1_nouvelle_construction_checkbox', false)
-        checkBox('4_1_nouvelle_construction_checkbox_piscine', false)
-        checkBox('4_1_nouvelle_construction_checkbox_garage', false)
-        checkBox('4_1_nouvelle_construction_checkbox_veranda', false)
-        checkBox('4_1_nouvelle_construction_checkbox_abri_jardin', false)
-        setField('4_1_nouvelle_construction_autre', '')
+        // ── 4.1 NATURE DES TRAVAUX ─────────────────────────────────────────────
+        const isCloture = (data.travaux.type as string) === 'cloture'
+        const isNouvelle = data.nature_travaux === 'nouvelle_construction'
+        checkBox('C2ZA1_nouvelle', isNouvelle && !isCloture)
+        checkBox('C2ZB1_existante', !isNouvelle && !isCloture)
+        checkBox('C2ZC3_cloture', isCloture)
+        setField('C2ZD1_description', data.terrain.description_projet || data.travaux.description_projet || '')
 
-        checkBox('4_1_construction_existante_checkbox', true)
-        checkBox('4_1_construction_existante_checkbox_extension', false)
-        checkBox('4_1_construction_existante_checkbox_surelevation', false)
-        checkBox('4_1_construction_existante_checkbox_creation_niveaux', false)
-        setField('4_1_construction_existante_autre', data.travaux.type)
+        // ── 4.2 TYPE DE TRAVAUX (sous-nature) ──────────────────────────────────
+        const sn = data.sous_nature_nouvelle
+        const se = data.sous_nature_existante
+        checkBox('C5ZE1_piscine', !!sn?.piscine)
+        checkBox('C5ZE2_garage', !!sn?.garage)
+        checkBox('C5ZE3_veranda', !!sn?.veranda)
+        checkBox('C5ZE4_abri', !!sn?.abri_jardin)
+        checkBox('C5ZE5_annexes', !!sn?.autre)
+        checkBox('C5ZK1_extension', !!se?.extension)
+        checkBox('C5ZK2_surelevation', !!se?.surelevation)
+        checkBox('C5ZK3_supplementaires', !!se?.creation_niveaux)
 
-        checkBox('4_1_cloture_checkbox', false)
-        // Use the canonical, user-facing project description (Étape 3 → terrain.description_projet),
-        // which always matches the declared works shown in the dossier. The legacy
-        // travaux.description_projet could carry a stale/different scope, so it is only a fallback —
-        // the CERFA "nature du projet" must describe exactly the declared works (scope coherence).
-        setField('4_1_description_projet', data.terrain.description_projet || data.travaux.description_projet || '')
-
-        // Destination — driven by the user's choice (Étape 3), default principale.
+        // Destination (occupation personnelle → résidence principale/secondaire)
         const secondaire = data.projet_concerne === 'secondaire'
-        checkBox('4_1_residence_principale_checkbox', !secondaire)
-        checkBox('4_1_residence_secondaire_checkbox', secondaire)
+        checkBox('C2ZF1_principale', !secondaire)
+        checkBox('C2ZF2_secondaire', secondaire)
 
-        // ── 4.2 SURFACES ──────────────────────────────
-        setField('4_2_surface_plancher_existante', data.travaux.surfaces?.existante || '')
-        setField('4_2_surface_plancher_creee', data.travaux.surfaces?.creee || '')
-        setField('4_2_surface_plancher_supprimee', data.travaux.surfaces?.supprimee || '')
+        // ── 4.4 SURFACE DE PLANCHER (m²) — Habitation / Logement row (L) ────────
+        // Only written when the works actually change floor area (aspect works → all 0/blank).
+        const sExist = Number(data.travaux?.surfaces?.existante) || 0
+        const sCreee = Number(data.travaux?.surfaces?.creee) || 0
+        const sSupp = Number(data.travaux?.surfaces?.supprimee) || 0
+        if (sExist || sCreee || sSupp) {
+            const total = sExist + sCreee - sSupp
+            setField('W2LA1', String(sExist))
+            setField('W2LB1', String(sCreee))
+            setField('W2LD1', String(sSupp))
+            setField('W2LF1', String(total))
+            // Totals row (S)
+            setField('W2SA1', String(sExist))
+            setField('W2SB1', String(sCreee))
+            setField('W2SD1', String(sSupp))
+            setField('W2SF1', String(total))
+        }
+        // NB: 4.2.1 (puissance crête C2ZP1 / agrivoltaïque) is for GROUND-mounted or ombrières PV.
+        // The app's photovoltaïque is roof-mounted on an existing house → declared as "travaux sur
+        // construction existante" above; these solar-farm fields must stay blank.
 
-        // ── 5 SPECIAL DECLARATIONS ──────────────────────────────
-        // Section 5 box meanings VERIFIED against the form text (page 4/13):
-        //   1 déroge (ordonnance 2018-937) · 2 relève de L632-2-1 (antennes/habitat indigne) ·
-        //   3 autre législation connexe · 4 raccordement réseau chaleur/froid ·
-        //   5 SITE PATRIMONIAL REMARQUABLE · 6 ABORDS D'UN MONUMENT HISTORIQUE ·
-        //   7 site classé / en instance (code env.).
-        // Boxes 5 & 6 are driven by the PLU heritage detection (fetch-plu overlays). Box 7 (site
-        // classé) has no reliable data source yet, so it stays unchecked but USER-EDITABLE below.
+        // ── 5. INFORMATIONS POUR L'APPLICATION D'UNE LÉGISLATION CONNEXE ────────
+        // For a house-renovation DP none of these connex regimes apply → tick "Non" (the *0 boxes).
+        for (const n of ['X1T0_eau', 'X1E0_environnement', 'X1D0_derogation', 'X1C0_classe', 'X1A0_ABF', 'X1L0_legislation', 'X1U0_raccordement', 'X1V0_toiture']) {
+            checkBox(n, true)
+        }
+
+        // Périmètres de protection — driven by the PLU heritage detection (user-editable below).
         const hasSPR = !!data.terrain?.plu?.overlays?.hasSPR
         const hasAbordsMH = (data.terrain?.plu?.overlays?.monumentsWithin500m?.length || 0) > 0
-        checkBox('5_checkbox_1', false)
-        checkBox('5_checkbox_2', false)
-        checkBox('5_checkbox_3', false)
-        setField('5_checkbox_3_precisez', '')
-        checkBox('5_checkbox_4', false)
-        checkBox('5_checkbox_5', hasSPR)
-        checkBox('5_checkbox_6', hasAbordsMH)
-        checkBox('5_checkbox_7', false)
+        checkBox('X2R_remarquable', hasSPR)
+        checkBox('X2H_historique', hasAbordsMH)
+        checkBox('X2C_classe', false)
 
-        // ── 8 DECLARATION ──────────────────────────────
+        // ── 7. ENGAGEMENT DU DÉCLARANT ─────────────────────────────────────────
         if (data.engagement) {
-            setField('8_engagement_lieu', data.engagement.lieu)
-            setDateField('8_engagement_date', data.engagement.date)
-            // NB: 'signature_309udhn' is a PDFSignature field (not a checkbox); it is signed
-            // by hand on the printed form, so we don't attempt to set it programmatically.
+            setField('E1L_lieu', data.engagement.lieu)
+            setField('E1D_date', formatDate(data.engagement.date))
+            // E1S_signature is signed by hand on the printed form — left blank.
         }
 
-        // ── ATTACHMENTS (DP DOCUMENTS) ──────────────────────────────
-        // Dynamically deduce checked boxes based on what the user actually uploaded in Etaoes 4 and 5
+        // ── BORDEREAU DES PIÈCES JOINTES (DPC1…DPC11) ──────────────────────────
+        // P-codes mapped from the bordereau reading order (see header). Ticked from what the DP
+        // document actually produces. DPC1 (plan de situation) is the only mandatory piece.
         const p = data.plans
         const ph = data.photos
-        checkBox('dp1_checkbox', !!p.dp1_carte_situation)
-        checkBox('dp2_checkbox', !!p.dp2_plan_masse)
-        checkBox('dp3_checkbox', false)
-        checkBox('dp4_checkbox', !!p.dp4_notice)
-        // DP5 = Plans des façades (Existant = facades[i].before, Projet = facades[i].after/croquis)
-        const firstFacade = ph.facades[0]
-        const coverImgSrc = (firstFacade?.after || firstFacade?.before) || ph.dp7_vue_proche || '/placeholder.png'
-        const hasFacades = ph.facades.length > 0
-        const hasAIAfter = ph.facades.some(f => f.after)
+        const hasFacades = ph.facades.some(f => f.before) || (ph.facades.length > 0 && !!ph.facade_avant)
+        const hasAfter = ph.facades.some(f => f.after)
         const hasCroquis = ph.facades.some(f => f.croquis)
+        const dp3Required = isNouvelle
+            || !!(se && (se.extension || se.surelevation || se.creation_niveaux))
+            || !!(sn && (sn.veranda || sn.garage || sn.abri_jardin || sn.autre))
+        checkBox('P5PA2', !!p.dp1_carte_situation)            // DPC1 — plan de situation (obligatoire)
+        checkBox('P5PB1', !!p.dp2_plan_masse)                 // DPC2 — plan de masse
+        checkBox('P3GE1', dp3Required)                        // DPC3 — plan en coupe
+        checkBox('P3GD1', hasFacades)                         // DPC4 — plan des façades et toitures
+        checkBox('P5PC1', hasCroquis || hasAfter)             // DPC5 — représentation de l'aspect extérieur
+        checkBox('P3GF1', hasAfter)                           // DPC6 — insertion paysagère
+        checkBox('P3GG1', !!ph.dp7_vue_proche)                // DPC7 — photo vue proche
+        checkBox('P3GH1', !!ph.dp8_vue_lointaine)             // DPC8 — photo vue lointaine
+        checkBox('P4CD1', isProtectedSector(data))            // DPC11 — notice matériaux (secteur protégé)
 
-        checkBox('dp5_checkbox', ph.facades.some(f => f.before) || hasFacades && !!ph.facade_avant)
-        // DP6 = insertion / aspect projeté — present if EITHER a photoreal "after" OR a croquis exists.
-        checkBox('dp6_checkbox', hasAIAfter || hasCroquis)
-        checkBox('dp7_checkbox', !!ph.dp7_vue_proche)
-        checkBox('dp8_checkbox', !!ph.dp8_vue_lointaine)
-        checkBox('dp8_1_checkbox', false)
-        // DP11 = notice de matériaux et modalités d'exécution — required in a protected sector
-        // (the detailed DP4 notice fulfils this role). Not tied to whether an AI image exists.
-        checkBox('dp11_checkbox', isProtectedSector(data))
+        // Make fields read-only to prevent casual edits after generation. EXCEPTION: leave the
+        // heritage declarations (§5 périmètres de protection) editable so the user can correct an
+        // edge case the APIs can't detect (e.g. a site classé) in their PDF reader before filing.
+        const editable = new Set(['X2R_remarquable', 'X2H_historique', 'X2C_classe', 'X1P_precisions'])
+        for (const field of form.getFields()) {
+            if (editable.has(field.getName())) continue
+            try { field.enableReadOnly() } catch { /* ignore */ }
+        }
 
-        // Log key fields for debugging
-        console.log('[CERFA] Fields set. demandeur.date_naissance:', demandeur.date_naissance)
-        console.log('[CERFA] demandeur.lieu_naissance:', demandeur.lieu_naissance)
-
-        // Make fields read-only to avoid pdf-lib 'Unexpected N type' errors on custom checkboxes.
-        // EXCEPTION: leave the heritage / protected-sector declarations (Section 5, boxes 5–7) and
-        // their "précisez" field editable, so the user can correct an edge case the APIs can't detect
-        // (e.g. a site classé) directly in their PDF reader before filing.
-        const editable = new Set(['5_checkbox_5', '5_checkbox_6', '5_checkbox_7', '5_checkbox_3_precisez'])
-        const fields = form.getFields()
-        fields.forEach(field => {
-            if (editable.has(field.getName())) return
-            try {
-                field.enableReadOnly()
-            } catch (e) {
-                // Ignore if a specific field cannot be made read-only
-            }
-        })
-
-        // ── 8. Annexe Fiscalité (DENI) Custom Page ───────────────────────
-        // Since the base PDF lacks fillable fields for the DENI section, we append a clean summary page
+        // ── ANNEXE FISCALITÉ (DENI) — appended summary page (base form has no fields for it) ────
         if (data.taxation) {
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
             const deniPage = pdfDoc.addPage(PageSizes.A4)
-            const { width, height } = deniPage.getSize()
-
+            const { height } = deniPage.getSize()
             let yOffset = height - 50
 
             deniPage.drawText('ANNEXE - DÉCLARATION DES ÉLÉMENTS NÉCESSAIRES AU CALCUL DE L\'IMPOSITION (DENI)', {
                 x: 50, y: yOffset, size: 12, font: helveticaBold, color: rgb(0, 0, 0)
             })
             yOffset -= 30
-
             deniPage.drawText('1. Informations Générales:', { x: 50, y: yOffset, size: 10, font: helveticaBold })
             yOffset -= 20
             deniPage.drawText(`- Nombre de logements créés: ${data.taxation.logements_crees || 0}`, { x: 70, y: yOffset, size: 10, font: helvetica })
@@ -370,11 +300,8 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
             yOffset -= 15
             deniPage.drawText(`- Surface de bassin de piscine: ${data.taxation.surface_bassin_piscine || 0} m²`, { x: 70, y: yOffset, size: 10, font: helvetica })
             yOffset -= 30
-
             deniPage.drawText('2. Destination des Surfaces (Habitation):', { x: 50, y: yOffset, size: 10, font: helveticaBold })
             yOffset -= 20
-            // Derive the existing taxable surface from the real surface input when the taxation
-            // field is left at 0/blank, rather than emitting a fabricated default.
             const taxExist = (Number(data.taxation.destination_habitation_existante) || 0)
                 || (Number(data.travaux?.surfaces?.existante) || 0)
             deniPage.drawText(`- Surface taxable existante conservée: ${taxExist} m²`, { x: 70, y: yOffset, size: 10, font: helvetica })
@@ -383,7 +310,6 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
             yOffset -= 15
             deniPage.drawText(`- Surface taxable supprimée: ${data.taxation.destination_habitation_supprimee || 0} m²`, { x: 70, y: yOffset, size: 10, font: helvetica })
             yOffset -= 30
-
             deniPage.drawText('3. Financement / Prêts Aidés:', { x: 50, y: yOffset, size: 10, font: helveticaBold })
             yOffset -= 20
             deniPage.drawText(`- Projet financé par un Prêt à Taux Zéro (PTZ): ${data.taxation.financement_ptz ? 'OUI' : 'NON'}`, { x: 70, y: yOffset, size: 10, font: helvetica })
@@ -391,10 +317,8 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
             deniPage.drawText(`- Projet financé par d'autres prêts aidés: ${data.taxation.financement_pret_social ? 'OUI' : 'NON'}`, { x: 70, y: yOffset, size: 10, font: helvetica })
         }
 
-        // NB: we intentionally do NOT call form.flatten(). The base cerfa.pdf ships malformed
-        // checkbox appearance streams ("Unexpected N type") that make pdf-lib's flatten throw and
-        // leave the document half-processed. The fields are already made read-only above, which
-        // reliably prevents casual edits while keeping every viewer's rendering correct.
+        // NB: we intentionally do NOT flatten — some official CERFA appearance streams make pdf-lib's
+        // flatten throw; the fields are made read-only above, which prevents casual edits reliably.
         return await pdfDoc.save()
 
     } catch (err) {
@@ -461,7 +385,7 @@ async function generateFallbackCerfa(data: DPFormData): Promise<Uint8Array> {
     // ── Header ───────────────────────────────────────────────────────────
     pages[pageIdx].drawRectangle({ x: 0, y: PH - 70, width: PW, height: 70, color: rgb(0.08, 0.08, 0.08) })
     safeTx('DEMANDE PREALABLE DE TRAVAUX', M, PH - 28, 16, bold, rgb(1, 1, 1))
-    safeTx('Cerfa n13703*  |  Resume du dossier constitue', M, PH - 46, 9, font, rgb(0.75, 0.75, 0.75))
+    safeTx('Cerfa n16702*03  |  Resume du dossier constitue', M, PH - 46, 9, font, rgb(0.75, 0.75, 0.75))
     safeTx('REPUBLIQUE FRANCAISE', PW - M - 110, PH - 28, 8, font, rgb(0.6, 0.6, 0.6))
     y = PH - 90
 
@@ -537,12 +461,12 @@ async function generateFallbackCerfa(data: DPFormData): Promise<Uint8Array> {
     // ── Pieces jointes ───────────────────────────────────────────────────
     heading('4. Pieces constituant le dossier')
     const pieces = [
-        'DP1 - Plan de situation du terrain',
-        'DP2 - Plan de masse des constructions',
-        'DP4 - Notice descriptive du projet de travaux',
-        'DP5 - Plans des facades (avant et apres travaux)',
-        'DP7 - Photographie de la construction (vue rapprochee)',
-        'DP8 - Photographie de la construction (vue eloignee)',
+        'DPC1 - Plan de situation du terrain',
+        'DPC2 - Plan de masse des constructions',
+        'DPC4 - Plan des facades et toitures',
+        'DPC5 - Representation de l\'aspect exterieur (avant et apres)',
+        'DPC7 - Photographie de la construction (vue rapprochee)',
+        'DPC8 - Photographie de la construction (vue eloignee)',
     ]
     pieces.forEach(p => line('   [x]  ' + p, M + 4, 8.5))
 
