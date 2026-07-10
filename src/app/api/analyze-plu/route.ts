@@ -122,6 +122,49 @@ function proposedAspects(travaux: any) {
     }
 }
 
+// Editable fields (and their allowed values) per work type. Given to the AI so its proposed patch
+// targets real form fields, and used to SANITISE the AI's proposal (drop unknown fields, snap enum
+// values to the allowed set) before it can touch the form.
+const FIELD_SPEC: Record<string, { fields: Record<string, { enum?: string[]; label: string }> }> = {
+    menuiseries: { fields: { materiau: { enum: ['pvc', 'aluminium', 'bois', 'mixte'], label: 'matériau' }, couleur: { label: 'couleur' }, couleur_ral: { label: 'code RAL' } } },
+    isolation: { fields: { type_finition: { enum: ['enduit', 'bardage_bois', 'bardage_metal', 'bardage_composite'], label: 'finition' }, couleur: { label: 'couleur' }, materiau_isolant: { label: 'isolant' } } },
+    photovoltaique: { fields: { integration: { enum: ['surimposition', 'integration'], label: 'intégration' }, orientation: { label: 'orientation' } } },
+    cloture: { fields: { type_cloture: { enum: ['mur', 'mur_bahut', 'grillage', 'panneaux', 'claire_voie'], label: 'type' }, materiau: { label: 'matériau' }, couleur: { label: 'couleur' }, hauteur: { label: 'hauteur (m)' } } },
+    ravalement: { fields: { finition: { enum: ['enduit', 'peinture', 'pierre_apparente', 'bardage'], label: 'finition' }, couleur: { label: 'couleur' }, materiau: { label: 'matériau' } } },
+    toiture: { fields: { operation: { enum: ['refection_identique', 'changement_materiau'], label: 'opération' }, materiau_couverture: { label: 'matériau de couverture' }, couleur: { label: 'couleur' } } },
+    ouverture: { fields: { type_ouverture: { enum: ['fenetre', 'porte', 'porte_fenetre', 'fenetre_toit'], label: 'type' }, operation: { enum: ['creation', 'agrandissement', 'suppression'], label: 'opération' }, facade: { label: 'façade concernée' } } },
+}
+function fieldSpecPrompt(type: string): string {
+    const spec = FIELD_SPEC[type]
+    if (!spec) return '  (aucun champ modifiable)'
+    return Object.entries(spec.fields).map(([k, d]) =>
+        `  - "${k}" (${d.label})${d.enum ? ` : valeurs autorisées ${d.enum.map(e => `"${e}"`).join(', ')}` : ' : texte libre'}`
+    ).join('\n')
+}
+// Validate + coerce the AI's proposal so it can only set known fields to allowed values.
+function sanitizeProposal(ai: any, type: string) {
+    const spec = FIELD_SPEC[type]
+    if (!ai || typeof ai !== 'object' || !spec) return null
+    const src = (ai.patch && typeof ai.patch === 'object') ? ai.patch : ai
+    const patch: Record<string, any> = {}
+    for (const [key, def] of Object.entries(spec.fields)) {
+        const v = src[key]
+        if (v == null || v === '') continue
+        if (def.enum) {
+            const nv = def.enum.find(e => norm(e) === norm(v)) || def.enum.find(e => norm(String(v)).includes(norm(e)))
+            if (nv) patch[key] = nv
+        } else {
+            patch[key] = String(v).slice(0, 160)
+        }
+    }
+    if (Object.keys(patch).length === 0) return null
+    const description = typeof ai.description === 'string' ? ai.description.trim().slice(0, 600) : ''
+    if (description) patch.description = description
+    const aiFields = Array.isArray(ai.fields) ? ai.fields.map((x: any) => String(x).slice(0, 220)).slice(0, 5) : []
+    const fallbackFields = Object.keys(patch).filter(k => k !== 'description').map(k => `${spec.fields[k]?.label || k} → ${patch[k]}`)
+    return { target: type, patch, fields: aiFields.length ? aiFields : fallbackFields, description }
+}
+
 // Deterministic, ABF-conforming counter-proposal for the violations found — one patch that fixes
 // every offending field of the selected work type, plus a rewritten project description. Powers the
 // "Appliquer la proposition" button on Étape 4.
@@ -376,6 +419,8 @@ Tu dois produire une ESTIMATION INDICATIVE (et non l'extrait verbatim du règlem
 Dans le rapport, indique clairement qu'il s'agit d'une estimation à confirmer avec le règlement de la commune. Renseigne quand même des valeurs réalistes typiques dans "rules" (matériaux/couleurs/extension/toiture) pour ce type de zone, et mets des "excerpts" génériques (ex: « Estimation — règle type pour zone ${zt} »).`
         }
 
+        const fieldSpecText = fieldSpecPrompt(travaux.type)
+
         const prompt = `Tu es un expert d'élite en urbanisme français et instructeur de dossiers de déclaration préalable (DP).
 Ton rôle est d'analyser le règlement du Plan Local d'Urbanisme (PLU) fourni, d'en extraire les règles clés de manière structurée et de rédiger une notice descriptive synthétique.
 
@@ -444,13 +489,25 @@ Le JSON doit respecter exactement ce schéma :
        "ABF_review": boolean, // Mettre true si le règlement du PLU mentionne des contraintes de monument historique spécifiques à cette zone
        "excerpts": string[]
     }
-  }
+  },
+  "proposal": null // À REMPLIR UNIQUEMENT si le projet n'est PAS conforme (sinon null). Propose une
+                   // correction CONCRÈTE, réaliste et FONDÉE sur le règlement et le contexte
+                   // patrimonial ci-dessus, sous la forme :
+                   // {
+                   //   "fields": string[],   // 1 à 4 puces en français : quel champ changer et pourquoi
+                   //                          // (ex: "Matériau → bois peint : le PVC est proscrit par le règlement du secteur sauvegardé")
+                   //   "patch": object,      // objet { champ: valeur } rendant le projet conforme.
+                   //                          // N'UTILISE STRICTEMENT QUE ces champs et valeurs autorisés :
+${fieldSpecText}
+                   //   "description": string // nouvelle description du projet (français), conforme, prête à figurer sur la déclaration
+                   // }
 }`
 
         // ── Run extraction (cached by document+zone), or use RNU template ───────
         const cacheKey = `${docUrl || 'rnu'}|${zoneLibelle || ''}`
         let report = ''
         let extractedRules: any = null
+        let aiProposalRaw: any = null   // règlement-grounded proposal from the model (project-specific)
         let verified = true
 
         const cached = !plu?.isRnu && extractionCache.get(cacheKey)
@@ -470,7 +527,7 @@ Le JSON doit respecter exactement ce schéma :
                 : prompt + extra
             const model = pluImages.length > 0 ? PLU_VISION_MODEL : PLU_MODEL
 
-            let parsed: { report?: string; rules?: any } | null = null
+            let parsed: { report?: string; rules?: any; proposal?: any } | null = null
             try { parsed = parseRulesJson(await callOpenRouter(apiKey, model, buildContent())) }
             catch (e) { console.error('PLU model call failed:', e) }
             if (!parsed || !parsed.rules) {
@@ -481,6 +538,7 @@ Le JSON doit respecter exactement ce schéma :
             if (parsed) {
                 report = parsed.report || ''
                 extractedRules = parsed.rules || null
+                aiProposalRaw = parsed.proposal ?? null
             }
             if (extractedRules) extractionCache.set(cacheKey, { report, extractedRules, pdfType, source, at: Date.now() })
         }
@@ -531,6 +589,15 @@ Le JSON doit respecter exactement ce schéma :
                     ? 'Le règlement PLU n’a pas pu être analysé automatiquement : confirmez la conformité manuellement à partir du document officiel.'
                     : 'Analyse ESTIMATIVE : le règlement écrit de la commune n’a pas pu être récupéré. Les règles ci-dessus sont une estimation fondée sur le type de zone et les règles nationales (art. R.111-27) ; les contraintes détectées (sismicité, inondation, SPR, Monuments Historiques) sont en revanche fiables. À confirmer avec le règlement officiel de la commune.'
             )
+        }
+
+        // Prefer the model's règlement-grounded proposal (sanitised to valid form fields/values) over
+        // the deterministic fallback — but only when there IS a non-conformity to correct.
+        if (evaluationResult.violations.length > 0) {
+            const aiProposal = sanitizeProposal(aiProposalRaw, travaux.type)
+            if (aiProposal) evaluationResult.proposal = aiProposal
+        } else {
+            evaluationResult.proposal = null
         }
 
         return NextResponse.json({
