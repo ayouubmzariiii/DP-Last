@@ -261,17 +261,29 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
 
         const fC = geoData.cadastre?.features || []
 
+        // Prefer the applicant's exact cadastral reference (section + numéro) over nearest-to-geocode,
+        // so the preview highlights the same parcel the filed PDF identifies. See dpDocGenerator DP2.
+        const normSec = (s: any) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, '')
+        const normNum = (n: any) => String(parseInt(String(n || '').replace(/[^0-9]/g, ''), 10) || '')
+        const wantSec = normSec(formData?.terrain?.section_cadastrale)
+        const wantNum = normNum(formData?.terrain?.numero_parcelle)
+
         let targetIdx = -1
-        let minDist = Infinity
-        for (let i = 0; i < fC.length; i++) {
-            const rings = getCoords(fC[i])
-            if (!rings || !rings[0]) continue
-            const ring = rings[0] as number[][]
-            let fx = 0, fy = 0
-            for (const c of ring) { fx += c[0]; fy += c[1] }
-            fx /= ring.length; fy /= ring.length
-            const dist = Math.sqrt((fx - cx) ** 2 + (fy - cy) ** 2)
-            if (dist < minDist) { minDist = dist; targetIdx = i }
+        if (wantSec && wantNum) {
+            targetIdx = fC.findIndex((f: any) => normSec(f.properties?.section) === wantSec && normNum(f.properties?.numero) === wantNum)
+        }
+        if (targetIdx < 0) {
+            let minDist = Infinity
+            for (let i = 0; i < fC.length; i++) {
+                const rings = getCoords(fC[i])
+                if (!rings || !rings[0]) continue
+                const ring = rings[0] as number[][]
+                let fx = 0, fy = 0
+                for (const c of ring) { fx += c[0]; fy += c[1] }
+                fx /= ring.length; fy /= ring.length
+                const dist = Math.sqrt((fx - cx) ** 2 + (fy - cy) ** 2)
+                if (dist < minDist) { minDist = dist; targetIdx = i }
+            }
         }
 
         let viewMinX = cx - 60, viewMaxX = cx + 60, viewMinY = cy - 60, viewMaxY = cy + 60

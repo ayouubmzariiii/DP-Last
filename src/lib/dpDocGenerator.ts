@@ -723,7 +723,16 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 return []
             }
 
-            // 1. Find target parcel
+            // 1. Find target parcel — prefer an EXACT match on the cadastral reference the applicant
+            // declared (section + numéro), which uniquely identifies the parcel. IGN tags every
+            // parcelle with `section`/`numero`, so we can pick the right polygon deterministically.
+            // Nearest-to-geocode is only a fallback: a geocoded address can land on the roof or the
+            // street and select a neighbouring parcel, mis-identifying the plan filed with the mairie.
+            const normSec = (s: any) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, '')
+            const normNum = (n: any) => String(parseInt(String(n || '').replace(/[^0-9]/g, ''), 10) || '')
+            const wantSec = normSec(t.section_cadastrale)
+            const wantNum = normNum(t.numero_parcelle)
+
             let targetParcel: any = null
             let minDist = Infinity
             let cx3857 = 0, cy3857 = 0
@@ -731,7 +740,13 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 const R = 6378137
                 cx3857 = R * coords.lon * Math.PI / 180
                 cy3857 = R * Math.log(Math.tan(Math.PI / 4 + (coords.lat * Math.PI / 180) / 2))
-                
+            }
+
+            if (wantSec && wantNum) {
+                targetParcel = featuresC.find((f: any) =>
+                    normSec(f.properties?.section) === wantSec && normNum(f.properties?.numero) === wantNum) || null
+            }
+            if (!targetParcel && coords) {
                 for (const feat of featuresC) {
                     const rings = getCoordArrays(feat)
                     if (!rings || !rings[0]) continue
@@ -895,8 +910,11 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             tx(page, "Voiries / Autres", legX + 26, legY + 18, 7.5, font)
             tx(page, "IGN - BD TOPO / Cadastre", legX + 26, legY + 4, 6, fontOblique, C.mid)
 
-            // Cadastral reference printed directly on the plan (required identification).
-            const cadRef = san(`Parcelle ${t.section_cadastrale || ''} ${t.numero_parcelle || ''}`.trim())
+            // Cadastral reference printed directly on the plan (required identification). When the
+            // target parcel was matched, append its OFFICIAL surface (contenance, m²) from the
+            // cadastre — an authoritative figure that confirms the plan identifies the right parcel.
+            const officialArea = targetParcel?.properties?.contenance
+            const cadRef = san(`Parcelle ${t.section_cadastrale || ''} ${t.numero_parcelle || ''}${officialArea ? ` - ${officialArea} m2` : ''}`.trim())
             if (cadRef.length > 9) {
                 const crw = bold.widthOfTextAtSize(cadRef, 9)
                 box(page, startX + drawW - crw - 18, startY + drawH - 26, crw + 14, 18, C.white, C.dark, 0.6)
