@@ -3,6 +3,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
+interface DossierFiles {
+    situation: boolean
+    masse: boolean
+    notice: boolean
+    photos: number
+    simulations: number
+    croquis: number
+}
 interface DossierMeta {
     id: string
     title: string
@@ -10,6 +18,8 @@ interface DossierMeta {
     lastStep: number
     createdAt: string
     updatedAt: string
+    empty?: boolean
+    summary?: { applicant: string; address: string; worksType: string; files: DossierFiles }
 }
 interface Account {
     email: string
@@ -76,10 +86,24 @@ export default function ProfilePage() {
 
     const fmtDate = (iso?: string) => { if (!iso) return ''; try { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { return '' } }
 
-    const total = dossiers?.length ?? 0
-    const complete = dossiers?.filter(d => d.status === 'complete').length ?? 0
+    // Empty dossiers (nothing but the account-seeded identity — no terrain, works or files) are not
+    // real projects: hide them from the list and the counts.
+    const projects = (dossiers ?? []).filter(d => !d.empty)
+    const total = projects.length
+    const complete = projects.filter(d => d.status === 'complete').length
     const drafts = total - complete
     const initial = (account?.fullName || account?.email || '?').charAt(0).toUpperCase()
+
+    const fileChips = (f: DossierFiles): string[] => {
+        const c: string[] = []
+        if (f.situation) c.push('Plan de situation')
+        if (f.masse) c.push('Plan de masse')
+        if (f.photos) c.push(`${f.photos} photo${f.photos > 1 ? 's' : ''}`)
+        if (f.simulations) c.push(`${f.simulations} simulation${f.simulations > 1 ? 's' : ''} IA`)
+        if (f.croquis) c.push(`${f.croquis} croquis`)
+        if (f.notice) c.push('Notice descriptive')
+        return c
+    }
 
     const tabStyle = (active: boolean): React.CSSProperties => ({
         padding: '9px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
@@ -141,7 +165,7 @@ export default function ProfilePage() {
 
                     {dossiers === null ? (
                         <div className="dp-card" style={{ textAlign: 'center', padding: '64px 0' }}><span className="dp-spinner dp-spinner-lg" /></div>
-                    ) : dossiers.length === 0 ? (
+                    ) : projects.length === 0 ? (
                         <div className="dp-card" style={{ textAlign: 'center', padding: '56px 0' }}>
                             <div style={{ fontSize: 34, marginBottom: 12 }}>📁</div>
                             <h3 style={{ fontFamily: 'var(--hf)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Aucun projet pour le moment</h3>
@@ -150,26 +174,43 @@ export default function ProfilePage() {
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            {dossiers.map(d => (
-                                <div key={d.id} className="dp-card" style={{ padding: '16px 18px' }}>
-                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                                        <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="w-full sm:flex-1" style={{ minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                                                <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflowWrap: 'anywhere' }}>{d.title}</span>
-                                                <span className={d.status === 'complete' ? 'dp-chip is-ok' : 'dp-chip'}>{d.status === 'complete' ? 'Complet' : 'Brouillon'}</span>
+                            {projects.map(d => {
+                                const chips = d.summary ? fileChips(d.summary.files) : []
+                                const details = [d.summary?.worksType, d.summary?.address].filter(Boolean).join(' · ')
+                                return (
+                                    <div key={d.id} className="dp-card" style={{ padding: '16px 18px' }}>
+                                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                                            <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="w-full sm:flex-1" style={{ minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                    <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflowWrap: 'anywhere' }}>{d.title}</span>
+                                                    <span className={d.status === 'complete' ? 'dp-chip is-ok' : 'dp-chip'}>{d.status === 'complete' ? 'Complet' : 'Brouillon'}</span>
+                                                </div>
+                                                {details && (
+                                                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', marginBottom: 4, overflowWrap: 'anywhere' }}>{details}</div>
+                                                )}
+                                                <div className="dp-meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12.5, lineHeight: 1.5 }}>
+                                                    {d.summary?.applicant ? `${d.summary.applicant} · ` : ''}Étape {d.lastStep}/7 · {STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · modifié le {fmtDate(d.updatedAt)}
+                                                </div>
+                                                {chips.length > 0 && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                                                        {chips.map(c => (
+                                                            <span key={c} className="dp-chip is-ok" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center' }}>
+                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                                                                {c}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </button>
+                                            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                                                <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary flex-1 sm:flex-none justify-center" style={{ padding: '9px 16px', fontSize: 13 }}>Ouvrir</button>
+                                                <button onClick={() => rename(d)} className="dp-btn-secondary flex-1 sm:flex-none justify-center" style={{ padding: '9px 14px', fontSize: 13 }}>Renommer</button>
+                                                <button onClick={() => remove(d)} className="dp-btn-secondary justify-center shrink-0" style={{ padding: '9px 13px', fontSize: 13 }} title="Supprimer" aria-label="Supprimer">🗑</button>
                                             </div>
-                                            <div className="dp-meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12.5, lineHeight: 1.5 }}>
-                                                Étape {d.lastStep}/7 · {STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · modifié le {fmtDate(d.updatedAt)}
-                                            </div>
-                                        </button>
-                                        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                                            <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary flex-1 sm:flex-none justify-center" style={{ padding: '9px 16px', fontSize: 13 }}>Ouvrir</button>
-                                            <button onClick={() => rename(d)} className="dp-btn-secondary flex-1 sm:flex-none justify-center" style={{ padding: '9px 14px', fontSize: 13 }}>Renommer</button>
-                                            <button onClick={() => remove(d)} className="dp-btn-secondary justify-center shrink-0" style={{ padding: '9px 13px', fontSize: 13 }} title="Supprimer" aria-label="Supprimer">🗑</button>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     )}
                 </>
