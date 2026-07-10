@@ -16,11 +16,10 @@ const PLU_CALL_TIMEOUT_MS = 100_000
 // and works with any OpenRouter key (no credits required). For higher accuracy on legal text /
 // scanned règlements, set OPENROUTER_PLU_MODEL (and optionally OPENROUTER_VISION_MODEL) to a
 // stronger model your key can access, e.g. 'google/gemini-3.5-flash'.
-// Text extraction: tencent/hy3 (a text-to-text REASONING model). It does NOT accept the
-// json_object response format and needs a large token budget (reasoning chain + JSON output) —
-// see callOpenRouter. Override with OPENROUTER_PLU_MODEL.
-const PLU_MODEL = process.env.OPENROUTER_PLU_MODEL || 'tencent/hy3:free'
-// Vision (scanned règlements) needs a vision-capable model; hy3 is text-only, so keep a router here.
+// openrouter/free auto-routes to an appropriate free model based on need (fast, vision-capable).
+// We don't force json_object (some routed models reject it) — the JSON is parsed from the reply.
+// Override with OPENROUTER_PLU_MODEL / OPENROUTER_VISION_MODEL for higher accuracy.
+const PLU_MODEL = process.env.OPENROUTER_PLU_MODEL || 'openrouter/free'
 const PLU_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || 'openrouter/free'
 
 // In-memory extraction cache keyed by document URL + zone (règlements change rarely → big
@@ -123,6 +122,48 @@ function proposedAspects(travaux: any) {
     }
 }
 
+// Deterministic, ABF-conforming counter-proposal for the violations found — one patch that fixes
+// every offending field of the selected work type, plus a rewritten project description. Powers the
+// "Appliquer la proposition" button on Étape 4.
+const CONFORMING_DESCRIPTION: Record<string, string> = {
+    menuiseries: 'Remplacement des fenêtres et de la porte d’entrée par des menuiseries en bois peint, teinte sobre validée par l’ABF.',
+    isolation: 'Isolation thermique par l’extérieur avec enduit à la chaux, teinte ton pierre en harmonie avec le bâti ancien.',
+    photovoltaique: 'Pose de panneaux photovoltaïques en intégration à la toiture, non visibles depuis l’espace public.',
+    cloture: 'Clôture sur rue de type mur-bahut en pierre surmonté d’une grille en ferronnerie, en harmonie avec le centre ancien.',
+    ravalement: 'Ravalement de façade à l’enduit à la chaux, teinte ton pierre du nuancier communal.',
+    toiture: 'Réfection de la toiture en tuile plate de terre cuite, à l’identique du bâti traditionnel.',
+    ouverture: 'Création d’ouverture sur un versant non visible depuis l’espace public, en cohérence avec la composition d’origine.',
+}
+function buildProposal(travaux: any, V: Map<string, string>) {
+    const t = travaux.type
+    const patch: Record<string, any> = {}
+    const fields: string[] = []
+    const has = (c: string) => V.has(c)
+    if (t === 'menuiseries') {
+        if (has('facade_mat')) { patch.materiau = 'bois'; fields.push('Matériau des menuiseries → bois peint (au lieu du PVC)') }
+        if (has('color')) { patch.couleur = 'Gris clair'; patch.couleur_ral = ''; fields.push('Teinte → teinte sobre validée par l’ABF') }
+    } else if (t === 'isolation') {
+        if (has('facade_mat')) { patch.type_finition = 'enduit'; fields.push('Finition → enduit à la chaux (au lieu du bardage métallique)') }
+        if (has('color')) { patch.couleur = 'Ton pierre'; fields.push('Teinte → ton pierre du bâti ancien') }
+    } else if (t === 'photovoltaique') {
+        if (has('pv')) { patch.integration = 'integration'; fields.push('Implantation → panneaux intégrés, non visibles depuis la rue') }
+    } else if (t === 'cloture') {
+        if (has('facade_mat')) { patch.type_cloture = 'mur_bahut'; patch.materiau = 'Pierre + ferronnerie'; fields.push('Type / matériau → mur-bahut en pierre + grille en ferronnerie (au lieu du PVC)') }
+        if (has('color')) { patch.couleur = ''; fields.push('Teinte → sobre / naturelle') }
+    } else if (t === 'ravalement') {
+        if (has('color')) { patch.couleur = 'Ton pierre (nuancier communal)'; fields.push('Teinte → ton pierre du nuancier communal') }
+        if (has('facade_mat')) { patch.finition = 'enduit'; fields.push('Finition → enduit à la chaux') }
+    } else if (t === 'toiture') {
+        if (has('roof')) { patch.materiau_couverture = 'Tuile plate terre cuite'; patch.couleur = 'Terre cuite'; fields.push('Couverture → tuile plate de terre cuite (au lieu du bac acier)') }
+    } else if (t === 'ouverture') {
+        if (has('opening')) { patch.facade = 'Versant non visible depuis la rue'; fields.push('Emplacement → versant non visible depuis la rue') }
+    }
+    if (!fields.length) return null
+    const description = CONFORMING_DESCRIPTION[t] || ''
+    patch.description = description
+    return { target: t, patch, fields, description }
+}
+
 function evaluateProject(travaux: any, rules: any, overlays: any) {
     // Dedupe violations by category so the règlement-based and heritage checks never double-count.
     const V = new Map<string, string>()
@@ -204,7 +245,8 @@ function evaluateProject(travaux: any, rules: any, overlays: any) {
 
     const violations = Array.from(V.values())
     const status = violations.length ? 'NON CONFORME' : 'PROBABLEMENT CONFORME'
-    return { status, decision, violations, warnings }
+    const proposal = violations.length ? buildProposal(travaux, V) : null
+    return { status, decision, violations, warnings, proposal }
 }
 
 export async function POST(req: NextRequest) {

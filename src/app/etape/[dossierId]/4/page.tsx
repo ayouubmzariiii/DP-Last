@@ -8,11 +8,12 @@ import { isProtectedSector, pluAspectConflicts } from '@/lib/validation'
 export default function Etape4() {
     const router = useRouter()
     const dossierId = useParams<{ dossierId: string }>().dossierId as string
-    const { formData, updateTerrain } = useDPContext()
+    const { formData, updateTerrain, updateTravaux } = useDPContext()
     const terrain = formData.terrain
     const travaux = formData.travaux
 
     const [analyzing, setAnalyzing] = useState(false)
+    const [applying, setApplying] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [showExtractedText, setShowExtractedText] = useState(false)
     const [showPdf, setShowPdf] = useState(false)
@@ -21,8 +22,8 @@ export default function Etape4() {
     const plu = terrain.plu
     const hasReport = !!plu?.analysisReport
 
-    const runAnalysis = async () => {
-        if (!travaux.type) {
+    const runAnalysis = async (travauxArg: typeof travaux = travaux) => {
+        if (!travauxArg.type) {
             setError("Veuillez renseigner le type de travaux à l'étape précédente.")
             return
         }
@@ -34,8 +35,8 @@ export default function Etape4() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     plu: terrain.plu,
-                    travaux: travaux,
-                    description_projet: terrain.description_projet
+                    travaux: travauxArg,
+                    description_projet: travauxArg.description_projet || terrain.description_projet
                 })
             })
             if (!res.ok) throw new Error("Erreur lors de la communication avec l'assistant PLU.")
@@ -61,6 +62,17 @@ export default function Etape4() {
         } finally {
             setAnalyzing(false)
         }
+    }
+
+    // Apply the engine's counter-proposal: patch the offending work-type fields + the project
+    // description, then re-run the analysis so the verdict refreshes (smoothly, in place).
+    const applyProposal = async (p: any) => {
+        if (!p?.target) return
+        setApplying(true)
+        const nextSub = { ...((travaux as Record<string, any>)[p.target] || {}), ...p.patch }
+        const nextTravaux = { ...travaux, [p.target]: nextSub, description_projet: p.description } as typeof travaux
+        updateTravaux({ [p.target]: nextSub, description_projet: p.description } as any)
+        try { await runAnalysis(nextTravaux) } finally { setApplying(false) }
     }
 
     // Auto-run analysis on mount if not already present
@@ -167,7 +179,7 @@ export default function Etape4() {
                                 <h3 className="font-bold t-ink">Échec de l'analyse PLU</h3>
                                 <p className="text-sm t-error mt-1">{error}</p>
                                 <div className="mt-4 flex gap-3">
-                                    <button onClick={runAnalysis} className="dp-btn-primary text-xs !px-4 !py-2">
+                                    <button onClick={() => runAnalysis()} className="dp-btn-primary text-xs !px-4 !py-2">
                                         Réessayer l'analyse
                                     </button>
                                     <button onClick={() => router.push(`/etape/${dossierId}/3`)} className="dp-btn-secondary text-xs !px-4 !py-2">
@@ -289,6 +301,29 @@ export default function Etape4() {
                                             <li key={idx} className="leading-relaxed">{violation}</li>
                                         ))}
                                     </ul>
+                                </div>
+                            )}
+
+                            {/* Counter-proposal — a conforming alternative per field, one click to apply. */}
+                            {plu?.evaluationResult?.proposal && (
+                                <div className="mt-3 p-3 rounded-xl" style={{ background: 'var(--act)', border: '1px solid var(--acb)' }}>
+                                    <div className="dp-meta t-accent flex items-center gap-1 mb-1.5">💡 Proposition de mise en conformité</div>
+                                    <ul className="text-xs t-ink2 space-y-1 mb-2.5 pl-1">
+                                        {plu.evaluationResult.proposal.fields.map((f: string, i: number) => (
+                                            <li key={i} className="leading-relaxed flex gap-1.5"><span className="t-accent">✓</span><span>{f}</span></li>
+                                        ))}
+                                    </ul>
+                                    <button
+                                        onClick={() => applyProposal(plu.evaluationResult.proposal)}
+                                        disabled={analyzing || applying}
+                                        className="dp-btn-primary disabled:opacity-50"
+                                        style={{ padding: '8px 16px', fontSize: 13 }}
+                                    >
+                                        {applying ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Application…</> : 'Appliquer la proposition'}
+                                    </button>
+                                    <p className="text-[10px] t-ink2 mt-1.5" style={{ opacity: .7 }}>
+                                        Met à jour le type de travaux (détails) et la description du projet, puis relance l'analyse.
+                                    </p>
                                 </div>
                             )}
 
@@ -638,7 +673,7 @@ export default function Etape4() {
                                 Retour
                             </button>
                             <div className="flex items-center gap-3">
-                                <button onClick={runAnalysis} className="dp-btn-secondary text-xs !px-4 !py-2">
+                                <button onClick={() => runAnalysis()} className="dp-btn-secondary text-xs !px-4 !py-2">
                                     🔄 Réanalyser
                                 </button>
                                 {(() => {
