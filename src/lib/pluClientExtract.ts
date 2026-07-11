@@ -8,8 +8,10 @@
 
 const MIN_TEXT_CHARS = 600
 const MAX_TEXT_CHARS = 120_000
-const MAX_OCR_PAGES = 8
+const MAX_OCR_PAGES = 8       // content pages to send for OCR
+const MAX_SCAN_PAGES = 60     // how far to scan looking for content pages
 const OCR_SCALE = 1.6
+const INK_MIN = 0.012         // min fraction of non-white pixels for a page to count as "content"
 
 export interface ClientReglement {
     text?: string
@@ -51,10 +53,11 @@ export async function extractReglementClient(url: string): Promise<ClientRegleme
             return { text: text.slice(0, MAX_TEXT_CHARS) }
         }
 
-        // 2) Scanned / image-only → render the first pages to JPEG data URLs for vision-OCR.
+        // 2) Scanned / image-only → render pages to JPEGs for vision-OCR, SKIPPING near-blank pages
+        //    (covers, separators, mostly-white pages) so the OCR sees actual rule content.
         const images: string[] = []
-        const n = Math.min(pdf.numPages, MAX_OCR_PAGES)
-        for (let i = 1; i <= n; i++) {
+        const scanLimit = Math.min(pdf.numPages, MAX_SCAN_PAGES)
+        for (let i = 1; i <= scanLimit && images.length < MAX_OCR_PAGES; i++) {
             const page = await pdf.getPage(i)
             const viewport = page.getViewport({ scale: OCR_SCALE })
             const canvas = document.createElement('canvas')
@@ -63,6 +66,13 @@ export async function extractReglementClient(url: string): Promise<ClientRegleme
             const ctx = canvas.getContext('2d')
             if (!ctx) continue
             await page.render({ canvasContext: ctx, viewport }).promise
+            // Measure "ink" (non-near-white sampled pixels); skip pages below the threshold.
+            let ink = 0, sampled = 0
+            try {
+                const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+                for (let p = 0; p < data.length; p += 4 * 24) { sampled++; if (data[p] < 235 || data[p + 1] < 235 || data[p + 2] < 235) ink++ }
+            } catch { sampled = 1; ink = 1 } // if pixel read is blocked, keep the page
+            if (sampled > 0 && ink / sampled < INK_MIN) continue
             images.push(canvas.toDataURL('image/jpeg', 0.7))
         }
         return images.length ? { images } : { error: 'PDF illisible (ni texte ni image exploitable).' }

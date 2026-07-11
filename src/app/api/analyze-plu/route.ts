@@ -142,8 +142,10 @@ function fieldSpecPrompt(type: string): string {
         `  - "${k}" (${d.label})${d.enum ? ` : valeurs autorisées ${d.enum.map(e => `"${e}"`).join(', ')}` : ' : texte libre'}`
     ).join('\n')
 }
-// Validate + coerce the AI's proposal so it can only set known fields to allowed values.
-function sanitizeProposal(ai: any, type: string) {
+// Validate + coerce the AI's proposal so its suggested values only ever hit known fields with
+// allowed enum values. Returns the sanitised patch (may be partial/empty), the "why" bullets and the
+// rewritten description — the editable proposal is assembled by buildEditableProposal.
+function sanitizeProposal(ai: any, type: string): { patch: Record<string, any>; fields: string[]; description: string } | null {
     const spec = FIELD_SPEC[type]
     if (!ai || typeof ai !== 'object' || !spec) return null
     const src = (ai.patch && typeof ai.patch === 'object') ? ai.patch : ai
@@ -158,54 +160,53 @@ function sanitizeProposal(ai: any, type: string) {
             patch[key] = String(v).slice(0, 160)
         }
     }
-    if (Object.keys(patch).length === 0) return null
     const description = typeof ai.description === 'string' ? ai.description.trim().slice(0, 600) : ''
-    if (description) patch.description = description
-    const aiFields = Array.isArray(ai.fields) ? ai.fields.map((x: any) => String(x).slice(0, 220)).slice(0, 5) : []
-    const fallbackFields = Object.keys(patch).filter(k => k !== 'description').map(k => `${spec.fields[k]?.label || k} → ${patch[k]}`)
-    return { target: type, patch, fields: aiFields.length ? aiFields : fallbackFields, description }
+    const fields = Array.isArray(ai.fields) ? ai.fields.map((x: any) => String(x).slice(0, 220)).slice(0, 5) : []
+    return { patch, fields, description }
 }
 
-// Deterministic, ABF-conforming counter-proposal for the violations found — one patch that fixes
-// every offending field of the selected work type, plus a rewritten project description. Powers the
-// "Appliquer la proposition" button on Étape 4.
-const CONFORMING_DESCRIPTION: Record<string, string> = {
-    menuiseries: 'Remplacement des fenêtres et de la porte d’entrée par des menuiseries en bois peint, teinte sobre validée par l’ABF.',
-    isolation: 'Isolation thermique par l’extérieur avec enduit à la chaux, teinte ton pierre en harmonie avec le bâti ancien.',
-    photovoltaique: 'Pose de panneaux photovoltaïques en intégration à la toiture, non visibles depuis l’espace public.',
-    cloture: 'Clôture sur rue de type mur-bahut en pierre surmonté d’une grille en ferronnerie, en harmonie avec le centre ancien.',
-    ravalement: 'Ravalement de façade à l’enduit à la chaux, teinte ton pierre du nuancier communal.',
-    toiture: 'Réfection de la toiture en tuile plate de terre cuite, à l’identique du bâti traditionnel.',
-    ouverture: 'Création d’ouverture sur un versant non visible depuis l’espace public, en cohérence avec la composition d’origine.',
-}
-function buildProposal(travaux: any, V: Map<string, string>) {
-    const t = travaux.type
-    const patch: Record<string, any> = {}
-    const fields: string[] = []
-    const has = (c: string) => V.has(c)
-    if (t === 'menuiseries') {
-        if (has('facade_mat')) { patch.materiau = 'bois'; fields.push('Matériau des menuiseries → bois peint (au lieu du PVC)') }
-        if (has('color')) { patch.couleur = 'Gris clair'; patch.couleur_ral = ''; fields.push('Teinte → teinte sobre validée par l’ABF') }
-    } else if (t === 'isolation') {
-        if (has('facade_mat')) { patch.type_finition = 'enduit'; fields.push('Finition → enduit à la chaux (au lieu du bardage métallique)') }
-        if (has('color')) { patch.couleur = 'Ton pierre'; fields.push('Teinte → ton pierre du bâti ancien') }
-    } else if (t === 'photovoltaique') {
-        if (has('pv')) { patch.integration = 'integration'; fields.push('Implantation → panneaux intégrés, non visibles depuis la rue') }
-    } else if (t === 'cloture') {
-        if (has('facade_mat')) { patch.type_cloture = 'mur_bahut'; patch.materiau = 'Pierre + ferronnerie'; fields.push('Type / matériau → mur-bahut en pierre + grille en ferronnerie (au lieu du PVC)') }
-        if (has('color')) { patch.couleur = ''; fields.push('Teinte → sobre / naturelle') }
-    } else if (t === 'ravalement') {
-        if (has('color')) { patch.couleur = 'Ton pierre (nuancier communal)'; fields.push('Teinte → ton pierre du nuancier communal') }
-        if (has('facade_mat')) { patch.finition = 'enduit'; fields.push('Finition → enduit à la chaux') }
-    } else if (t === 'toiture') {
-        if (has('roof')) { patch.materiau_couverture = 'Tuile plate terre cuite'; patch.couleur = 'Terre cuite'; fields.push('Couverture → tuile plate de terre cuite (au lieu du bac acier)') }
-    } else if (t === 'ouverture') {
-        if (has('opening')) { patch.facade = 'Versant non visible depuis la rue'; fields.push('Emplacement → versant non visible depuis la rue') }
+// Which editable field(s) each violation category maps to, per work type. This is DERIVED from the
+// actual non-conformities (not a hardcoded fix) — the values are filled by the analysing AI.
+function fieldsForViolations(type: string, categories: string[]): string[] {
+    const has = (c: string) => categories.includes(c)
+    const keys = new Set<string>()
+    if (has('facade_mat')) {
+        if (type === 'menuiseries') keys.add('materiau')
+        else if (type === 'isolation') keys.add('type_finition')
+        else if (type === 'cloture') { keys.add('type_cloture'); keys.add('materiau') }
+        else if (type === 'ravalement') keys.add('finition')
     }
-    if (!fields.length) return null
-    const description = CONFORMING_DESCRIPTION[t] || ''
-    patch.description = description
-    return { target: t, patch, fields, description }
+    if (has('color')) keys.add('couleur')
+    if (has('roof')) keys.add('materiau_couverture')
+    if (has('pv')) keys.add('integration')
+    if (has('opening')) keys.add('facade')
+    return Array.from(keys).filter(k => FIELD_SPEC[type]?.fields[k])
+}
+
+// Build the counter-proposal shown on Étape 4: for every field the violations point to, an editable
+// control pre-filled with the AI's suggested value (or left blank for the user to fill), plus the
+// AI's "why" bullets and rewritten description. Nothing is hardcoded — fields come from the actual
+// violations, values from the model, hints from the extracted règlement.
+function buildEditableProposal(type: string, categories: string[], aiPatch: any, aiFields: string[], aiDescription: string, rules: any) {
+    const spec = FIELD_SPEC[type]
+    if (!spec) return null
+    const keys = fieldsForViolations(type, categories)
+    if (!keys.length) return null
+    const editableFields = keys.map((key) => {
+        const def = spec.fields[key]
+        let value = aiPatch && aiPatch[key] != null ? String(aiPatch[key]) : ''
+        if (def.enum && value && !def.enum.includes(value)) value = ''
+        const hint = key === 'couleur'
+            ? (rules?.facade?.color_restrictions || 'Teinte sobre de la palette locale, validée par l’ABF')
+            : null
+        return { key, label: def.label, value, options: def.enum || null, hint }
+    })
+    return {
+        target: type,
+        editableFields,
+        why: Array.isArray(aiFields) ? aiFields.map((x) => String(x)).slice(0, 5) : [],
+        description: (aiDescription || '').trim(),
+    }
 }
 
 function evaluateProject(travaux: any, rules: any, overlays: any) {
@@ -289,8 +290,7 @@ function evaluateProject(travaux: any, rules: any, overlays: any) {
 
     const violations = Array.from(V.values())
     const status = violations.length ? 'NON CONFORME' : 'PROBABLEMENT CONFORME'
-    const proposal = violations.length ? buildProposal(travaux, V) : null
-    return { status, decision, violations, warnings, proposal }
+    return { status, decision, violations, warnings, categories: Array.from(V.keys()) }
 }
 
 export async function POST(req: NextRequest) {
@@ -508,9 +508,12 @@ Le JSON doit respecter exactement ce schéma :
                    // correction CONCRÈTE, réaliste et FONDÉE sur le règlement et le contexte
                    // patrimonial ci-dessus, sous la forme :
                    // {
-                   //   "fields": string[],   // 1 à 4 puces en français : quel champ changer et pourquoi
-                   //                          // (ex: "Matériau → bois peint : le PVC est proscrit par le règlement du secteur sauvegardé")
-                   //   "patch": object,      // objet { champ: valeur } rendant le projet conforme.
+                   //   "fields": string[],   // 1 à 4 puces en français décrivant le CHANGEMENT vers la
+                   //                          // nouvelle valeur conforme (jamais l'état actuel), ex:
+                   //                          // "Teinte → « ton pierre » : les teintes vives sont proscrites en secteur sauvegardé"
+                   //   "patch": object,      // objet { champ: valeur } donnant des VALEURS CONCRÈTES conformes.
+                   //                          // Pour un champ texte libre (ex: couleur), propose une teinte PRÉCISE
+                   //                          // (ex: "Ton pierre" ou "RAL 1015"), JAMAIS la valeur actuelle non conforme.
                    //                          // N'UTILISE STRICTEMENT QUE ces champs et valeurs autorisés :
 ${fieldSpecText}
                    //   "description": string // nouvelle description du projet (français), conforme, prête à figurer sur la déclaration
@@ -608,10 +611,12 @@ ${fieldSpecText}
         // Prefer the model's règlement-grounded proposal (sanitised to valid form fields/values) over
         // the deterministic fallback — but only when there IS a non-conformity to correct.
         if (evaluationResult.violations.length > 0) {
-            const aiProposal = sanitizeProposal(aiProposalRaw, travaux.type)
-            if (aiProposal) evaluationResult.proposal = aiProposal
+            const ai = sanitizeProposal(aiProposalRaw, travaux.type)
+            ;(evaluationResult as any).proposal = buildEditableProposal(
+                travaux.type, evaluationResult.categories, ai?.patch, ai?.fields || [], ai?.description || '', extractedRules,
+            )
         } else {
-            evaluationResult.proposal = null
+            (evaluationResult as any).proposal = null
         }
 
         return NextResponse.json({

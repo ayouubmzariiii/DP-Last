@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { isProtectedSector, pluAspectConflicts } from '@/lib/validation'
+import { travauxAspect } from '@/lib/travauxRegistry'
 
 export default function Etape4() {
     const router = useRouter()
@@ -18,6 +19,7 @@ export default function Etape4() {
     const [showExtractedText, setShowExtractedText] = useState(false)
     const [showPdf, setShowPdf] = useState(false)
     const [ack, setAck] = useState(false)
+    const [edits, setEdits] = useState<Record<string, string>>({})
 
     const plu = terrain.plu
     const hasReport = !!plu?.analysisReport
@@ -84,14 +86,28 @@ export default function Etape4() {
         }
     }
 
-    // Apply the engine's counter-proposal: patch the offending work-type fields + the project
-    // description, then re-run the analysis so the verdict refreshes (smoothly, in place).
-    const applyProposal = async (p: any) => {
+    // Re-seed the editable proposal inputs whenever a fresh proposal arrives.
+    useEffect(() => {
+        const ef = (plu?.evaluationResult?.proposal?.editableFields) as { key: string; value: string }[] | undefined
+        setEdits(ef ? Object.fromEntries(ef.map(f => [f.key, f.value || ''])) : {})
+    }, [plu?.evaluationResult?.proposal])
+
+    // Apply the counter-proposal: take the (possibly edited) suggested values for the offending
+    // fields + the new description, patch the work-type details, then re-run the analysis in place.
+    const applyProposal = async () => {
+        const p: any = plu?.evaluationResult?.proposal
         if (!p?.target) return
         setApplying(true)
-        const nextSub = { ...((travaux as Record<string, any>)[p.target] || {}), ...p.patch }
-        const nextTravaux = { ...travaux, [p.target]: nextSub, description_projet: p.description } as typeof travaux
-        updateTravaux({ [p.target]: nextSub, description_projet: p.description } as any)
+        const patch: Record<string, any> = {}
+        for (const f of (p.editableFields || [])) {
+            const v = (edits[f.key] ?? f.value ?? '').toString().trim()
+            if (v) patch[f.key] = v
+        }
+        if (p.description) patch.description = p.description
+        const nextSub = { ...((travaux as Record<string, any>)[p.target] || {}), ...patch }
+        const nextDesc = p.description || travaux.description_projet
+        const nextTravaux = { ...travaux, [p.target]: nextSub, description_projet: nextDesc } as typeof travaux
+        updateTravaux({ [p.target]: nextSub, description_projet: nextDesc } as any)
         try { await runAnalysis(nextTravaux) } finally { setApplying(false) }
     }
 
@@ -154,6 +170,7 @@ export default function Etape4() {
     // Deterministic aspect conflict — the chosen material/teinte is on the règlement's forbidden
     // list. Flagged inline below AND folded into the acknowledgement gate (near-certain refusal).
     const aspectConflict = pluAspectConflicts(formData)
+    const aspect = travauxAspect(formData)
 
     return (
         <>
@@ -339,25 +356,44 @@ export default function Etape4() {
                                 </div>
                             )}
 
-                            {/* Counter-proposal — a conforming alternative per field, one click to apply. */}
-                            {plu?.evaluationResult?.proposal && (
+                            {/* Counter-proposal — the AI suggests a concrete value per offending field;
+                                each is an editable control (pre-filled, adjustable) before applying. */}
+                            {plu?.evaluationResult?.proposal?.editableFields?.length > 0 && (
                                 <div className="mt-3 p-3 rounded-xl" style={{ background: 'var(--act)', border: '1px solid var(--acb)' }}>
-                                    <div className="dp-meta t-accent flex items-center gap-1 mb-1.5">💡 Proposition de mise en conformité</div>
-                                    <ul className="text-xs t-ink2 space-y-1 mb-2.5 pl-1">
-                                        {plu.evaluationResult.proposal.fields.map((f: string, i: number) => (
-                                            <li key={i} className="leading-relaxed flex gap-1.5"><span className="t-accent">✓</span><span>{f}</span></li>
+                                    <div className="dp-meta t-accent flex items-center gap-1 mb-2">💡 Proposition de mise en conformité</div>
+                                    {(plu.evaluationResult.proposal.why || []).length > 0 && (
+                                        <ul className="text-[11px] t-ink2 space-y-0.5 mb-2.5 pl-1">
+                                            {plu.evaluationResult.proposal.why.map((w: string, i: number) => (
+                                                <li key={i} className="leading-relaxed flex gap-1.5"><span className="t-accent">✓</span><span>{w}</span></li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <div className="space-y-2.5">
+                                        {plu.evaluationResult.proposal.editableFields.map((f: any) => (
+                                            <div key={f.key} className="flex flex-col gap-1">
+                                                <label className="text-[11px] font-semibold t-ink2">{f.label}</label>
+                                                {f.options ? (
+                                                    <select className="dp-select text-sm" value={edits[f.key] ?? f.value} onChange={e => setEdits(s => ({ ...s, [f.key]: e.target.value }))}>
+                                                        <option value="">— choisir —</option>
+                                                        {f.options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                                                    </select>
+                                                ) : (
+                                                    <input className="dp-input text-sm" placeholder={f.hint || 'Valeur conforme'} value={edits[f.key] ?? f.value} onChange={e => setEdits(s => ({ ...s, [f.key]: e.target.value }))} />
+                                                )}
+                                                {f.hint && !f.options && <span className="text-[10px] t-ink2" style={{ opacity: .7 }}>Suggestion : {f.hint}</span>}
+                                            </div>
                                         ))}
-                                    </ul>
+                                    </div>
                                     <button
-                                        onClick={() => applyProposal(plu.evaluationResult.proposal)}
+                                        onClick={applyProposal}
                                         disabled={analyzing || applying}
-                                        className="dp-btn-primary disabled:opacity-50"
+                                        className="dp-btn-primary disabled:opacity-50 mt-3"
                                         style={{ padding: '8px 16px', fontSize: 13 }}
                                     >
-                                        {applying ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Application…</> : 'Appliquer la proposition'}
+                                        {applying ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Application…</> : 'Appliquer et relancer l\'analyse'}
                                     </button>
                                     <p className="text-[10px] t-ink2 mt-1.5" style={{ opacity: .7 }}>
-                                        Met à jour le type de travaux (détails) et la description du projet, puis relance l'analyse.
+                                        Met à jour les détails du projet et la description, puis relance l'analyse.
                                     </p>
                                 </div>
                             )}
@@ -553,22 +589,21 @@ export default function Etape4() {
                                         </div>
                                     )}
 
-                                    {/* Color / Aspects rule */}
-                                    {(travaux.menuiseries?.couleur || travaux.isolation?.couleur) && (
+                                    {/* Color / Aspects rule — the proposed teinte comes from the SELECTED
+                                        work type (aspect), never another type's value. */}
+                                    {aspect.color && (
                                         <div className="flex flex-col gap-1 border-b border-[color:var(--line-2)] pb-2">
                                             <div className="flex justify-between font-medium">
                                                 <span className="t-ink2">Teintes & Aspects :</span>
                                                 <span className="t-ink">
-                                                    {plu.extractedRules.facade?.color_restrictions || 
+                                                    {plu.extractedRules.facade?.color_restrictions ||
                                                      (plu.extractedRules.facade?.allowed_colors?.length > 0 ? plu.extractedRules.facade.allowed_colors.join(', ') : 'Non restreint')}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-[11px]">
                                                 <span className="t-muted">Proposé :</span>
                                                 <span className={`font-bold ${aspectConflict.color ? 't-error' : 't-accent'}`}>
-                                                    {travaux.type === 'menuiseries' && travaux.menuiseries
-                                                        ? `${travaux.menuiseries.couleur} ${travaux.menuiseries.couleur_ral ? `(RAL ${travaux.menuiseries.couleur_ral})` : ''}`
-                                                        : travaux.isolation?.couleur}
+                                                    {aspect.color}
                                                     {aspectConflict.color ? ' — ⛔ INTERDIT' : ''}
                                                 </span>
                                             </div>

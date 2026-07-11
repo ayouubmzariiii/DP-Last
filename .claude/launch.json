@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "dp-prod", "runtimeExecutable": "npm", "runtimeArgs": ["run", "start"], "port": 3000 }
+  ]
+}

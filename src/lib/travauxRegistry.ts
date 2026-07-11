@@ -331,6 +331,20 @@ export function travauxWorksLabel(data: DPFormData): string {
     return def ? def.worksLabel(data) : travauxNatureLabel(data)
 }
 
+/** The proposed material + colour for the SELECTED work type (type-aware) — used by the PLU
+ *  "Comparatif" so it never shows another type's value (e.g. isolation's colour on a ravalement). */
+export function travauxAspect(data: DPFormData): { color: string; material: string } {
+    const tr = data.travaux
+    switch (tr.type) {
+        case 'menuiseries': return { color: `${tr.menuiseries?.couleur || ''}${tr.menuiseries?.couleur_ral ? ` (RAL ${tr.menuiseries.couleur_ral})` : ''}`.trim(), material: tr.menuiseries?.materiau || '' }
+        case 'isolation': return { color: tr.isolation?.couleur || '', material: (tr.isolation?.type_finition || '').replace(/_/g, ' ') }
+        case 'cloture': return { color: tr.cloture?.couleur || '', material: tr.cloture?.materiau || '' }
+        case 'ravalement': return { color: tr.ravalement?.couleur || '', material: tr.ravalement?.finition || '' }
+        case 'toiture': return { color: tr.toiture?.couleur || '', material: tr.toiture?.materiau_couverture || '' }
+        default: return { color: '', material: '' }
+    }
+}
+
 /** Type-specific "Description du projet" sentence for the selected works: the sub-form's own
  *  description when filled, else a generated one. Used to pre-fill Étape 3's description field so
  *  it reflects the chosen type instead of a stale one from a previously-selected type. */
