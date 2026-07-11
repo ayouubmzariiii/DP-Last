@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { validateDPForm, piecesChecklist, fatalIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
+import { getTravauxDef } from '@/lib/travauxRegistry'
 
 function RecapSection({ title, icon, items }: {
     title: string; icon: string;
@@ -117,11 +118,11 @@ export default function Etape7() {
         }
     }
 
+    // Nature of works from the travaux registry (single source of truth) — covers all work types,
+    // so newer ones (clôture, ravalement, toiture, ouverture) no longer fall back to "Non défini".
     const getNatureLabel = () => {
-        if (travaux.type === 'menuiseries') return '🪟 Changement de menuiseries'
-        if (travaux.type === 'isolation') return '🏠 Isolation thermique extérieure'
-        if (travaux.type === 'photovoltaique') return '☀️ Panneaux photovoltaïques'
-        return 'Non défini'
+        const def = getTravauxDef(travaux.type)
+        return def ? `${def.icon} ${def.natureLabel}` : 'Non défini'
     }
 
     const getTravDetail = () => {
@@ -156,6 +157,40 @@ export default function Etape7() {
                 { label: 'Inclinaison', value: p.inclinaison ? p.inclinaison + '°' : undefined },
                 { label: 'Intégration', value: p.integration },
                 { label: 'Marque', value: p.marque },
+            ]
+        }
+        if (travaux.type === 'cloture' && travaux.cloture) {
+            const c = travaux.cloture
+            return [
+                { label: 'Type', value: c.type_cloture },
+                { label: 'Matériau', value: c.materiau },
+                { label: 'Couleur', value: c.couleur },
+                { label: 'Hauteur', value: c.hauteur ? c.hauteur + ' m' : undefined },
+            ]
+        }
+        if (travaux.type === 'ravalement' && travaux.ravalement) {
+            const r = travaux.ravalement
+            return [
+                { label: 'Finition', value: r.finition },
+                { label: 'Teinte / couleur', value: r.couleur },
+                { label: 'Matériau', value: r.materiau },
+                { label: 'Façades', value: r.facades_concernees?.join(', ') },
+            ]
+        }
+        if (travaux.type === 'toiture' && travaux.toiture) {
+            const t = travaux.toiture
+            return [
+                { label: 'Opération', value: t.operation },
+                { label: 'Matériau de couverture', value: t.materiau_couverture },
+                { label: 'Couleur', value: t.couleur },
+            ]
+        }
+        if (travaux.type === 'ouverture' && travaux.ouverture) {
+            const o = travaux.ouverture
+            return [
+                { label: 'Type', value: o.type_ouverture },
+                { label: 'Opération', value: o.operation },
+                { label: 'Façade concernée', value: o.facade },
             ]
         }
         return []
