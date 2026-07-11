@@ -800,7 +800,8 @@ export default function Etape6() {
     const [isEditingAI, setIsEditingAI] = useState(false)
     const [isEditingCroquis, setIsEditingCroquis] = useState(false)
     const [aiGenerated, setAiGenerated] = useState(false)
-    const [aiInstruction, setAiInstruction] = useState(formData.terrain.description_projet || '')
+    const [aiInstruction, setAiInstruction] = useState('')
+    const aiInstructionDirty = useRef(false)   // true once the user edits the field manually
     const [dp4Notice, setDp4Notice] = useState(formData.plans.dp4_notice || '')
     // DP4 AI Text Generation
     const [isGeneratingDP4, setIsGeneratingDP4] = useState(false)
@@ -813,17 +814,20 @@ export default function Etape6() {
     const [generatingFacades, setGeneratingFacades] = useState<string[]>([])
     const [showModifyInput, setShowModifyInput] = useState<Record<string, 'dp6' | 'dp5' | null>>({})
 
-    // Pre-fill the DP6 simulation instruction from the project itself — the client's description if
-    // present, otherwise the type-aware "après travaux" description from the travaux registry (same
-    // source buildAIAfterImagePrompt falls back to). Never a hardcoded example: a hardcoded
-    // "menuiseries aluminium noir" default made the simulation change the windows on a ravalement.
+    // Pre-fill the DP6 simulation instruction from the project itself — the client's own travaux
+    // description if present, otherwise the type-aware "après travaux" description from the travaux
+    // registry (same source buildAIAfterImagePrompt falls back to). We re-derive whenever the travaux
+    // change UNTIL the user edits the field, because the dossier hydrates from the DB after mount:
+    // keying only on "empty" would lock in the pre-hydration default type (menuiseries) and, e.g.,
+    // make a ravalement simulation change the windows instead of repainting the façade.
     useEffect(() => {
-        if (aiInstruction) return
-        const desc = formData.terrain.description_projet
-            || getTravauxDef(formData.travaux.type)?.aiDescription(formData)
+        if (aiInstructionDirty.current) return
+        const t = formData.travaux
+        const desc = (t.description_projet && t.description_projet.trim())
+            || getTravauxDef(t.type)?.aiDescription(formData)
             || ''
         if (desc) setAiInstruction(desc)
-    }, [formData.terrain.description_projet, formData.travaux.type])
+    }, [formData.travaux])
 
     // Initialize selection with all facades that have a photo but no simulation yet
     useEffect(() => {
@@ -1282,7 +1286,7 @@ export default function Etape6() {
                                             className="w-full min-h-[120px] bg-[var(--field)] border border-[color:var(--line-3)] focus:border-[color:var(--ac)] rounded-2xl p-5 t-ink placeholder-[color:var(--faint)] transition-all outline-none text-sm"
                                             placeholder="Ex: Remplacer le portail actuel par un modèle en aluminium noir..."
                                             value={aiInstruction}
-                                            onChange={e => setAiInstruction(e.target.value)}
+                                            onChange={e => { aiInstructionDirty.current = true; setAiInstruction(e.target.value) }}
                                         />
                                     </div>
                                     <div className="w-full lg:w-[280px] space-y-4">
