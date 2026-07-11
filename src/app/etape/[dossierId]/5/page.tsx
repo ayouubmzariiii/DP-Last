@@ -293,7 +293,7 @@ export default function Etape5() {
                             <div>
                                 <h4 className="font-semibold mb-1">Génération IA de la vue après travaux</h4>
                                 <p className="text-sm">
-                                    À l'étape suivante, notre IA (DALL-E 3) utilisera vos photos de façade et les détails de vos travaux
+                                    À l'étape suivante, notre IA utilisera vos photos de façade et les détails de vos travaux
                                     ({formData.travaux.type || 'travaux sélectionnés'}) pour générer une simulation réaliste de votre maison après rénovation.
                                     Le prompt sera optimisé avec vos choix de matériaux et couleurs.
                                 </p>

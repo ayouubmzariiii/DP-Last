@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { generateAICroquis, buildAIAfterImagePrompt, buildAICroquisPrompt, buildAIAfterImagePrompt as buildDP6Prompt, resizeImageForOpenAI } from '@/lib/aiImageGenerator'
+import { getTravauxDef } from '@/lib/travauxRegistry'
 import { DPFormData } from '@/lib/models'
 import { uploadImage } from '@/lib/uploadImage'
 import html2canvas from 'html2canvas'
@@ -812,14 +813,17 @@ export default function Etape6() {
     const [generatingFacades, setGeneratingFacades] = useState<string[]>([])
     const [showModifyInput, setShowModifyInput] = useState<Record<string, 'dp6' | 'dp5' | null>>({})
 
-    // Pre-fill AI instruction if empty
+    // Pre-fill the DP6 simulation instruction from the project itself — the client's description if
+    // present, otherwise the type-aware "après travaux" description from the travaux registry (same
+    // source buildAIAfterImagePrompt falls back to). Never a hardcoded example: a hardcoded
+    // "menuiseries aluminium noir" default made the simulation change the windows on a ravalement.
     useEffect(() => {
-        if (!aiInstruction && formData.terrain.description_projet) {
-            setAiInstruction(formData.terrain.description_projet)
-        } else if (!aiInstruction) {
-            setAiInstruction("Remplacement des menuiseries par des modèles en aluminium noir.")
-        }
-    }, [formData.terrain.description_projet])
+        if (aiInstruction) return
+        const desc = formData.terrain.description_projet
+            || getTravauxDef(formData.travaux.type)?.aiDescription(formData)
+            || ''
+        if (desc) setAiInstruction(desc)
+    }, [formData.terrain.description_projet, formData.travaux.type])
 
     // Initialize selection with all facades that have a photo but no simulation yet
     useEffect(() => {
