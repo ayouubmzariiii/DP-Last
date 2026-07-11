@@ -139,10 +139,10 @@ export async function POST(req: NextRequest) {
                         'X-Title': 'DP Travaux Facade Generator'
                     },
                     body: JSON.stringify({
-                        // Image generation is the ONE paid step — use a cheap OpenRouter image model
-                        // (override via OPENROUTER_IMAGE_MODEL). gemini-2.5-flash-image supports both
-                        // image input (editing the "before" photo) and image output, at very low cost.
-                        model: process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-2.5-flash-image',
+                        // Image generation is the ONE paid step — use an OpenRouter image model
+                        // (override via OPENROUTER_IMAGE_MODEL). seedream-4.5 supports both image
+                        // input (editing the "before" photo) and image output.
+                        model: process.env.OPENROUTER_IMAGE_MODEL || 'bytedance-seed/seedream-4.5',
                         messages: [{ role: 'user', content }],
                         modalities: ['image']
                     })

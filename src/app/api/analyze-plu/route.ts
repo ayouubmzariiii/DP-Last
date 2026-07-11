@@ -25,7 +25,7 @@ const PLU_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || 'openrouter/free
 
 // In-memory extraction cache keyed by document URL + zone (règlements change rarely → big
 // reliability/latency/cost win for repeat addresses in the same zone).
-type CachedExtraction = { report: string; extractedRules: any; pdfType: string; source?: string; at: number }
+type CachedExtraction = { report: string; extractedRules: any; pdfType: string; source?: string; text?: string; aiProposalRaw?: any; at: number }
 const extractionCache = new Map<string, CachedExtraction>()
 const CACHE_TTL_MS = 24 * 3600 * 1000
 
@@ -183,10 +183,31 @@ function fieldsForViolations(type: string, categories: string[]): string[] {
     return Array.from(keys).filter(k => FIELD_SPEC[type]?.fields[k])
 }
 
+// Conforming fallback value for an editable field when the model didn't supply one (e.g. the
+// estimation path). Keeps the proposal CONCRETE and the "Appliquer" button functional — an empty
+// field would be skipped on apply, leaving the user stuck on a non-conforming project.
+function defaultFieldValue(type: string, key: string, def: { enum?: string[] }, rules: any): string {
+    if (key === 'couleur') {
+        const pal = rules?.facade?.color_palette
+        if (Array.isArray(pal) && pal.length) return String(pal[0])
+        if (typeof pal === 'string' && pal.trim()) return pal.split(/[,;]/)[0].trim()
+        return 'Ton pierre'
+    }
+    if (def.enum) {
+        // Pick the most traditional / ABF-friendly option available for this field.
+        const pref = ['bois', 'enduit', 'pierre_apparente', 'mur_bahut', 'integration', 'refection_identique', 'mixte']
+        return pref.find(p => def.enum!.includes(p)) || def.enum[0]
+    }
+    if (key === 'materiau') return type === 'ravalement' ? 'Enduit à la chaux' : 'Bois'
+    if (key === 'materiau_couverture') return 'Tuile (identique à l’existant)'
+    if (key === 'facade') return 'Façade arrière (non visible depuis la rue)'
+    return ''
+}
+
 // Build the counter-proposal shown on Étape 4: for every field the violations point to, an editable
-// control pre-filled with the AI's suggested value (or left blank for the user to fill), plus the
-// AI's "why" bullets and rewritten description. Nothing is hardcoded — fields come from the actual
-// violations, values from the model, hints from the extracted règlement.
+// control pre-filled with the AI's suggested value (or a conforming default), plus the AI's "why"
+// bullets and rewritten description. Nothing is hardcoded — fields come from the actual violations,
+// values from the model (with a safe default fallback), hints from the extracted règlement.
 function buildEditableProposal(type: string, categories: string[], aiPatch: any, aiFields: string[], aiDescription: string, rules: any) {
     const spec = FIELD_SPEC[type]
     if (!spec) return null
@@ -196,6 +217,7 @@ function buildEditableProposal(type: string, categories: string[], aiPatch: any,
         const def = spec.fields[key]
         let value = aiPatch && aiPatch[key] != null ? String(aiPatch[key]) : ''
         if (def.enum && value && !def.enum.includes(value)) value = ''
+        if (!value) value = defaultFieldValue(type, key, def, rules)
         const hint = key === 'couleur'
             ? (rules?.facade?.color_restrictions || 'Teinte sobre de la palette locale, validée par l’ABF')
             : null
@@ -323,9 +345,26 @@ export async function POST(req: NextRequest) {
         const hit = !plu?.isRnu && extractionCache.get(cacheKeyEarly)
         if (hit && (Date.now() - hit.at) < CACHE_TTL_MS) {
             const evaluationResult = evaluateProject(travaux, hit.extractedRules, plu?.overlays)
+            // Rebuild the editable counter-proposal on cache hits too — otherwise re-analysing a
+            // still-non-conforming project would silently drop the proposal + Apply button.
+            if (evaluationResult.violations.length > 0) {
+                const ai = sanitizeProposal(hit.aiProposalRaw, travaux.type)
+                ;(evaluationResult as any).proposal = buildEditableProposal(
+                    travaux.type, evaluationResult.categories, ai?.patch, ai?.fields || [], ai?.description || '', hit.extractedRules,
+                )
+            } else {
+                (evaluationResult as any).proposal = null
+            }
+            // Report the règlement text length honestly: prefer the copy the browser just extracted,
+            // fall back to the cached copy — so the UI never claims "0 caractères" over a readable PDF.
+            const shownText = (typeof reglementText === 'string' && reglementText.trim().length > 400)
+                ? targetZoneChapter(reglementText, zoneLibelle).text
+                : (hit.text || '')
             return NextResponse.json({
                 report: (hit.report || '').trim(), extractedRules: hit.extractedRules, evaluationResult,
-                pdfType: hit.pdfType, verified: true, textLength: 0, extractedText: '', cached: true,
+                pdfType: hit.pdfType, verified: hit.source !== 'estimation', source: hit.source,
+                textLength: shownText.length, extractedText: shownText,
+                docUrl: docUrl || plu?.zone?.url_doc || '', cached: true,
             }, { status: 200 })
         }
 
@@ -557,7 +596,7 @@ ${fieldSpecText}
                 extractedRules = parsed.rules || null
                 aiProposalRaw = parsed.proposal ?? null
             }
-            if (extractedRules) extractionCache.set(cacheKey, { report, extractedRules, pdfType, source, at: Date.now() })
+            if (extractedRules) extractionCache.set(cacheKey, { report, extractedRules, pdfType, source, text: pdfText, aiProposalRaw, at: Date.now() })
         }
 
         // An estimation (règlement not read) is never "verified", even when the model returned rules.
