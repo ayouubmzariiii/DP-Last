@@ -175,7 +175,7 @@ const FAQ_DATA: { title: string; items: FaqItem[] }[] = [
     { title: 'La déclaration préalable', items: [
         { id: 'a1', q: 'Qu\'est-ce qu\'une déclaration préalable de travaux ?', a: 'C\'est l\'autorisation d\'urbanisme exigée pour les travaux qui modifient l\'aspect extérieur d\'un bâtiment ou créent une petite surface, sans nécessiter de permis de construire. Elle se dépose en mairie.' },
         { id: 'a2', q: 'Quels travaux nécessitent une DP ?', a: 'Le remplacement de menuiseries, l\'isolation par l\'extérieur, les panneaux solaires, une clôture, un abri de jardin de 5 à 20 m², une piscine de 10 à 100 m², ou un ravalement en secteur protégé.' },
-        { id: 'a3', q: 'Ai-je besoin d\'un architecte ?', a: 'Non. La déclaration préalable ne requiert pas d\'architecte. DP Travaux vous permet de constituer vous-même un dossier complet et conforme.' },
+        { id: 'a3', q: 'Ai-je besoin d\'un architecte ?', a: 'La déclaration préalable ne l\'impose pas : un particulier peut constituer lui-même un dossier complet et conforme avec DP Travaux. Les professionnels — architectes, maîtres d\'œuvre, artisans — l\'utilisent aussi pour préparer plus vite les dossiers de leurs clients (offre Pro).' },
         { id: 'a4', q: 'Quelle différence avec un permis de construire ?', a: 'Le permis concerne les projets d\'ampleur (grandes surfaces, constructions neuves). La DP couvre les travaux de faible ampleur. Notre analyse vous indique le régime applicable à votre projet.' },
     ] },
     { title: 'Délais et instruction', items: [
@@ -345,7 +345,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     Déclaration préalable en ligne
                                 </span>
                                 <h1 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(40px,5.3vw,62px);line-height:1.02;letter-spacing:-.02em;margin:22px 0 0;color:var(--ink)')}>Votre déclaration de travaux, <span style={italicAc}>prête à déposer</span>.</h1>
-                                <p style={s('font-size:18px;line-height:1.62;color:var(--ink-2);margin:22px 0 0;max-width:53ch')}>Formulaire CERFA, plans, photos et notice : nous assemblons tout et vérifions la conformité au PLU de votre commune. En 10&nbsp;minutes, sans architecte.</p>
+                                <p style={s('font-size:18px;line-height:1.62;color:var(--ink-2);margin:22px 0 0;max-width:53ch')}>Formulaire CERFA, plans, photos et notice : nous assemblons tout et vérifions la conformité au PLU de votre commune. Un dossier complet en 10&nbsp;minutes, que vous soyez particulier ou professionnel.</p>
 
                                 <div style={s('margin:32px 0 0;max-width:470px')}>
                                     <label className="dp-label" style={s('display:block;margin-bottom:8px')}>Commencez par l&apos;adresse de votre terrain</label>
