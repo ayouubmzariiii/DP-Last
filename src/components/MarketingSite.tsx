@@ -42,11 +42,14 @@ const Check = ({ size = 13, color = 'var(--ac)', sw = 2.6 }: { size?: number; co
 )
 
 // ── Static content ───────────────────────────────────────────────────────────
+// Time / capability figures grounded in the real end-to-end flow (see the "à titre indicatif"
+// footnote). Communes couvertes ≈ the ~34 900 French communes, since the analysis runs on the
+// national IGN / Géoportail de l'Urbanisme data.
 const STATS = [
-    { val: '18 400', label: 'Dossiers générés' },
-    { val: '97 %', label: 'Jugés recevables' },
-    { val: '22 min', label: 'Temps moyen' },
-    { val: '34 900', label: 'Communes couvertes' },
+    { val: '≈ 2 min', label: 'Analyse PLU de votre parcelle' },
+    { val: '≈ 20 min', label: 'Un dossier complet' },
+    { val: '8', label: 'Pièces générées (DP1–DP8)' },
+    { val: '34 900+', label: 'Communes couvertes' },
 ]
 
 const PAINS = [
@@ -95,7 +98,7 @@ const STEPS_DETAIL = [
     { n: '1', title: 'Le demandeur', tag: '≈ 2 min', body: 'Vos coordonnées et votre qualité : particulier, mandataire ou société.', bullets: ['État civil et adresse', 'Société ou co-déclarant', 'Pré-rempli d\'une fois sur l\'autre'] },
     { n: '2', title: 'Le terrain', tag: '≈ 2 min', body: 'L\'adresse et les références cadastrales du terrain concerné.', bullets: ['Recherche d\'adresse officielle', 'Parcelle, section, superficie', 'Report du cadastre'] },
     { n: '3', title: 'Les travaux', tag: '≈ 5 min', body: 'La nature exacte de votre projet et ses caractéristiques techniques.', bullets: ['Menuiseries, ITE, solaire…', 'Matériaux, teintes RAL', 'Surfaces existantes et créées'] },
-    { n: '4', title: 'L\'analyse PLU', tag: 'Automatique', body: 'La vérification de conformité qui évite le refus en mairie.', bullets: ['Règlement de votre zone', 'Détection SPR, ABF', 'Matériaux autorisés / interdits'] },
+    { n: '4', title: 'L\'analyse PLU', tag: '≈ 2 min · auto', body: 'La vérification de conformité qui évite le refus en mairie.', bullets: ['Règlement de votre zone', 'Détection SPR, ABF', 'Matériaux autorisés / interdits'] },
     { n: '5', title: 'Les photos', tag: '≈ 3 min', body: 'Les vues du terrain exigées par le formulaire CERFA.', bullets: ['Pièces DP7 et DP8', 'Cadrage guidé', 'Vues « après » par IA'] },
     { n: '6', title: 'Les plans', tag: 'Générés', body: 'Les documents graphiques réglementaires et la notice.', bullets: ['DP1, DP2, DP3', 'Notice descriptive DP4', 'Insertion par façade'] },
     { n: '7', title: 'La génération', tag: 'Le livrable', body: 'Votre dossier complet, vérifié et prêt à déposer.', bullets: ['CERFA 16702*03 rempli', 'Toutes les pièces (PDF/ZIP)', 'Guide de dépôt en mairie'] },
@@ -424,7 +427,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     </div>
                                 ))}
                             </div>
-                            <div style={s('text-align:center;font-family:var(--mf);font-size:10px;color:var(--faint);margin-top:16px')}>Chiffres à titre indicatif</div>
+                            <div style={s('text-align:center;font-family:var(--mf);font-size:10px;color:var(--faint);margin-top:16px')}>Durées moyennes constatées, à titre indicatif · couverture France entière</div>
                         </div>
                     </section>
 
