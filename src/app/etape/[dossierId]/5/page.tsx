@@ -1,9 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { uploadImage, type ImageKind } from '@/lib/uploadImage'
+import type { DPFormData } from '@/lib/models'
 
 interface PhotoUploadProps {
     label: string
@@ -16,6 +17,7 @@ interface PhotoUploadProps {
     facadeId?: string
     required?: boolean
     badge?: string
+    note?: string   // small caption under a filled slot (e.g. "réutilise la vue proche")
 }
 
 // Higher resolution/quality so DP5–DP8 photos stay legible when printed at A4/300dpi.
@@ -52,7 +54,7 @@ const compressImage = (file: File, maxWidth: number = 1600, quality: number = 0.
     })
 }
 
-function PhotoUpload({ label, sublabel, icon, value, onChange, dossierId, kind, facadeId, required, badge }: PhotoUploadProps) {
+function PhotoUpload({ label, sublabel, icon, value, onChange, dossierId, kind, facadeId, required, badge, note }: PhotoUploadProps) {
     const inputRef = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -136,9 +138,36 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, dossierId, kind, 
                     </div>
                 )}
             </div>
+            {note && value && <p className="text-[11px] mt-1.5 t-muted flex items-center gap-1">{note}</p>}
             {error && <p className="text-xs t-error mt-1">⚠️ {error}</p>}
         </div>
     )
+}
+
+// French label ↔ facade type, and the facades a project actually touches — so we only ask for the
+// photos the works need (DP7 doubles as the street-facing façade), instead of a fixed grid of four.
+const FACADE_LABEL: Record<'avant' | 'arriere' | 'droite' | 'gauche', string> = {
+    avant: 'Façade sur rue (principale)',
+    arriere: 'Façade arrière',
+    droite: 'Façade latérale droite',
+    gauche: 'Façade latérale gauche',
+}
+type FacadeType = keyof typeof FACADE_LABEL
+function concernedFacadeTypes(travaux: DPFormData['travaux']): FacadeType[] {
+    // The street-facing façade is always the primary simulation base (reused from the DP7 photo).
+    const set = new Set<FacadeType>(['avant'])
+    const src: string[] =
+        (travaux.type === 'ravalement' && travaux.ravalement?.facades_concernees) ||
+        (travaux.type === 'isolation' && travaux.isolation?.facades_concernees) || []
+    for (const raw of src) {
+        const s = raw.toLowerCase()
+        if (s.includes('toutes')) { set.add('arriere'); set.add('droite'); set.add('gauche') }
+        if (s.includes('arri')) set.add('arriere')
+        if (s.includes('droit')) set.add('droite')
+        if (s.includes('gauche')) set.add('gauche')
+    }
+    // Stable order: front first, then rear, then sides.
+    return (['avant', 'arriere', 'droite', 'gauche'] as FacadeType[]).filter(t => set.has(t))
 }
 
 export default function Etape5() {
@@ -146,28 +175,31 @@ export default function Etape5() {
     const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updatePhotos } = useDPContext()
     const p = formData.photos
+    const dp7 = p.dp7_vue_proche
 
-    const photosCount = Object.values(p).filter(Boolean).length
+    // The 2 mandatory "repérage" photos of a DP (DP7 + DP8) — everything else is derived from them.
+    const requiredDone = [p.dp7_vue_proche, p.dp8_vue_lointaine].filter(Boolean).length
 
-    const addFacade = () => {
-        const newId = (formData.photos.facades.length + 1).toString()
-        const newFacades = [
-            ...formData.photos.facades,
-            { id: newId, label: `Façade ${newId}`, before: null, after: null, croquis: null, type: 'autre' as const }
-        ]
-        updatePhotos({ facades: newFacades })
-    }
-
-    const removeFacade = (id: string) => {
-        const newFacades = formData.photos.facades.filter(f => f.id !== id)
-        updatePhotos({ facades: newFacades })
-    }
+    // Keep the façade slots in sync with the works: exactly the façades the project touches, and the
+    // street-facing one REUSES the DP7 photo — so the client never uploads the same picture twice and
+    // never sees façade slots that don't apply to their project.
+    useEffect(() => {
+        const types = concernedFacadeTypes(formData.travaux)
+        const cur = formData.photos.facades || []
+        const byType = new Map(cur.map(f => [f.type, f]))
+        let next = types.map((t, i) => {
+            const ex = byType.get(t)
+            return ex
+                ? { ...ex, id: String(i + 1), label: FACADE_LABEL[t] }
+                : { id: String(i + 1), label: FACADE_LABEL[t], before: null, after: null, croquis: null, type: t }
+        })
+        const d7 = formData.photos.dp7_vue_proche
+        next = next.map(f => (f.type === 'avant' && !f.before && d7) ? { ...f, before: d7 } : f)
+        if (JSON.stringify(next) !== JSON.stringify(cur)) updatePhotos({ facades: next })
+    }, [formData.travaux, formData.photos.dp7_vue_proche, formData.photos.facades, updatePhotos])
 
     const updateFacadePhoto = (id: string, before: string | null) => {
-        const newFacades = formData.photos.facades.map(f =>
-            f.id === id ? { ...f, before } : f
-        )
-        // Also sync legacy fields for the first 4 if they match types
+        const newFacades = formData.photos.facades.map(f => f.id === id ? { ...f, before } : f)
         const update: Partial<typeof formData.photos> = { facades: newFacades }
         const f = newFacades.find(fac => fac.id === id)
         if (f) {
@@ -179,6 +211,9 @@ export default function Etape5() {
         updatePhotos(update)
     }
 
+    const facades = p.facades || []
+    const extras = facades.filter(f => f.type !== 'avant')
+
     return (
         <>
             <div className="animate-fadeIn">
@@ -187,26 +222,28 @@ export default function Etape5() {
                         <div className="dp-eyebrow">Étape 05 / 07 · Photos</div>
                         <h2 className="dp-page-title">Photos de votre <span className="accent">maison</span></h2>
                         <p className="dp-page-sub">
-                            Ces photos constituent les pièces DP5, DP7 et DP8 de votre dossier
+                            Deux photos suffisent : une vue proche et une vue lointaine. Nous en déduisons le reste.
                         </p>
                     </div>
-                    {photosCount > 0 && (
-                        <div className="text-sm font-semibold px-3 py-1.5 rounded-full"
-                            style={{ background: 'var(--act)', color: 'var(--acd)' }}>
-                            {photosCount} photo{photosCount > 1 ? 's' : ''} ajoutée{photosCount > 1 ? 's' : ''}
-                        </div>
-                    )}
+                    <div className="text-sm font-semibold px-3 py-1.5 rounded-full"
+                        style={{ background: requiredDone === 2 ? 'var(--act)' : 'var(--surface-2)', color: requiredDone === 2 ? 'var(--acd)' : 'var(--ink2)' }}>
+                        {requiredDone}/2 obligatoires
+                    </div>
                 </div>
                 <div className="dp-rule" />
 
                 <div className="space-y-6">
-                    {/* DP7 & DP8 */}
+                    {/* DP7 & DP8 — the only two photos the client must take */}
                     <div className="dp-card">
-                        <h3 className="dp-section-title">Vues extérieures obligatoires</h3>
+                        <h3 className="dp-section-title">Photos de repérage <span className="t-muted font-normal">· obligatoires</span></h3>
+                        <p className="text-sm mb-5 t-muted">
+                            Les deux seules photos exigées par l'administration : une vue rapprochée de la façade
+                            concernée, et une vue plus large de la maison dans son environnement.
+                        </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <PhotoUpload
-                                label="Vue proche de la maison"
-                                sublabel="Photo prise depuis la voie publique, montrant clairement la façade concernée par les travaux"
+                                label="Vue proche"
+                                sublabel="Depuis la rue, montrant clairement la façade concernée par les travaux."
                                 icon="📷"
                                 badge="DP7"
                                 dossierId={dossierId}
@@ -216,8 +253,8 @@ export default function Etape5() {
                                 required
                             />
                             <PhotoUpload
-                                label="Vue lointaine / environnement"
-                                sublabel="Photo montrant la maison dans son environnement (depuis la rue, un peu plus loin)"
+                                label="Vue lointaine"
+                                sublabel="La maison dans son environnement (un peu plus en recul)."
                                 icon="🌄"
                                 badge="DP8"
                                 dossierId={dossierId}
@@ -229,76 +266,48 @@ export default function Etape5() {
                         </div>
                     </div>
 
-                    {/* Façades */}
+                    {/* Façades concernées — derived from the works; the street façade reuses DP7 */}
                     <div className="dp-card">
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="dp-section-title mb-0 pb-0 border-0">Photos des façades (DP5 – Existant)</h3>
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="dp-section-title mb-0 pb-0 border-0">Façade{extras.length ? 's' : ''} concernée{extras.length ? 's' : ''}</h3>
                             <span className="ai-badge">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                                 </svg>
-                                Vue Après générée par IA
+                                Simulation « après » par IA
                             </span>
                         </div>
                         <p className="text-sm mb-5 t-muted">
-                            Uploadez les photos des façades existantes. La vue <strong className="t-ink">après travaux</strong> sera générée automatiquement par IA
-                            en prenant en compte vos choix de matériaux et couleurs.
+                            {extras.length === 0 ? (
+                                <>Votre projet ne concerne que la façade sur rue. Nous réutilisons votre <strong className="t-ink">vue proche (DP7)</strong> comme base de la simulation — <strong className="t-ink">aucune photo supplémentaire</strong> n'est nécessaire.</>
+                            ) : (
+                                <>Votre projet concerne {facades.length} façades. La façade sur rue réutilise votre <strong className="t-ink">vue proche (DP7)</strong> ; ajoutez une photo pour chaque autre façade concernée.</>
+                            )}
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {formData.photos.facades.map((f, idx) => (
-                                <div key={f.id} className="relative group">
+                            {facades.map((f) => {
+                                const reused = f.type === 'avant' && !!dp7 && f.before === dp7
+                                return (
                                     <PhotoUpload
+                                        key={f.id}
                                         label={f.label}
-                                        sublabel={f.type === 'avant' ? "Photo de la façade principale visible depuis la rue" : `Photo de la façade ${f.label.toLowerCase()}`}
-                                        icon={f.type === 'avant' ? "🏠" : f.type === 'arriere' ? "🏡" : "📐"}
+                                        sublabel={f.type === 'avant'
+                                            ? 'Base de la simulation « après travaux ».'
+                                            : `Photo de la ${f.label.toLowerCase()}.`}
+                                        icon={f.type === 'avant' ? '🏠' : f.type === 'arriere' ? '🏡' : '📐'}
                                         dossierId={dossierId}
                                         kind="before"
                                         facadeId={f.id}
                                         value={f.before}
                                         onChange={v => updateFacadePhoto(f.id, v)}
-                                        required={f.type === 'avant'}
+                                        note={reused ? '↩ Réutilise votre vue proche — cliquez pour utiliser une autre photo' : undefined}
                                     />
-                                    {idx > 0 && (
-                                        <button
-                                            onClick={() => removeFacade(f.id)}
-                                            className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 opacity-0 group-hover:opacity-100 transition-all z-10 shadow-lg"
-                                            title="Supprimer cette façade"
-                                        >
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
-                        <div className="mt-6 flex justify-center">
-                            <button
-                                onClick={addFacade}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl t-ink2 hover:t-accent transition-all text-sm font-medium"
-                                style={{ border: '2px dashed var(--line-3)' }}
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Ajouter une autre façade
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Info IA */}
-                    <div className="info-box info-box-violet rounded-2xl">
-                        <div className="flex items-start gap-3">
-                            <div className="text-2xl">🤖</div>
-                            <div>
-                                <h4 className="font-semibold mb-1">Génération IA de la vue après travaux</h4>
-                                <p className="text-sm">
-                                    À l'étape suivante, notre IA utilisera vos photos de façade et les détails de vos travaux
-                                    ({formData.travaux.type || 'travaux sélectionnés'}) pour générer une simulation réaliste de votre maison après rénovation.
-                                    Le prompt sera optimisé avec vos choix de matériaux et couleurs.
-                                </p>
-                            </div>
-                        </div>
+                        {!dp7 && (
+                            <p className="text-[11px] mt-4 t-muted">Ajoutez d'abord votre vue proche (DP7) ci-dessus : elle servira automatiquement de base à la simulation.</p>
+                        )}
                     </div>
 
                     {/* Navigation */}

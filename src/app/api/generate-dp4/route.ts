@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
         }
         if (Array.isArray(ov.monumentsWithin500m) && ov.monumentsWithin500m.length) {
             const nearest = ov.monumentsWithin500m.slice().sort((a: any, b: any) => (a.distance || 0) - (b.distance || 0))[0]
-            zoningLines.push(`- Abords d'un monument historique : ${ov.monumentsWithin500m.length} monument(s) dans un rayon de 500 m (le plus proche : ${nearest?.title || 'monument'} à environ ${nearest?.distance ?? '?'} m). Projet soumis à l'avis de l'ABF ; souligner l'insertion respectueuse du bâti protégé.`)
+            const d = Number(nearest?.distance)
+            // "à environ 0 m" reads oddly for an adjacent monument — phrase very short distances as immediate proximity.
+            const proximite = !Number.isFinite(d) ? 'à proximité' : d < 20 ? 'à proximité immédiate' : `à environ ${Math.round(d)} m`
+            zoningLines.push(`- Abords d'un monument historique : ${ov.monumentsWithin500m.length} monument(s) dans un rayon de 500 m (le plus proche : ${nearest?.title || 'monument'} ${proximite}). Projet soumis à l'avis de l'ABF ; souligner l'insertion respectueuse du bâti protégé.`)
         }
         if (ov.seismicClass && ov.seismicClass !== 'inconnue') {
             zoningLines.push(`- Zone de sismicité : ${ov.seismicClass}.`)
