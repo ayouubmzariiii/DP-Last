@@ -45,6 +45,40 @@ function intendedColour(data: DPFormData): string {
     return ''
 }
 
+// Per work type: the ONLY surface allowed to change, and the elements that must stay EXACTLY as in
+// the photo. Naming the elements the model tends to wrongly alter (joinery colour, roof, shutters…)
+// is far more effective than a generic "change only the requested surface".
+const SURFACE_SCOPE: Record<string, { change: string; keep: string }> = {
+    ravalement: {
+        change: 'the wall render / paint of the façade',
+        keep: 'every window, door, shutter, the roof, chimney and gutters — including their exact existing colours and materials',
+    },
+    isolation: {
+        change: 'the exterior wall surface (new render or cladding)',
+        keep: 'every window, door, shutter, the roof, chimney and gutters — including their exact existing colours and materials',
+    },
+    menuiseries: {
+        change: 'the windows, doors and/or shutters (their material and colour)',
+        keep: 'the wall render and its colour, the roof, and every other surface exactly as in the photo',
+    },
+    toiture: {
+        change: 'the roof covering',
+        keep: 'the walls, windows, doors, shutters and their colours exactly as in the photo',
+    },
+    photovoltaique: {
+        change: 'ONLY add the solar panels onto the existing roof',
+        keep: 'the walls, windows, doors, the roof shape/slope and every existing surface exactly as in the photo',
+    },
+    cloture: {
+        change: 'the fence / boundary wall',
+        keep: 'the house — its walls, windows, doors, roof — and the ground, exactly as in the photo',
+    },
+    ouverture: {
+        change: 'only the single opening described (add / enlarge / remove it)',
+        keep: 'every other window and door, the walls, the roof and their colours exactly as in the photo',
+    },
+}
+
 // ── Prompt builders ───────────────────────────────────────────────────────────
 export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: string): string {
     const { travaux } = data
@@ -68,6 +102,11 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
         ? `\n\nEXACT COLOUR (critical): the treated surface must be ${colour ? `"${colour}"` : 'the colour named above'}${guide ? ` — i.e. ${guide}` : ''}. Reproduce this exact colour uniformly across the whole treated surface. Do NOT invent or approximate a different colour; in particular do NOT default to grey, blue or white unless that is the colour named above.`
         : ''
 
+    const scope = SURFACE_SCOPE[travaux.type]
+    const scopeBlock = scope
+        ? `\n\nSCOPE — CHANGE ONE THING ONLY:\n- You may change ONLY ${scope.change}.\n- Everything else MUST stay pixel-identical to the photo: ${scope.keep}. Do NOT recolour, replace, clean up or restyle them in any way. If in doubt about an element, leave it EXACTLY as it is in the photo.`
+        : ''
+
     return `Edit the attached photograph in place. Return the SAME photograph with ONLY the requested modification(s) applied. This is an in-place photo edit — NOT a request to imagine, redraw, re-photograph or generate a new building.
 
 CAMERA & FRAMING — DO NOT CHANGE (most important rule):
@@ -83,7 +122,7 @@ ABSOLUTE RULES:
 - Do NOT add or remove windows, doors, shutters, chimneys, balconies or any feature that the modification does not explicitly mention.
 - Apply each modification only to the relevant surfaces (e.g. "peinture ton pierre" → recolour only the wall render; "menuiseries aluminium noir" → only the window/door frames).
 - Remove only transient clutter in front of the edited area (people, parked cars, bins) so the change is clearly visible.
-- Photorealistic result, matching the original photo's quality, tone and lighting. No added text, captions, borders, arrows or watermarks.${colourBlock}`
+- Photorealistic result, matching the original photo's quality, tone and lighting. No added text, captions, borders, arrows or watermarks.${scopeBlock}${colourBlock}`
 }
 
 export function buildAICroquisPrompt(_data: DPFormData, _customInstruction?: string): string {
