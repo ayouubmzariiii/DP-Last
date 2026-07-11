@@ -7,8 +7,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { pgTable, pgEnum, uuid, text, integer, jsonb, timestamp, index, boolean } from 'drizzle-orm/pg-core'
 import type { DPFormData } from '@/lib/models'
+import type { DossierSummary } from '@/lib/dossierSummary'
 
 export const dossierStatus = pgEnum('dossier_status', ['draft', 'complete'])
+
+// Décision de la mairie après dépôt (suivi d'instruction — indépendant du statut du dossier,
+// qui ne décrit que l'avancement de la constitution du dossier dans l'app).
+export const dossierDecision = pgEnum('dossier_decision', ['accepted', 'rejected'])
 
 export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -31,6 +36,17 @@ export const dossiers = pgTable('dossiers', {
     lastStep: integer('last_step').notNull().default(1),
     // DPFormData with Blob URLs in place of base64 images.
     data: jsonb('data').$type<DPFormData>().notNull(),
+    // Denormalized card summary, recomputed server-side on every save so the dashboard
+    // list never has to load the full `data` jsonb (self-healed for legacy rows).
+    summary: jsonb('summary').$type<DossierSummary>(),
+    // Nom du client (usage pro : architectes / MOE gérant plusieurs clients).
+    clientName: text('client_name'),
+    // Cycle de vie après génération : dépôt en mairie puis décision.
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    decision: dossierDecision('decision'),
+    decisionAt: timestamp('decision_at', { withTimezone: true }),
+    // Archivage doux (le dossier reste consultable/restaurable, masqué de la liste par défaut).
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

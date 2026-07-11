@@ -119,6 +119,12 @@ export default function Etape7() {
             a.click()
             URL.revokeObjectURL(url)
             setDpDone(true)
+            // The full dossier has been generated: promote the project to "complet" so the
+            // dashboard can start the suivi d'instruction (dépôt en mairie → décision).
+            fetch(`/api/dossiers/${dossierId}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'complete' }),
+            }).catch(() => { /* non-blocking */ })
         } catch (e) {
             setError('Erreur lors de la génération du dossier DP. Réessayez.')
             console.error(e)

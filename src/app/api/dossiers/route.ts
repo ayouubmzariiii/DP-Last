@@ -1,46 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, inArray } from 'drizzle-orm'
 import { db, dossiers, users } from '@/lib/db'
 import { getSession } from '@/lib/auth'
-import { emptyFormData, DPFormData } from '@/lib/models'
-import { getTravauxDef } from '@/lib/travauxRegistry'
-
-// Derive a lightweight summary from a dossier's data: the key identity/works details to show on the
-// profile card, the saved/generated files, and whether the dossier is still "empty" (nothing but the
-// account-seeded identity — no terrain, no works, no content, no files). Empty dossiers are not shown
-// as real projects on the profile.
-function summarizeDossier(data: DPFormData) {
-    const d = data?.demandeur || ({} as DPFormData['demandeur'])
-    const t = data?.terrain || ({} as DPFormData['terrain'])
-    const tr = data?.travaux || ({} as DPFormData['travaux'])
-    const ph = data?.photos || ({} as DPFormData['photos'])
-    const pl = data?.plans || ({} as DPFormData['plans'])
-    const facades = ph.facades || []
-
-    const applicant = (d.est_societe ? d.nom_societe : [d.prenom, d.nom].filter(Boolean).join(' ')).trim()
-    const fmtAddr = (voie?: string, cp?: string, ville?: string) =>
-        [voie, [cp, ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-    const address = t.meme_adresse
-        ? fmtAddr(d.adresse, d.code_postal, d.commune)
-        : fmtAddr(t.adresse, t.code_postal, t.commune)
-    const worksType = getTravauxDef(tr.type)?.natureLabel || ''
-
-    const files = {
-        situation: !!pl.dp1_carte_situation,
-        masse: !!pl.dp2_plan_masse,
-        notice: !!pl.dp4_notice,
-        photos: facades.filter(f => f.before).length + (ph.dp7_vue_proche ? 1 : 0) + (ph.dp8_vue_lointaine ? 1 : 0),
-        simulations: facades.filter(f => f.after).length,
-        croquis: facades.filter(f => f.croquis).length,
-    }
-    const hasFiles = files.situation || files.masse || files.notice || files.photos > 0 || files.simulations > 0 || files.croquis > 0
-    const hasWork = !!tr.type
-    const hasTerrain = !!(t.adresse || t.section_cadastrale || t.coords)
-    const hasContent = !!(t.description_projet || tr.description_projet)
-    const empty = !hasWork && !hasTerrain && !hasContent && !hasFiles
-
-    return { empty, summary: { applicant, address, worksType, files } }
-}
+import { emptyFormData } from '@/lib/models'
+import { summarizeDossier } from '@/lib/dossierSummary'
 
 // Split a stored "Prénom Nom" into its parts for the CERFA. French forms carry the given name(s)
 // first and the family name last, so the last token is the nom and everything before it the prénom
@@ -54,7 +17,9 @@ function splitFullName(full: string): { prenom: string; nom: string } {
 
 export const runtime = 'nodejs'
 
-// GET /api/dossiers — list the current user's dossiers (metadata only, never `data`).
+// GET /api/dossiers — list the current user's dossiers (metadata + denormalized summary,
+// never the full `data`). Legacy rows saved before the summary column are self-healed:
+// their `data` is loaded once, summarized, and the summary persisted.
 export async function GET() {
     const session = await getSession()
     if (!session) return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
@@ -63,13 +28,37 @@ export async function GET() {
         .select({
             id: dossiers.id, title: dossiers.title, status: dossiers.status,
             lastStep: dossiers.lastStep, createdAt: dossiers.createdAt, updatedAt: dossiers.updatedAt,
-            data: dossiers.data,
+            summary: dossiers.summary, clientName: dossiers.clientName,
+            submittedAt: dossiers.submittedAt, decision: dossiers.decision,
+            decisionAt: dossiers.decisionAt, archivedAt: dossiers.archivedAt,
         })
         .from(dossiers)
         .where(eq(dossiers.userId, session.userId))
         .orderBy(desc(dossiers.updatedAt))
 
-    const out = rows.map(({ data, ...meta }) => ({ ...meta, ...summarizeDossier(data) }))
+    // Self-heal legacy rows (summary column added after their last save).
+    const missing = rows.filter(r => !r.summary).map(r => r.id)
+    const healed = new Map<string, ReturnType<typeof summarizeDossier>>()
+    if (missing.length) {
+        try {
+            const withData = await db
+                .select({ id: dossiers.id, data: dossiers.data })
+                .from(dossiers)
+                .where(inArray(dossiers.id, missing))
+            await Promise.all(withData.map(async ({ id, data }) => {
+                const s = summarizeDossier(data)
+                healed.set(id, s)
+                await db.update(dossiers).set({ summary: s }).where(eq(dossiers.id, id))
+            }))
+        } catch (e) {
+            console.warn('[dossiers GET] summary self-heal failed:', e)
+        }
+    }
+
+    const out = rows.map(({ summary, ...meta }) => {
+        const s = summary || healed.get(meta.id)
+        return { ...meta, empty: s?.empty ?? false, summary: s?.summary }
+    })
     return NextResponse.json({ dossiers: out })
 }
 
@@ -108,6 +97,7 @@ export async function POST(req: NextRequest) {
         userId: session.userId,
         title,
         data,
+        summary: summarizeDossier(data),
         status: 'draft',
         lastStep: 1,
     }).returning({

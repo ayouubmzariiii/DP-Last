@@ -15,6 +15,13 @@
       "when": 1782915003855,
       "tag": "0001_rich_centennial",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783781795073,
+      "tag": "0002_careless_thing",
+      "breakpoints": true
     }
   ]
 }

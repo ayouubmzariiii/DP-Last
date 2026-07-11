@@ -4,6 +4,7 @@ import { list, del } from '@vercel/blob'
 import { db, dossiers } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 import { hasInlineBase64Image } from '@/lib/dossierData'
+import { summarizeDossier } from '@/lib/dossierSummary'
 import type { DPFormData } from '@/lib/models'
 
 export const runtime = 'nodejs'
@@ -27,7 +28,13 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     const session = await getSession()
     if (!session) return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
 
-    let body: { data?: DPFormData; lastStep?: number; title?: string; status?: 'draft' | 'complete' }
+    let body: {
+        data?: DPFormData; lastStep?: number; title?: string; status?: 'draft' | 'complete'
+        clientName?: string | null
+        archived?: boolean
+        submittedAt?: string | null
+        decision?: 'accepted' | 'rejected' | null
+    }
     try { body = await req.json() } catch { return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 }) }
 
     const patch: Record<string, unknown> = { updatedAt: new Date() }
@@ -44,10 +51,40 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
             }, { status: 422 })
         }
         patch.data = body.data
+        // Keep the denormalized dashboard summary in sync with every data save.
+        patch.summary = summarizeDossier(body.data)
     }
     if (typeof body.lastStep === 'number') patch.lastStep = body.lastStep
     if (typeof body.title === 'string' && body.title.trim()) patch.title = body.title.trim().slice(0, 120)
     if (body.status === 'draft' || body.status === 'complete') patch.status = body.status
+
+    // Nom du client (usage pro) — chaîne vide ou null pour effacer.
+    if (body.clientName !== undefined) {
+        patch.clientName = (typeof body.clientName === 'string' && body.clientName.trim())
+            ? body.clientName.trim().slice(0, 120) : null
+    }
+    // Archivage doux.
+    if (typeof body.archived === 'boolean') patch.archivedAt = body.archived ? new Date() : null
+    // Dépôt en mairie : date ISO pour marquer, null pour annuler (efface aussi la décision).
+    if (body.submittedAt !== undefined) {
+        if (body.submittedAt === null) {
+            patch.submittedAt = null; patch.decision = null; patch.decisionAt = null
+        } else if (typeof body.submittedAt === 'string' && !Number.isNaN(Date.parse(body.submittedAt))) {
+            patch.submittedAt = new Date(body.submittedAt)
+        } else {
+            return NextResponse.json({ error: 'Champ « submittedAt » invalide.' }, { status: 400 })
+        }
+    }
+    // Décision de la mairie — null pour revenir à "en instruction".
+    if (body.decision !== undefined) {
+        if (body.decision === 'accepted' || body.decision === 'rejected') {
+            patch.decision = body.decision; patch.decisionAt = new Date()
+        } else if (body.decision === null) {
+            patch.decision = null; patch.decisionAt = null
+        } else {
+            return NextResponse.json({ error: 'Champ « decision » invalide.' }, { status: 400 })
+        }
+    }
 
     // Nothing meaningful to update (only the updatedAt bump).
     if (Object.keys(patch).length === 1) {
