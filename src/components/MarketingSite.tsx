@@ -47,7 +47,7 @@ const Check = ({ size = 13, color = 'var(--ac)', sw = 2.6 }: { size?: number; co
 // national IGN / Géoportail de l'Urbanisme data.
 const STATS = [
     { val: '≈ 2 min', label: 'Analyse PLU de votre parcelle' },
-    { val: '≈ 20 min', label: 'Un dossier complet' },
+    { val: '≈ 10 min', label: 'Un dossier complet' },
     { val: '8', label: 'Pièces générées (DP1–DP8)' },
     { val: '34 900+', label: 'Communes couvertes' },
 ]
@@ -345,7 +345,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     Déclaration préalable en ligne
                                 </span>
                                 <h1 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(40px,5.3vw,62px);line-height:1.02;letter-spacing:-.02em;margin:22px 0 0;color:var(--ink)')}>Votre déclaration de travaux, <span style={italicAc}>prête à déposer</span>.</h1>
-                                <p style={s('font-size:18px;line-height:1.62;color:var(--ink-2);margin:22px 0 0;max-width:53ch')}>Formulaire CERFA, plans, photos et notice : nous assemblons tout et vérifions la conformité au PLU de votre commune. En 20&nbsp;minutes, sans architecte.</p>
+                                <p style={s('font-size:18px;line-height:1.62;color:var(--ink-2);margin:22px 0 0;max-width:53ch')}>Formulaire CERFA, plans, photos et notice : nous assemblons tout et vérifions la conformité au PLU de votre commune. En 10&nbsp;minutes, sans architecte.</p>
 
                                 <div style={s('margin:32px 0 0;max-width:470px')}>
                                     <label className="dp-label" style={s('display:block;margin-bottom:8px')}>Commencez par l&apos;adresse de votre terrain</label>
@@ -708,7 +708,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 <p style={s('font-size:17px;line-height:1.55;color:rgba(255,255,255,.85);margin:16px auto 0;max-width:48ch')}>Commencez gratuitement. Vous ne payez qu&apos;au moment de générer le dossier final.</p>
                                 <div style={s('display:flex;align-items:center;justify-content:center;gap:16px;margin-top:30px;flex-wrap:wrap')}>
                                     <a href={appHref} style={s('text-decoration:none;display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--acd);font-weight:600;font-size:15px;padding:14px 26px;border-radius:12px;box-shadow:0 14px 30px -12px rgba(0,0,0,.3)')}>Commencer gratuitement</a>
-                                    <span style={s('font-family:var(--mf);font-size:12px;letter-spacing:.04em;color:rgba(255,255,255,.75)')}>≈ 20 minutes</span>
+                                    <span style={s('font-family:var(--mf);font-size:12px;letter-spacing:.04em;color:rgba(255,255,255,.75)')}>≈ 10 minutes</span>
                                 </div>
                             </div>
                         </div>
