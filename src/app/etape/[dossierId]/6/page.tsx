@@ -873,12 +873,18 @@ export default function Etape6() {
     }, [address, commune, coords])
 
     useEffect(() => {
-        // Auto-generate DP4 notice based on work type
+        // Seed the DP4 notice with the auto-generated template ONLY when nothing is saved yet.
+        // Never overwrite an existing notice — otherwise navigating back into this step would wipe
+        // the "Rédiger avec l'IA" result (or the user's manual edits) and restore the default.
+        if (formData.plans.dp4_notice) {
+            setDp4Notice(formData.plans.dp4_notice)
+            return
+        }
         const notice = generateDP4Notice(formData)
         setDp4Notice(notice)
         updatePlans({ dp4_notice: notice })
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formData.travaux.type])
+    }, [formData.travaux.type, formData.plans.dp4_notice])
 
     // Auto-trigger DP5 Technical Sketches when entering subStep 6
     useEffect(() => {
@@ -923,11 +929,17 @@ export default function Etape6() {
     }
 
     const handleGenerateAIFirst = async (facadeId?: string, customInstruction?: string, force = false) => {
-        // Cache by default: skip façades that already have a simulation. A per-façade regenerate
-        // (facadeId) or an explicit "Tout régénérer" (force) re-runs the generation.
-        const facadesToProcess = facadeId
+        // By default "Lancer la simulation" generates the selected façades that don't have one yet.
+        // But if they ALL already have a simulation (e.g. the user came back to this step), the click
+        // must still do something visible — so we regenerate the selected façades instead of no-op'ing.
+        // A per-façade regenerate (facadeId) or "Tout régénérer" (force) always re-runs.
+        let facadesToProcess = facadeId
             ? formData.photos.facades.filter(f => f.id === facadeId && f.before)
             : formData.photos.facades.filter(f => selectedFacades.includes(f.id) && f.before && (force || !f.after))
+
+        if (!facadeId && !force && facadesToProcess.length === 0) {
+            facadesToProcess = formData.photos.facades.filter(f => selectedFacades.includes(f.id) && f.before)
+        }
 
         if (facadesToProcess.length === 0) return
 
@@ -1516,10 +1528,18 @@ export default function Etape6() {
                                             </div>
                                             <div className="aspect-[3/2] rounded-[2rem] overflow-hidden border-2 border-[color:var(--acb)] relative bg-white flex items-center justify-center p-8 group/res">
                                                 {generatingFacades.includes(f.id) ? (
-                                                    <div className="text-center">
-                                                        <div className="dp-spinner dp-spinner-lg mx-auto mb-4" />
-                                                        <span className="text-xs font-bold t-ink2 uppercase tracking-widest">Rendu Vectoriel...</span>
-                                                    </div>
+                                                    <>
+                                                        {/* Faded simulation behind an elegant spinner card, instead of a stark empty box */}
+                                                        <img src={f.after!} className="absolute inset-0 w-full h-full object-cover opacity-15 blur-[3px] grayscale" alt="" />
+                                                        <div className="relative z-10 flex flex-col items-center text-center gap-3 px-7 py-6 rounded-2xl"
+                                                            style={{ background: 'var(--surface)', border: '1px solid var(--acb)', boxShadow: '0 12px 32px -12px rgba(0,0,0,.18)' }}>
+                                                            <div className="dp-spinner dp-spinner-lg" />
+                                                            <div>
+                                                                <div className="text-xs font-bold t-ink uppercase tracking-widest">Rendu du plan…</div>
+                                                                <p className="text-[11px] t-muted mt-1">Conversion en plan de façade technique</p>
+                                                            </div>
+                                                        </div>
+                                                    </>
                                                 ) : f.croquis ? (
                                                     <>
                                                         <img src={f.croquis} className="max-w-full max-h-full object-contain" alt="Plan Technique" />

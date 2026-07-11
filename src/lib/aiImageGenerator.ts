@@ -68,18 +68,22 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
         ? `\n\nEXACT COLOUR (critical): the treated surface must be ${colour ? `"${colour}"` : 'the colour named above'}${guide ? ` — i.e. ${guide}` : ''}. Reproduce this exact colour uniformly across the whole treated surface. Do NOT invent or approximate a different colour; in particular do NOT default to grey, blue or white unless that is the colour named above.`
         : ''
 
-    return `Edit the attached photograph. Return the SAME photograph, pixel-for-pixel identical, with ONLY the requested modification applied. This is an in-place photo edit — it is NOT a request to imagine, redraw or generate a new building.
+    return `Edit the attached photograph in place. Return the SAME photograph with ONLY the requested modification(s) applied. This is an in-place photo edit — NOT a request to imagine, redraw, re-photograph or generate a new building.
 
-REQUESTED MODIFICATION (the only thing you may change):
+CAMERA & FRAMING — DO NOT CHANGE (most important rule):
+- Keep the EXACT same camera angle, viewpoint, perspective and rotation as the attached photo. Do NOT rotate the building, do NOT switch to a more frontal/3-quarter view, do NOT change where the camera is.
+- Keep the EXACT same zoom, distance and framing. The building must occupy the same area of the frame and be the same size. Do NOT zoom in or out, do NOT crop, do NOT re-centre or re-compose.
+- Output the SAME image dimensions and aspect ratio as the input. Keep the background, neighbouring buildings, garden, sky and lighting identical.
+
+REQUESTED MODIFICATION(S) — apply ALL of them (a renovation can change several things at once: material, colour, finish, openings…):
 "${rawDescription}"
 
 ABSOLUTE RULES:
-- The output MUST be the exact same building shown in the attached photo — same shape, same number of floors, same number and position of every window and door, same roof, same proportions, same materials (except where the modification explicitly changes them).
-- Keep the camera angle, framing, perspective, zoom, background, neighbouring buildings, garden, sky and lighting 100% identical to the attached photo. Do not re-frame or re-compose the shot.
-- Do NOT add or remove windows, doors, shutters, chimneys, balconies or any feature. Do NOT invent or substitute a different house.
-- Apply the modification ONLY to the relevant surfaces (e.g. "paint the shutters blue" → recolour only the shutters; "exterior insulation render" → re-coat only the wall surfaces). Leave everything else untouched.
+- The output MUST be the exact same building — same shape, same number of floors, same number and position of every window and door, same roof, same proportions. Change ONLY the materials/colours/elements named in the modification(s) above; leave everything else identical.
+- Do NOT add or remove windows, doors, shutters, chimneys, balconies or any feature that the modification does not explicitly mention.
+- Apply each modification only to the relevant surfaces (e.g. "peinture ton pierre" → recolour only the wall render; "menuiseries aluminium noir" → only the window/door frames).
 - Remove only transient clutter in front of the edited area (people, parked cars, bins) so the change is clearly visible.
-- Photorealistic result, matching the original photo's quality and tone. No added text, captions, borders, arrows or watermarks.${colourBlock}`
+- Photorealistic result, matching the original photo's quality, tone and lighting. No added text, captions, borders, arrows or watermarks.${colourBlock}`
 }
 
 export function buildAICroquisPrompt(_data: DPFormData, _customInstruction?: string): string {
