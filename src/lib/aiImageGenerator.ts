@@ -7,6 +7,44 @@
 import { DPFormData } from './models'
 import { getTravauxDef } from './travauxRegistry'
 
+// Common teinte / RAL codes → a plain-language visual colour. Image models don't reliably know RAL
+// codes or French nuancier terms, so we spell out the actual colour — otherwise "RAL 1015 (ton
+// pierre)" gets painted an arbitrary grey/blue. Keys are matched case-insensitively as substrings.
+const COLOUR_HINTS: Record<string, string> = {
+    'ton pierre': 'a warm pale beige / natural sandstone tone (NOT grey, NOT white)',
+    'ral 1013': 'oyster white — a very pale warm off-white',
+    'ral 1014': 'ivory — a pale warm beige',
+    'ral 1015': 'light ivory — a pale creamy warm beige (NOT grey, NOT white)',
+    'ral 1001': 'beige',
+    'ral 1002': 'sand yellow',
+    'ral 9001': 'cream',
+    'ral 9010': 'pure white',
+    'ral 9016': 'bright white',
+    'ral 7016': 'anthracite — a very dark charcoal grey',
+    'ral 7030': 'stone grey — a pale warm grey',
+    'ral 7035': 'light grey',
+    'sable': 'sand beige',
+    'ocre': 'warm ochre / golden beige',
+    'blanc cassé': 'off-white',
+    'blanc casse': 'off-white',
+}
+function colourGuidance(text: string): string {
+    const s = text.toLowerCase()
+    for (const [k, v] of Object.entries(COLOUR_HINTS)) if (s.includes(k)) return v
+    return ''
+}
+// The colour the user actually asked for, per work type (couleur field + RAL where relevant).
+function intendedColour(data: DPFormData): string {
+    const t = data.travaux
+    const j = (...xs: (string | undefined)[]) => xs.filter(Boolean).join(' ').trim()
+    if (t.type === 'ravalement') return j(t.ravalement?.couleur)
+    if (t.type === 'menuiseries') return j(t.menuiseries?.couleur, t.menuiseries?.couleur_ral)
+    if (t.type === 'isolation') return j(t.isolation?.couleur)
+    if (t.type === 'cloture') return j(t.cloture?.couleur)
+    if (t.type === 'toiture') return j(t.toiture?.couleur)
+    return ''
+}
+
 // ── Prompt builders ───────────────────────────────────────────────────────────
 export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: string): string {
     const { travaux } = data
@@ -20,6 +58,16 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
         rawDescription = getTravauxDef(travaux.type)?.aiDescription(data) || ''
     }
 
+    // Pin the colour: the description names it (e.g. "RAL 1015 (ton pierre)") but models paint an
+    // arbitrary colour unless told exactly what it looks like. Only added when the effective
+    // instruction actually references that colour (so a hand-edited instruction isn't overridden).
+    const colour = intendedColour(data)
+    const guide = colourGuidance(rawDescription) || colourGuidance(colour)
+    const mentionsColour = !!colour && rawDescription.toLowerCase().includes(colour.toLowerCase())
+    const colourBlock = (mentionsColour || guide)
+        ? `\n\nEXACT COLOUR (critical): the treated surface must be ${colour ? `"${colour}"` : 'the colour named above'}${guide ? ` — i.e. ${guide}` : ''}. Reproduce this exact colour uniformly across the whole treated surface. Do NOT invent or approximate a different colour; in particular do NOT default to grey, blue or white unless that is the colour named above.`
+        : ''
+
     return `Edit the attached photograph. Return the SAME photograph, pixel-for-pixel identical, with ONLY the requested modification applied. This is an in-place photo edit — it is NOT a request to imagine, redraw or generate a new building.
 
 REQUESTED MODIFICATION (the only thing you may change):
@@ -31,7 +79,7 @@ ABSOLUTE RULES:
 - Do NOT add or remove windows, doors, shutters, chimneys, balconies or any feature. Do NOT invent or substitute a different house.
 - Apply the modification ONLY to the relevant surfaces (e.g. "paint the shutters blue" → recolour only the shutters; "exterior insulation render" → re-coat only the wall surfaces). Leave everything else untouched.
 - Remove only transient clutter in front of the edited area (people, parked cars, bins) so the change is clearly visible.
-- Photorealistic result, matching the original photo's quality and tone. No added text, captions, borders, arrows or watermarks.`
+- Photorealistic result, matching the original photo's quality and tone. No added text, captions, borders, arrows or watermarks.${colourBlock}`
 }
 
 export function buildAICroquisPrompt(_data: DPFormData, _customInstruction?: string): string {
