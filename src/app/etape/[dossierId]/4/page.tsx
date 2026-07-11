@@ -20,6 +20,7 @@ export default function Etape4() {
     const [showPdf, setShowPdf] = useState(false)
     const [ack, setAck] = useState(false)
     const [edits, setEdits] = useState<Record<string, string>>({})
+    const [showDetails, setShowDetails] = useState(false)   // technical detail is collapsed by default
 
     const plu = terrain.plu
     const hasReport = !!plu?.analysisReport
@@ -172,6 +173,29 @@ export default function Etape4() {
     const aspectConflict = pluAspectConflicts(formData)
     const aspect = travauxAspect(formData)
 
+    // A plain-language "are my works allowed here?" answer for the top card — clients who want the
+    // technical breakdown open the "détails techniques" toggle underneath.
+    const evViolations: string[] = plu?.evaluationResult?.violations || []
+    const evWarnings: string[] = plu?.evaluationResult?.warnings || []
+    const evProposal: any = plu?.evaluationResult?.proposal
+    const reliable = !!plu && plu.source !== 'estimation' && plu.verified !== false && !plu.isRnu
+    const plainAnswer: { head: string; sub: string } = (() => {
+        if (evViolations.length > 0)
+            return { head: 'En l’état, vos travaux ne sont pas conformes', sub: 'Le règlement d’urbanisme de votre zone s’oppose à certains de vos choix. Une solution pour rendre le projet conforme vous est proposée ci-dessous.' }
+        if (plu?.evaluationResult?.decision === 'PERMIS_CONSTRUIRE')
+            return { head: 'Un permis de construire est nécessaire', sub: 'Votre projet dépasse le cadre d’une simple déclaration préalable.' }
+        if (verdict.tone === 'warn')
+            return { head: 'Vos travaux sont autorisés, sous conditions', sub: verdict.sub }
+        if (verdict.tone === 'error')
+            return { head: 'Vos travaux ne sont pas autorisés en l’état', sub: verdict.sub }
+        return { head: 'Vos travaux sont autorisés', sub: verdict.sub }
+    })()
+    const answerColor = verdict.tone === 'ok'
+        ? { border: 'var(--acb)', bg: 'var(--act)' }
+        : verdict.tone === 'warn'
+            ? { border: '#EBD9A8', bg: '#FBF1DC' }
+            : { border: '#EBC3BB', bg: '#FBEAE6' }
+
     return (
         <>
             <div className="animate-fadeIn">
@@ -241,6 +265,89 @@ export default function Etape4() {
                     </div>
                 ) : (
                     <div className="space-y-6">
+                        {/* ── CLEAR ANSWER — plain verdict + the suggestion. Technical detail is behind
+                            the "détails techniques" toggle further down. ────────────────────────── */}
+                        <div className="dp-card" style={{ borderColor: answerColor.border, background: answerColor.bg }}>
+                            <div className="flex items-start gap-4">
+                                <div className="text-4xl leading-none">{verdict.icon}</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="dp-meta" style={{ opacity: .7 }}>Vos travaux à cette adresse</div>
+                                    <h3 className="text-lg font-bold t-ink mt-0.5 leading-snug">{plainAnswer.head}</h3>
+                                    <p className="text-sm t-ink2 mt-1 leading-relaxed">{plainAnswer.sub}</p>
+                                    <p className="text-[11px] mt-2 leading-relaxed" style={{ opacity: .8 }}>
+                                        {reliable
+                                            ? '✓ Analyse fondée sur le règlement d’urbanisme officiel de votre zone.'
+                                            : '⚠️ Analyse estimative : le règlement n’a pas pu être lu automatiquement — à confirmer avec le document officiel (voir les détails techniques).'}
+                                    </p>
+
+                                    {/* What blocks the project */}
+                                    {evViolations.length > 0 && (
+                                        <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,.6)', border: '1px solid #EBC3BB' }}>
+                                            <div className="dp-meta t-error mb-1">Ce qui pose problème</div>
+                                            <ul className="list-disc list-inside text-xs t-error space-y-1 pl-1">
+                                                {evViolations.map((v: string, i: number) => <li key={i} className="leading-relaxed">{v}</li>)}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {/* The suggestion — editable, one field per offending choice */}
+                                    {evProposal?.editableFields?.length > 0 && (
+                                        <div className="mt-3 p-3 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--acb)' }}>
+                                            <div className="dp-meta t-accent flex items-center gap-1 mb-2">💡 Solution proposée</div>
+                                            {(evProposal.why || []).length > 0 && (
+                                                <ul className="text-[11px] t-ink2 space-y-0.5 mb-2.5 pl-1">
+                                                    {evProposal.why.map((w: string, i: number) => (
+                                                        <li key={i} className="leading-relaxed flex gap-1.5"><span className="t-accent">✓</span><span>{w}</span></li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                            <div className="space-y-2.5">
+                                                {evProposal.editableFields.map((f: any) => (
+                                                    <div key={f.key} className="flex flex-col gap-1">
+                                                        <label className="text-[11px] font-semibold t-ink2">{f.label}</label>
+                                                        {f.options ? (
+                                                            <select className="dp-select text-sm" value={edits[f.key] ?? f.value} onChange={e => setEdits(s => ({ ...s, [f.key]: e.target.value }))}>
+                                                                <option value="">— choisir —</option>
+                                                                {f.options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                                                            </select>
+                                                        ) : (
+                                                            <input className="dp-input text-sm" placeholder={f.hint || 'Valeur conforme'} value={edits[f.key] ?? f.value} onChange={e => setEdits(s => ({ ...s, [f.key]: e.target.value }))} />
+                                                        )}
+                                                        {f.hint && !f.options && <span className="text-[10px] t-ink2" style={{ opacity: .7 }}>Suggestion : {f.hint}</span>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <button onClick={applyProposal} disabled={analyzing || applying} className="dp-btn-primary disabled:opacity-50 mt-3" style={{ padding: '8px 16px', fontSize: 13 }}>
+                                                {applying ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Application…</> : 'Appliquer et relancer l\'analyse'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Key conditions (short) */}
+                                    {evWarnings.length > 0 && (
+                                        <ul className="mt-3 text-xs t-warn space-y-1 pl-1">
+                                            {evWarnings.map((w: string, i: number) => (
+                                                <li key={i} className="leading-relaxed flex gap-1.5"><span>⚠️</span><span>{w}</span></li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Details toggle */}
+                        <button
+                            onClick={() => setShowDetails(!showDetails)}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider t-ink2 hover:t-accent transition-all"
+                            style={{ border: '1px dashed var(--line-3)', background: 'var(--surface-2)' }}
+                        >
+                            {showDetails ? 'Masquer les détails techniques' : 'Voir les détails techniques'}
+                            <svg className={`w-3.5 h-3.5 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        {showDetails && (<div className="space-y-6">
                         {/* 1. PDF Extractor & Scanner Disclaimer Box */}
                         <div className="dp-card relative overflow-hidden" style={{ borderColor: 'var(--acb)', background: 'var(--act)' }}>
                             <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: 'var(--ac)' }}></div>
@@ -329,89 +436,8 @@ export default function Etape4() {
                             </div>
                         </div>
 
-                        {/* 2. Verdict / Compliance Status Card */}
-                        <div className={`dp-alert is-${verdict.tone}`} style={{ padding: '20px' }}>
-                            <div className="dp-alert-title" style={{ opacity: .8 }}>
-                                Verdict de conformité réglementaire (Moteur de Décision)
-                            </div>
-                            <div className="text-base font-bold flex items-center gap-2 mb-1">
-                                <span>{verdict.icon}</span>
-                                <span>{verdict.badge}</span>
-                            </div>
-                            <p className="text-xs leading-relaxed mb-3" style={{ opacity: .85 }}>
-                                {verdict.sub}
-                            </p>
-
-                            {/* Violations List */}
-                            {plu?.evaluationResult?.violations && plu.evaluationResult.violations.length > 0 && (
-                                <div className="mt-3 p-3 rounded-xl space-y-2" style={{ background: 'rgba(255,255,255,.5)', border: '1px solid #EBC3BB' }}>
-                                    <div className="dp-meta t-error flex items-center gap-1">
-                                        🛑 Non-conformités détectées
-                                    </div>
-                                    <ul className="list-disc list-inside text-xs t-error space-y-1 pl-1">
-                                        {plu.evaluationResult.violations.map((violation: string, idx: number) => (
-                                            <li key={idx} className="leading-relaxed">{violation}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Counter-proposal — the AI suggests a concrete value per offending field;
-                                each is an editable control (pre-filled, adjustable) before applying. */}
-                            {plu?.evaluationResult?.proposal?.editableFields?.length > 0 && (
-                                <div className="mt-3 p-3 rounded-xl" style={{ background: 'var(--act)', border: '1px solid var(--acb)' }}>
-                                    <div className="dp-meta t-accent flex items-center gap-1 mb-2">💡 Proposition de mise en conformité</div>
-                                    {(plu.evaluationResult.proposal.why || []).length > 0 && (
-                                        <ul className="text-[11px] t-ink2 space-y-0.5 mb-2.5 pl-1">
-                                            {plu.evaluationResult.proposal.why.map((w: string, i: number) => (
-                                                <li key={i} className="leading-relaxed flex gap-1.5"><span className="t-accent">✓</span><span>{w}</span></li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                    <div className="space-y-2.5">
-                                        {plu.evaluationResult.proposal.editableFields.map((f: any) => (
-                                            <div key={f.key} className="flex flex-col gap-1">
-                                                <label className="text-[11px] font-semibold t-ink2">{f.label}</label>
-                                                {f.options ? (
-                                                    <select className="dp-select text-sm" value={edits[f.key] ?? f.value} onChange={e => setEdits(s => ({ ...s, [f.key]: e.target.value }))}>
-                                                        <option value="">— choisir —</option>
-                                                        {f.options.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                                                    </select>
-                                                ) : (
-                                                    <input className="dp-input text-sm" placeholder={f.hint || 'Valeur conforme'} value={edits[f.key] ?? f.value} onChange={e => setEdits(s => ({ ...s, [f.key]: e.target.value }))} />
-                                                )}
-                                                {f.hint && !f.options && <span className="text-[10px] t-ink2" style={{ opacity: .7 }}>Suggestion : {f.hint}</span>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button
-                                        onClick={applyProposal}
-                                        disabled={analyzing || applying}
-                                        className="dp-btn-primary disabled:opacity-50 mt-3"
-                                        style={{ padding: '8px 16px', fontSize: 13 }}
-                                    >
-                                        {applying ? <><span className="dp-spinner dp-spinner-sm on-accent" /> Application…</> : 'Appliquer et relancer l\'analyse'}
-                                    </button>
-                                    <p className="text-[10px] t-ink2 mt-1.5" style={{ opacity: .7 }}>
-                                        Met à jour les détails du projet et la description, puis relance l'analyse.
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Warnings List */}
-                            {plu?.evaluationResult?.warnings && plu.evaluationResult.warnings.length > 0 && (
-                                <div className="mt-3 p-3 rounded-xl space-y-2" style={{ background: 'rgba(255,255,255,.5)', border: '1px solid #EBD9A8' }}>
-                                    <div className="dp-meta t-warn flex items-center gap-1">
-                                        ⚠️ Points d'attention & Alertes
-                                    </div>
-                                    <ul className="list-disc list-inside text-xs t-warn space-y-1 pl-1">
-                                        {plu.evaluationResult.warnings.map((warning: string, idx: number) => (
-                                            <li key={idx} className="leading-relaxed">{warning}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
+                        {/* (The verdict, non-conformités, proposal and warnings now live in the CLEAR
+                            ANSWER card at the top — this technical section keeps the supporting detail.) */}
 
                         {/* 2.4. Protected-sector requirements — deterministic checklist shown whenever the
                             parcel is in an SPR / abords MH (binding ABF avis). Encodes the recevabilité
@@ -707,6 +733,8 @@ export default function Etape4() {
                                 </div>
                             </div>
                         )}
+                        </div>)}
+                        {/* ── end technical details ─────────────────────────────────────────────── */}
 
                         {/* 7. Disclaimer Legal Notice */}
                         <div className="rounded-2xl p-4 t-muted text-[10px] leading-relaxed" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
