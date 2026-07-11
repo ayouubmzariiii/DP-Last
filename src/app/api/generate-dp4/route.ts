@@ -83,10 +83,10 @@ INTEGRATION DANS L'ENVIRONNEMENT
         if (!apiKey) {
             return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 503 })
         }
-        // A cheap but capable model — the previous 'openrouter/free' produced degenerate output
-        // (leaked <pad> tokens, "de de de…" repetition loops). gemini-2.5-flash is a few hundredths
-        // of a cent per notice and supports the photo (vision) input. Override via OPENROUTER_DP4_MODEL.
-        const model = process.env.OPENROUTER_DP4_MODEL || 'google/gemini-2.5-flash'
+        // Same free auto-routed model as the PLU analysis (openrouter/free). The degenerate-output
+        // guards below (token stripping, repetition-loop collapse, length/section validation) keep
+        // the notice clean if the routed model wobbles. Override via OPENROUTER_DP4_MODEL.
+        const model = process.env.OPENROUTER_DP4_MODEL || 'openrouter/free'
 
         const validPhotos = photos ? photos.filter((p: string) => typeof p === 'string' && p.startsWith('data:image')) : []
         const withImages = validPhotos.length > 0

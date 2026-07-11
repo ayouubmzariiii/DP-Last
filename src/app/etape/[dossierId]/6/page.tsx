@@ -794,14 +794,12 @@ const compressDataURL = (dataUrl: string, maxWidth: number = 1500, quality: numb
 export default function Etape6() {
     const router = useRouter()
     const dossierId = useParams<{ dossierId: string }>().dossierId as string
-    const { formData, updatePhotos, updatePlans } = useDPContext()
+    const { formData, updatePhotos, updatePlans, updateTravaux } = useDPContext()
     const [isGeneratingAI, setIsGeneratingAI] = useState(false)
     const [isGeneratingCroquis, setIsGeneratingCroquis] = useState(false)
     const [isEditingAI, setIsEditingAI] = useState(false)
     const [isEditingCroquis, setIsEditingCroquis] = useState(false)
     const [aiGenerated, setAiGenerated] = useState(false)
-    const [aiInstruction, setAiInstruction] = useState('')
-    const aiInstructionDirty = useRef(false)   // true once the user edits the field manually
     const [dp4Notice, setDp4Notice] = useState(formData.plans.dp4_notice || '')
     // DP4 AI Text Generation
     const [isGeneratingDP4, setIsGeneratingDP4] = useState(false)
@@ -813,21 +811,15 @@ export default function Etape6() {
     const [croquisInstructions, setCroquisInstructions] = useState<Record<string, string>>({})
     const [generatingFacades, setGeneratingFacades] = useState<string[]>([])
     const [showModifyInput, setShowModifyInput] = useState<Record<string, 'dp6' | 'dp5' | null>>({})
+    const [modifyInstruction, setModifyInstruction] = useState('')   // per-façade "modify this simulation" tweak
 
-    // Pre-fill the DP6 simulation instruction from the project itself — the client's own travaux
-    // description if present, otherwise the type-aware "après travaux" description from the travaux
-    // registry (same source buildAIAfterImagePrompt falls back to). We re-derive whenever the travaux
-    // change UNTIL the user edits the field, because the dossier hydrates from the DB after mount:
-    // keying only on "empty" would lock in the pre-hydration default type (menuiseries) and, e.g.,
-    // make a ravalement simulation change the windows instead of repainting the façade.
-    useEffect(() => {
-        if (aiInstructionDirty.current) return
-        const t = formData.travaux
-        const desc = (t.description_projet && t.description_projet.trim())
-            || getTravauxDef(t.type)?.aiDescription(formData)
-            || ''
-        if (desc) setAiInstruction(desc)
-    }, [formData.travaux])
+    // The DP6 simulation is driven by the project's single "description des travaux"
+    // (travaux.description_projet, the same field entered at l'étape Travaux) — no separate,
+    // duplicated instruction box. When it's empty we fall back to the registry's type-aware
+    // description at generation time (see buildAIAfterImagePrompt), so the placeholder shows what
+    // will be used. worksDescription is the effective prompt source used everywhere below.
+    const worksDescription = (formData.travaux.description_projet || '').trim()
+    const worksDescriptionSuggestion = getTravauxDef(formData.travaux.type)?.aiDescription(formData) || ''
 
     // Initialize selection with all facades that have a photo but no simulation yet
     useEffect(() => {
@@ -845,6 +837,40 @@ export default function Etape6() {
     const coords = formData.terrain.meme_adresse
         ? formData.demandeur.coords
         : formData.terrain.coords
+
+    // Warm DP1 (IGN static map) and DP2 (cadastre + bâti WFS) in the background as soon as the
+    // location is known — so those sub-steps render from cache instead of fetching only when the
+    // user arrives. The WFS URLs mirror Dp2VectorCard's exactly, for a browser-cache hit there.
+    const preloadedRef = useRef('')
+    useEffect(() => {
+        const c = coords
+        if (!c && !address && !commune) return
+        const key = c ? `${c.lat},${c.lon}` : `${address}|${commune}`
+        if (preloadedRef.current === key) return
+        preloadedRef.current = key
+
+        const params = new URLSearchParams()
+        if (address) params.append('address', address)
+        if (commune) params.append('commune', commune)
+        params.append('zoom', String(dp1Zoom))
+        if (c) { params.append('lat', String(c.lat)); params.append('lon', String(c.lon)) }
+        fetch(`/api/preview-maps?${params.toString()}`)
+            .then(r => r.json())
+            .then(d => { if (d?.dp1Url) { const im = new Image(); im.src = d.dp1Url } })
+            .catch(() => {})
+
+        if (c) {
+            const R = 6378137
+            const cx = R * c.lon * Math.PI / 180
+            const cy = R * Math.log(Math.tan(Math.PI / 4 + (c.lat * Math.PI / 180) / 2))
+            const half = 80
+            const bbox = [cx - half, cy - half, cx + half, cy + half].map(v => v.toFixed(2)).join(',')
+            const base = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&OUTPUTFORMAT=application/json&srsName=EPSG:3857`
+            fetch(`${base}&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle&BBOX=${bbox},EPSG:3857`).catch(() => {})
+            fetch(`${base}&TYPENAMES=BDTOPO_V3:batiment&BBOX=${bbox},EPSG:3857`).catch(() => {})
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [address, commune, coords])
 
     useEffect(() => {
         // Auto-generate DP4 notice based on work type
@@ -914,7 +940,7 @@ export default function Etape6() {
         try {
             const newFacades = [...formData.photos.facades]
             for (const f of facadesToProcess) {
-                const prompt = buildAIAfterImagePrompt(formData, customInstruction || aiInstruction)
+                const prompt = buildAIAfterImagePrompt(formData, customInstruction || worksDescription || undefined)
                 const imageBase64 = f.before!
                 let imageUrl: string | undefined
 
@@ -1280,14 +1306,17 @@ export default function Etape6() {
                                     <div className="flex-1 space-y-4">
                                         <div>
                                             <h3 className="text-xl font-bold t-ink mb-1">SIMULATION IA (DP6)</h3>
-                                            <p className="t-muted text-xs">Décrivez les modifications pour générer l'insertion paysagère</p>
+                                            <p className="t-muted text-xs">La simulation utilise votre <strong className="t-ink2">description des travaux</strong> (saisie à l'étape Travaux). Ajustez-la ici si besoin.</p>
                                         </div>
                                         <textarea
                                             className="w-full min-h-[120px] bg-[var(--field)] border border-[color:var(--line-3)] focus:border-[color:var(--ac)] rounded-2xl p-5 t-ink placeholder-[color:var(--faint)] transition-all outline-none text-sm"
-                                            placeholder="Ex: Remplacer le portail actuel par un modèle en aluminium noir..."
-                                            value={aiInstruction}
-                                            onChange={e => { aiInstructionDirty.current = true; setAiInstruction(e.target.value) }}
+                                            placeholder={worksDescriptionSuggestion || 'Décrivez les travaux à simuler…'}
+                                            value={formData.travaux.description_projet || ''}
+                                            onChange={e => updateTravaux({ description_projet: e.target.value })}
                                         />
+                                        {!worksDescription && worksDescriptionSuggestion && (
+                                            <p className="text-[11px] t-muted">À défaut, nous simulerons : « {worksDescriptionSuggestion} »</p>
+                                        )}
                                     </div>
                                     <div className="w-full lg:w-[280px] space-y-4">
                                         <div className="bg-[var(--surface-2)] rounded-2xl p-5 border border-[color:var(--line)] space-y-2">
@@ -1398,14 +1427,14 @@ export default function Etape6() {
                                                                         </div>
                                                                         <textarea
                                                                             autoFocus
-                                                                            value={aiInstruction}
-                                                                            onChange={(e) => setAiInstruction(e.target.value)}
+                                                                            value={modifyInstruction}
+                                                                            onChange={(e) => setModifyInstruction(e.target.value)}
                                                                             className="bg-[var(--field)] border border-[color:var(--line)] focus:border-[color:var(--ac)] rounded-xl px-3 py-2 text-xs t-ink outline-none resize-none transition-all"
                                                                             rows={2}
-                                                                            placeholder="Décrivez les changements..."
+                                                                            placeholder="Ex: teinte plus claire, volets fermés…"
                                                                         />
                                                                         <button
-                                                                            onClick={() => handleGenerateAIFirst(f.id, aiInstruction)}
+                                                                            onClick={() => handleGenerateAIFirst(f.id, modifyInstruction || undefined)}
                                                                             className="dp-btn-primary w-full py-2 text-[10px] justify-center"
                                                                         >
                                                                             <span className="text-xs">✨</span> Régénérer Simulation

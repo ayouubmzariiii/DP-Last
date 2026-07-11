@@ -49,6 +49,15 @@ export default function Etape7() {
     // sample data (the "données fictives" banner makes clear the dossier is not for real filing).
     const blocked = fatals.length > 0 || missingFatalPieces.length > 0
 
+    // The engagement (lieu / date / signature) is an action the user performs ON THIS page, in its
+    // own section — so we keep it OUT of the top completeness panel (which would otherwise flag
+    // "signature manquante" before the user has even scrolled to the engagement box) and surface it
+    // contextually at the engagement section and the download buttons instead.
+    const engagementFatals = fatals.filter(i => i.section === 'Engagement')
+    const dataFatals = fatals.filter(i => i.section !== 'Engagement')
+    const dataReady = dataFatals.length === 0 && missingFatalPieces.length === 0
+    const engagementComplete = engagementFatals.length === 0
+
     // Surface server-side validation failures (safety-net bypass) cleanly.
     const handleServerIssues = async (res: Response): Promise<boolean> => {
         if (res.status === 422) {
@@ -207,14 +216,15 @@ export default function Etape7() {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Completeness & conformity gate */}
+                    {/* Readiness summary — DATA completeness only. The signature/date live in their own
+                        "Engagement" section below, so they're intentionally not flagged up here. */}
                     <div className="dp-card" style={{
-                        borderColor: blocked ? '#EBC3BB' : warns.length ? '#EBD9A8' : 'var(--acb)',
-                        background: blocked ? '#FBEAE6' : warns.length ? '#FBF1DC' : 'var(--act)',
+                        borderColor: dataReady ? 'var(--acb)' : '#EBC3BB',
+                        background: dataReady ? 'var(--act)' : '#FBEAE6',
                     }}>
                         <h3 className="dp-section-title flex items-center gap-2">
-                            <span>{blocked ? '⛔' : warns.length ? '⚠️' : '✅'}</span>
-                            Contrôle de complétude du dossier
+                            <span>{dataReady ? '✅' : '⛔'}</span>
+                            {dataReady ? 'Votre dossier est complet' : 'Informations à compléter'}
                         </h3>
 
                         {isTestMode && (
@@ -223,27 +233,31 @@ export default function Etape7() {
                             </div>
                         )}
 
-                        {/* Required fields */}
-                        {fatals.length > 0 ? (
-                            <div className="mb-4">
-                                <p className="dp-meta t-error mb-2">{fatals.length} information(s) obligatoire(s) manquante(s)</p>
-                                <ul className="space-y-1.5">
-                                    {fatals.map(i => (
-                                        <li key={i.id} className="flex items-start gap-2 text-sm t-error">
-                                            <span className="mt-0.5">✗</span>
-                                            <span><span className="t-muted font-semibold">[{i.section}]</span> {i.message}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                        {dataReady ? (
+                            <p className="text-sm t-ok">
+                                ✓ Toutes les informations obligatoires sont renseignées.{' '}
+                                {engagementComplete ? 'Vous pouvez générer vos documents ci-dessous.' : 'Il ne reste plus qu’à signer l’engagement, plus bas.'}
+                            </p>
                         ) : (
-                            <p className="mb-4 text-sm t-ok">✓ Toutes les informations obligatoires sont renseignées.</p>
+                            <ul className="space-y-1.5">
+                                {dataFatals.map(i => (
+                                    <li key={i.id} className="flex items-start gap-2 text-sm t-error">
+                                        <span className="mt-0.5">✗</span>
+                                        <span><span className="t-muted font-semibold">[{i.section}]</span> {i.message}</span>
+                                    </li>
+                                ))}
+                                {missingFatalPieces.map(p => (
+                                    <li key={p.code} className="flex items-start gap-2 text-sm t-error">
+                                        <span className="mt-0.5">✗</span>
+                                        <span><span className="t-muted font-semibold">[Pièce {p.code}]</span> {p.label} manquant — à générer aux étapes Photos / Plans.</span>
+                                    </li>
+                                ))}
+                            </ul>
                         )}
 
-                        {/* Warnings */}
                         {warns.length > 0 && (
-                            <div className="mb-4">
-                                <p className="dp-meta t-warn mb-2">{warns.length} recommandation(s) — à vérifier par l’expert</p>
+                            <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--line-2)' }}>
+                                <p className="dp-meta t-warn mb-2">{warns.length} recommandation(s) — à vérifier, non bloquant</p>
                                 <ul className="space-y-1.5">
                                     {warns.map(i => (
                                         <li key={i.id} className="flex items-start gap-2 text-sm t-warn">
@@ -254,26 +268,6 @@ export default function Etape7() {
                                 </ul>
                             </div>
                         )}
-
-                        {/* Pieces checklist */}
-                        <div className="pt-3" style={{ borderTop: '1px solid var(--line-2)' }}>
-                            <p className="dp-meta mb-2">Pièces du dossier (DP1–DP8)</p>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                {pieces.map(p => (
-                                    <div key={p.code} className={`dp-chip ${p.present ? 'is-ok' : p.severity === 'fatal' ? 'is-missing' : ''}`}
-                                        title={p.note || ''}>
-                                        <span>{p.present ? '✅' : p.severity === 'fatal' ? '✗' : '⬜'}</span>
-                                        <span className="code">{p.code}</span>
-                                        <span className="truncate">{p.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                            {missingFatalPieces.length > 0 && (
-                                <p className="mt-2 text-xs t-error">
-                                    Pièce(s) obligatoire(s) manquante(s) : {missingFatalPieces.map(p => p.code).join(', ')} — générez-les aux étapes Photos / Plans.
-                                </p>
-                            )}
-                        </div>
                     </div>
 
                     {/* Résumé info */}
@@ -310,40 +304,31 @@ export default function Etape7() {
                         ]}
                     />
 
-                    {/* Docs status */}
+                    {/* Pièces du dossier (DP1–DP8) — single unified view (previously duplicated as a
+                        chips list inside the status panel AND this grid). */}
                     <div className="dp-card">
                         <h3 className="dp-section-title flex items-center gap-2">
-                            <span>📄</span> Documents joints
+                            <span>📄</span> Pièces du dossier (DP1–DP8)
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {(() => {
-                                const facades = formData.photos.facades || []
-                                // DP5/DP6 live on the per-façade objects now (facades[].croquis / .after);
-                                // fall back to the deprecated single fields for older saved dossiers.
-                                const hasCroquis = facades.some(f => f.croquis) || !!formData.photos.facade_croquis_ai
-                                const hasAfter = facades.some(f => f.after) || !!formData.photos.facade_apres_ai
-                                return [
-                                    { label: 'DP1 Situation', has: !!formData.plans.dp1_carte_situation },
-                                    { label: 'DP2 Masse', has: !!formData.plans.dp2_plan_masse },
-                                    { label: 'DP4 Notice', has: !!formData.plans.dp4_notice },
-                                    { label: 'DP5 Croquis', has: hasCroquis },
-                                    { label: 'DP6 Simulation', has: hasAfter },
-                                    { label: 'DP7 Vue proche', has: !!formData.photos.dp7_vue_proche },
-                                    { label: 'DP8 Vue lointaine', has: !!formData.photos.dp8_vue_lointaine },
-                                ]
-                            })().map(item => {
-                                const has = item.has
-                                return (
-                                    <div key={item.label} className="rounded-xl p-3 text-center text-sm font-semibold border"
-                                        style={has
-                                            ? { borderColor: 'var(--acb)', background: 'var(--act)', color: 'var(--acd)' }
+                            {pieces.map(pc => (
+                                <div key={pc.code} className="rounded-xl p-3 text-center text-sm font-semibold border" title={pc.note || ''}
+                                    style={pc.present
+                                        ? { borderColor: 'var(--acb)', background: 'var(--act)', color: 'var(--acd)' }
+                                        : pc.severity === 'fatal'
+                                            ? { borderColor: '#EBC3BB', background: '#FBEAE6', color: '#B4453A' }
                                             : { borderColor: 'var(--line)', background: 'var(--surface-2)', color: 'var(--muted)' }}>
-                                        <div className="text-xl mb-1">{has ? '✅' : '⬜'}</div>
-                                        {item.label}
-                                    </div>
-                                )
-                            })}
+                                    <div className="text-xl mb-1">{pc.present ? '✅' : pc.severity === 'fatal' ? '✗' : '⬜'}</div>
+                                    <div className="font-mono text-[11px] opacity-70">{pc.code}</div>
+                                    {pc.label}
+                                </div>
+                            ))}
                         </div>
+                        {missingFatalPieces.length > 0 && (
+                            <p className="mt-3 text-xs t-error">
+                                Pièce(s) obligatoire(s) manquante(s) : {missingFatalPieces.map(p => p.code).join(', ')} — générez-les aux étapes Photos / Plans.
+                            </p>
+                        )}
                     </div>
 
                     {/* Error */}
@@ -353,11 +338,15 @@ export default function Etape7() {
                         </div>
                     )}
 
-                    {/* Engagement / Signature */}
-                    <div className="dp-card dp-spec relative overflow-hidden" style={{ borderColor: 'var(--acb)' }}>
-                        <div className="absolute top-0 left-0 w-1 h-full" style={{ background: 'var(--ac)' }}></div>
-                        <h3 className="dp-section-title">Engagement du Déclarant</h3>
-                        <p className="text-sm t-ink2 mb-5">J'atteste avoir pris connaissance des règles générales de construction et que les informations fournies sont exactes.</p>
+                    {/* Engagement / Signature — the final action, with its own completion state */}
+                    <div className="dp-card dp-spec relative overflow-hidden" style={{ borderColor: engagementComplete ? 'var(--acb)' : '#EBD9A8' }}>
+                        <div className="absolute top-0 left-0 w-1 h-full" style={{ background: engagementComplete ? 'var(--ac)' : '#D9B44A' }}></div>
+                        <h3 className="dp-section-title flex items-center gap-2">
+                            <span>{engagementComplete ? '✅' : '✍️'}</span> Engagement du déclarant
+                        </h3>
+                        <p className="text-sm t-ink2 mb-5">
+                            {engagementComplete ? 'Engagement complété.' : 'Dernière étape avant de générer :'} indiquez le lieu et la date, puis signez. J'atteste avoir pris connaissance des règles générales de construction et que les informations fournies sont exactes.
+                        </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 p-5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
                             <div className="dp-form-group">
@@ -456,6 +445,13 @@ export default function Etape7() {
                             </div>
                         </div>
 
+                        {blocked && (
+                            <div className="dp-alert is-warn mt-5">
+                                {!dataReady
+                                    ? 'Complétez les informations manquantes signalées en haut de page pour débloquer la génération.'
+                                    : '✍️ Complétez l’engagement ci-dessus (lieu, date et signature) pour débloquer la génération.'}
+                            </div>
+                        )}
                         {(cerfaDone || dpDone) && (
                             <div className="dp-alert is-ok mt-5 text-center">
                                 ✅ Documents générés ! Déposez-les en mairie avec votre dossier complet.

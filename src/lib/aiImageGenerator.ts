@@ -88,18 +88,23 @@ export function buildAICroquisPrompt(_data: DPFormData, _customInstruction?: str
     // so the works annotation (leader line + label) is drawn afterwards as crisp pdf-lib vector
     // text in the DP5 renderer (see dpDocGenerator.ts → drawWorksAnnotation). The prompt below
     // therefore forbids ANY written characters in the generated drawing.
-    return `Convert the attached photograph of a French house into a clean, professional 2D ARCHITECTURAL FAÇADE ELEVATION drawing (un plan de façade). Reproduce the exact same building — same number of floors, windows, doors, roof shape and proportions as in the photo.
+    return `Trace the attached photograph of a French house into a clean, professional 2D ARCHITECTURAL FAÇADE ELEVATION drawing (un plan de façade). This is a TRACING task: reproduce EXACTLY the building in the photo — do not redesign, stylise or imagine anything.
 
-FRAMING (must stay ALIGNED with the attached image):
-- Keep the SAME composition, proportions and viewpoint as the attached photo so the drawing lines up with it one-to-one. Same relative position and size of every window, door, roof line and wall.
-- Show the building head-on as a clean FRONTAL orthographic elevation. If the photo is slightly angled, gently straighten it to frontal WITHOUT changing the layout or proportions.
-- Frame the COMPLETE façade, centred, with only a small even margin. Do NOT crop off any part of the building, and do NOT zoom out so far that it looks small/distant. Drop only the surrounding street/sky/neighbours, keeping the building at the same scale it has in the photo.
+FIDELITY (the drawing must match the photo one-to-one — this is the most important rule):
+- COUNT the storeys, and every window, door, shutter and roof opening in the photo, and draw EXACTLY that same count — never add, remove, merge or split any opening.
+- Keep the EXACT position, size, proportion and spacing of every window, door, wall edge, roof slope and chimney as in the photo. A window that is tall and narrow stays tall and narrow; an off-centre door stays off-centre.
+- Preserve the real geometry: roof pitch and overhang, relative widths of wall sections, ground level. Do not "tidy up" into a generic symmetrical house.
+- Reproduce the real materials and their real colours (wall render tone, roof covering, joinery colour) exactly as seen.
+
+FRAMING:
+- Show the building head-on as a clean FRONTAL orthographic elevation. If the photo is slightly angled, gently straighten it to frontal WITHOUT changing the layout, counts or proportions.
+- Frame the COMPLETE façade, centred, small even margin. Do NOT crop any part of the building; do NOT shrink it into the distance. Drop only the surrounding street/sky/neighbours.
 - Large and crisp enough that every window, door and material is clearly legible.
 
 VISUAL STYLE (MANDATORY):
 - Clean 2D technical CAD elevation (not a photo, not a loose sketch).
-- Crisp, confident black outlines — clearly visible, consistent weight, slightly thicker on the building's outer contour.
-- Muted architectural palette: walls light beige/warm grey, roof dark slate/charcoal, joinery in its real colour.
+- Crisp, confident black outlines — consistent weight, slightly thicker on the building's outer contour.
+- Muted architectural palette: walls in their real render tone, roof dark slate/charcoal, joinery in its real colour.
 - Simple flat solid grey shadows at 45° for depth. No gradients, no blur.
 - Solid pure-white background.
 - Subtle material hatching (fine line grid for roof tiles, light texture for cladding).
