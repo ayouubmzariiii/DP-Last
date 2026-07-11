@@ -345,7 +345,10 @@ export default function Etape7() {
                             <span>{engagementComplete ? '✅' : '✍️'}</span> Engagement du déclarant
                         </h3>
                         <p className="text-sm t-ink2 mb-5">
-                            {engagementComplete ? 'Engagement complété.' : 'Dernière étape avant de générer :'} indiquez le lieu et la date, puis signez. J'atteste avoir pris connaissance des règles générales de construction et que les informations fournies sont exactes.
+                            {engagementComplete
+                                ? 'Engagement complété. '
+                                : 'Dernière étape avant de générer : indiquez le lieu et la date, puis signez. '}
+                            J'atteste avoir pris connaissance des règles générales de construction et que les informations fournies sont exactes.
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 p-5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
@@ -373,7 +376,7 @@ export default function Etape7() {
                             <input
                                 type="checkbox"
                                 checked={formData.engagement?.signature || false}
-                                onChange={e => updateField('engagement', { ...formData.engagement, signature: e.target.value === 'on' ? true : e.target.checked })}
+                                onChange={e => updateField('engagement', { ...formData.engagement, signature: e.target.checked })}
                             />
                             <div>
                                 <div className="t-ink font-semibold">Je signe cette déclaration</div>
