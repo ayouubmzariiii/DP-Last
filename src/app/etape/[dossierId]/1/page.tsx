@@ -86,6 +86,17 @@ export default function Etape1() {
         router.push(`/etape/${dossierId}/2`)
     }
 
+    // Clicking a checklist item scrolls to (and focuses) the offending field.
+    const scrollToField = (field?: string) => {
+        if (!field) return
+        const target = ['adresse', 'code_postal', 'commune'].includes(field) ? 'adresse' : field
+        const el = document.querySelector<HTMLElement>(`[data-vfield="${target}"]`)
+        if (!el) return
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        const input = el.matches('input') ? (el as HTMLInputElement) : el.querySelector('input')
+        input?.focus({ preventScroll: true })
+    }
+
     return (
         <>
             <div className="animate-fadeIn">
@@ -127,6 +138,7 @@ export default function Etape1() {
                                     <label className="dp-label">Dénomination sociale *</label>
                                     <input
                                         className="dp-input"
+                                        data-vfield="nom_societe"
                                         placeholder="ex: SCI Dupont"
                                         value={d.nom_societe}
                                         onChange={e => updateDemandeur({ nom_societe: e.target.value })}
@@ -145,6 +157,7 @@ export default function Etape1() {
                                     <label className="dp-label">SIRET</label>
                                     <input
                                         className="dp-input"
+                                        data-vfield="siret"
                                         placeholder="ex: 12345678900011"
                                         value={d.siret}
                                         onChange={e => updateDemandeur({ siret: e.target.value })}
@@ -176,6 +189,7 @@ export default function Etape1() {
                                 <label className="dp-label">Nom *</label>
                                 <input
                                     className="dp-input"
+                                    data-vfield="nom"
                                     placeholder="Nom de famille"
                                     value={d.nom}
                                     onChange={e => updateDemandeur({ nom: e.target.value })}
@@ -185,6 +199,7 @@ export default function Etape1() {
                                 <label className="dp-label">Prénom *</label>
                                 <input
                                     className="dp-input"
+                                    data-vfield="prenom"
                                     placeholder="Prénom"
                                     value={d.prenom}
                                     onChange={e => updateDemandeur({ prenom: e.target.value })}
@@ -301,7 +316,7 @@ export default function Etape1() {
                     <div className="dp-card">
                         <h3 className="dp-section-title">Coordonnées</h3>
                         <div className="space-y-4">
-                            <div className="dp-form-group mb-4">
+                            <div className="dp-form-group mb-4" data-vfield="adresse">
                                 <label className="dp-label">Recherche d'adresse complète *</label>
                                 <AddressAutocomplete
                                     placeholder="Saisissez votre adresse..."
@@ -385,12 +400,12 @@ export default function Etape1() {
                                 </div>
                                 <div className="w-2/3">
                                     <label className="dp-label">Téléphone *</label>
-                                    <input className="dp-input" placeholder="06 00 00 00 00" type="tel" value={d.telephone} onChange={e => updateDemandeur({ telephone: e.target.value })} />
+                                    <input className="dp-input" data-vfield="telephone" placeholder="06 00 00 00 00" type="tel" value={d.telephone} onChange={e => updateDemandeur({ telephone: e.target.value })} />
                                 </div>
                             </div>
                             <div className="dp-form-group">
                                 <label className="dp-label">Email *</label>
-                                <input className="dp-input" placeholder="votre@email.fr" type="email" value={d.email} onChange={e => updateDemandeur({ email: e.target.value })} />
+                                <input className="dp-input" data-vfield="email" placeholder="votre@email.fr" type="email" value={d.email} onChange={e => updateDemandeur({ email: e.target.value })} />
                             </div>
                         </div>
 
@@ -413,13 +428,20 @@ export default function Etape1() {
                         </div>
                     </div>
 
-                    {/* Validation summary */}
+                    {/* Validation summary — each item is clickable and jumps to the field */}
                     {stepFatals.length > 0 && (
                         <div className="dp-alert is-error">
                             <span className="dp-alert-title">Informations requises avant de continuer</span>
                             <ul className="space-y-1">
                                 {stepFatals.map(i => (
-                                    <li key={i.id} className="flex items-start gap-2"><span>✗</span>{i.message}</li>
+                                    <li key={i.id}>
+                                        <button type="button" onClick={() => scrollToField(i.field)}
+                                            className="flex items-start gap-2 text-left w-full"
+                                            style={{ background: 'none', border: 'none', padding: 0, cursor: i.field ? 'pointer' : 'default', color: 'inherit', font: 'inherit' }}>
+                                            <span>✗</span>
+                                            <span style={i.field ? { textDecoration: 'underline', textUnderlineOffset: 2 } : undefined}>{i.message}</span>
+                                        </button>
+                                    </li>
                                 ))}
                             </ul>
                         </div>

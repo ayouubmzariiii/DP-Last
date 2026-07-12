@@ -24,6 +24,9 @@ export const users = pgTable('users', {
     phone: text('phone'),
     language: text('language').notNull().default('fr'),
     emailNotifications: boolean('email_notifications').notNull().default(true),
+    // Réinitialisation de mot de passe : hash SHA-256 du token envoyé par email + expiration.
+    resetTokenHash: text('reset_token_hash'),
+    resetTokenExpires: timestamp('reset_token_expires', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

@@ -13,12 +13,34 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     const params = useSearchParams()
     const next = params.get('next') || '/profil'
 
+    const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
     const isRegister = mode === 'register'
+
+    // Landing-page handoff: the address the visitor validated in the hero is stashed in
+    // sessionStorage. Right after auth we create their dossier with the terrain pre-seeded
+    // and drop them straight into the wizard — no empty dashboard detour, nothing retyped.
+    const resumePendingAddress = async (): Promise<string | null> => {
+        try {
+            const raw = sessionStorage.getItem('dp-pending-address')
+            if (!raw) return null
+            sessionStorage.removeItem('dp-pending-address')
+            const terrainAddress = JSON.parse(raw)
+            const res = await fetch('/api/dossiers', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ terrainAddress }),
+            })
+            if (!res.ok) return null
+            const { dossier } = await res.json()
+            return `/etape/${dossier.id}/1`
+        } catch {
+            return null
+        }
+    }
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -28,14 +50,15 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             const res = await fetch(`/api/auth/${mode}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify(isRegister && fullName.trim() ? { email, password, fullName: fullName.trim() } : { email, password }),
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok) {
                 setError(Array.isArray(data.issues) && data.issues.length ? data.issues.join(' ') : (data.error || 'Une erreur est survenue.'))
                 return
             }
-            router.push(next)
+            const pendingDest = await resumePendingAddress()
+            router.push(pendingDest || next)
             router.refresh()
         } catch {
             setError('Erreur réseau. Réessayez.')
@@ -61,6 +84,14 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
 
                 <div className="dp-card">
                     <form onSubmit={submit}>
+                        {isRegister && (
+                            <div className="dp-form-group" style={{ marginBottom: 20 }}>
+                                <label className="dp-label" htmlFor="fullName">Prénom et nom</label>
+                                <input id="fullName" type="text" autoComplete="name" className="dp-input"
+                                    placeholder="Ex : Sophie Durand" value={fullName} onChange={e => setFullName(e.target.value)} />
+                                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 0' }}>Facultatif — pré-remplit vos dossiers.</p>
+                            </div>
+                        )}
                         <div className="dp-form-group" style={{ marginBottom: 20 }}>
                             <label className="dp-label" htmlFor="email">Email *</label>
                             <input id="email" type="email" autoComplete="email" required className="dp-input"
@@ -73,6 +104,11 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                                 className="dp-input" placeholder={isRegister ? 'Au moins 8 caractères' : '••••••••'}
                                 value={password} onChange={e => setPassword(e.target.value)} />
                             {isRegister && <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 0' }}>8 caractères minimum.</p>}
+                            {!isRegister && (
+                                <p style={{ fontSize: 13, margin: '8px 0 0', textAlign: 'right' }}>
+                                    <Link href="/mot-de-passe-oublie" style={{ color: 'var(--ac)', fontWeight: 600 }}>Mot de passe oublié ?</Link>
+                                </p>
+                            )}
                         </div>
 
                         {error && <div className="dp-alert is-error" style={{ marginBottom: 16 }}>⚠️ {error}</div>}

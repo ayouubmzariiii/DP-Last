@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDPContext } from '@/lib/context'
@@ -30,6 +30,18 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
     // Current step = trailing numeric segment of the path.
     const currentStep = Number(pathname.split('/').pop()) || 1
     const progress = (Math.max(currentStep, 1) / STEPS.length) * 100
+
+    // The test-mode toggle is a development tool: never show it to real clients in production
+    // (re-enable on a prod deployment with NEXT_PUBLIC_ENABLE_TEST_MODE=1 if ever needed).
+    const showTestToggle = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_ENABLE_TEST_MODE === '1'
+
+    // Clicking a future (locked) step gives feedback instead of silently doing nothing.
+    const [lockedMsg, setLockedMsg] = useState<string | null>(null)
+    useEffect(() => {
+        if (!lockedMsg) return
+        const t = setTimeout(() => setLockedMsg(null), 2600)
+        return () => clearTimeout(t)
+    }, [lockedMsg])
 
     // Hydrate the active dossier from the DB when the route's id changes (skip in test mode).
     useEffect(() => {
@@ -72,11 +84,12 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
                                         <button
                                             ref={isCurrent ? currentRef : undefined}
                                             type="button"
-                                            onClick={() => reachable && router.push(stepPath(step.num))}
-                                            disabled={!reachable}
-                                            title={step.label}
+                                            onClick={() => reachable
+                                                ? router.push(stepPath(step.num))
+                                                : setLockedMsg(`Terminez d'abord l'étape ${currentStep} pour accéder à « ${step.label} ».`)}
+                                            title={reachable ? step.label : `${step.label} — accessible après l'étape en cours`}
                                             className="flex items-center gap-1.5 shrink-0 rounded-full transition-colors"
-                                            style={{ padding: '4px 6px', cursor: reachable ? 'pointer' : 'default', background: 'transparent' }}
+                                            style={{ padding: '4px 6px', cursor: reachable ? 'pointer' : 'not-allowed', background: 'transparent' }}
                                         >
                                             <span className="flex items-center justify-center shrink-0" style={{
                                                 width: 24, height: 24, borderRadius: '50%', fontFamily: 'var(--mf)', fontSize: 11, fontWeight: 600, transition: 'all .25s',
@@ -105,15 +118,23 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
                         Mes projets
                     </Link>
 
-                    {/* Test toggle */}
-                    <div className="flex items-center gap-2.5 shrink-0" style={{ background: '#F1ECE3', border: '1px solid #E3DCCF', padding: '6px 12px', borderRadius: 100 }}>
-                        <span className="hidden sm:inline" style={{ fontFamily: 'var(--mf)', fontSize: 10.5, letterSpacing: '.05em', color: '#8A8378', textTransform: 'uppercase' }}>Test</span>
-                        <button onClick={toggleTestMode} aria-label="Mode test"
-                            style={{ width: 36, height: 20, borderRadius: 100, position: 'relative', border: 'none', cursor: 'pointer', transition: 'background .2s', background: isTestMode ? AC : '#CFC7B8' }}>
-                            <span style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'transform .2s', transform: isTestMode ? 'translateX(16px)' : 'translateX(0)' }} />
-                        </button>
-                    </div>
+                    {/* Test toggle — dev-only (hidden from clients in production) */}
+                    {showTestToggle && (
+                        <div className="flex items-center gap-2.5 shrink-0" style={{ background: '#F1ECE3', border: '1px solid #E3DCCF', padding: '6px 12px', borderRadius: 100 }}>
+                            <span className="hidden sm:inline" style={{ fontFamily: 'var(--mf)', fontSize: 10.5, letterSpacing: '.05em', color: '#8A8378', textTransform: 'uppercase' }}>Test</span>
+                            <button onClick={toggleTestMode} aria-label="Mode test"
+                                style={{ width: 36, height: 20, borderRadius: 100, position: 'relative', border: 'none', cursor: 'pointer', transition: 'background .2s', background: isTestMode ? AC : '#CFC7B8' }}>
+                                <span style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'transform .2s', transform: isTestMode ? 'translateX(16px)' : 'translateX(0)' }} />
+                            </button>
+                        </div>
+                    )}
                 </div>
+                {/* Locked-step feedback */}
+                {lockedMsg && (
+                    <div className="animate-fadeIn" style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: '#7A5C1E', background: '#F7EFDC', borderTop: '1px solid #E5D5AC', padding: '6px 16px' }}>
+                        {lockedMsg}
+                    </div>
+                )}
                 {/* Progress */}
                 <div style={{ height: 3, background: '#E6DFD3' }}>
                     <div className="progress-fill" style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${AC}, #244A3E)` }} />

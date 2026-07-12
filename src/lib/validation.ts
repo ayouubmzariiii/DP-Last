@@ -166,7 +166,14 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
     if (aspect.color)
         add(4, 'Conformité PLU', 'warn', 'plu_col_forbidden', `Teinte « ${aspect.color.chosen} » proscrite par le règlement (« ${aspect.color.rule} »). À corriger ou confirmer avec la palette autorisée avant dépôt.`, 'couleur')
 
-    // ── Étape 7 — Engagement ──────────────────────────────────────────────
+    // ── Étape 7 — Pièces & engagement ─────────────────────────────────────
+    // Concerned façades without a photo: the DP5 (façades) and DP6 (insertion) will only
+    // cover what was photographed — a classic ground for a demande de pièces complémentaires.
+    const facadesSansPhoto = (data.photos?.facades || []).filter(f => !f.before)
+    if ((data.photos?.facades || []).length > 0 && facadesSansPhoto.length > 0)
+        add(7, 'Pièces', 'warn', 'facades_photo',
+            `${facadesSansPhoto.length} façade(s) concernée(s) sans photo (${facadesSansPhoto.map(f => f.label.toLowerCase()).join(', ')}) : les pièces DP5/DP6 ne couvriront que les façades photographiées.`)
+
     const eng = data.engagement
     if (blank(eng?.lieu)) add(7, 'Engagement', 'fatal', 'eng_lieu', 'Lieu de signature manquant.', 'lieu')
     if (blank(eng?.date)) add(7, 'Engagement', 'fatal', 'eng_date', 'Date de signature manquante.', 'date')

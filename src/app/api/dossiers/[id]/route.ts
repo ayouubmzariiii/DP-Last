@@ -52,7 +52,20 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
         }
         patch.data = body.data
         // Keep the denormalized dashboard summary in sync with every data save.
-        patch.summary = summarizeDossier(body.data)
+        const s = summarizeDossier(body.data)
+        patch.summary = s
+        // Auto-title: while the title is still a default ("Nouveau dossier" or the landing
+        // "Projet — …" seed), name the project from what we now know — never overwrites a
+        // title the user chose themselves.
+        if (body.title === undefined && (s.summary.worksType || s.summary.address)) {
+            const [cur] = await db.select({ title: dossiers.title }).from(dossiers)
+                .where(and(eq(dossiers.id, params.id), eq(dossiers.userId, session.userId))).limit(1)
+            if (!cur) return NextResponse.json({ error: 'Dossier introuvable.' }, { status: 404 })
+            if (cur.title === 'Nouveau dossier' || cur.title.startsWith('Projet — ')) {
+                const auto = [s.summary.worksType || 'Projet', s.summary.address].filter(Boolean).join(' — ').slice(0, 120)
+                if (auto && auto !== cur.title) patch.title = auto
+            }
+        }
     }
     if (typeof body.lastStep === 'number') patch.lastStep = body.lastStep
     if (typeof body.title === 'string' && body.title.trim()) patch.title = body.title.trim().slice(0, 120)

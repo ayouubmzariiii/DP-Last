@@ -9,6 +9,8 @@ export const runtime = 'nodejs'
 const schema = z.object({
     email: z.string().email('Adresse email invalide.'),
     password: z.string().min(8, 'Le mot de passe doit comporter au moins 8 caractères.'),
+    // Optional at signup — feeds the Étape 1 identity pre-fill of every new dossier.
+    fullName: z.string().trim().max(120).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -32,7 +34,8 @@ export async function POST(req: NextRequest) {
         if (existing.length) return NextResponse.json({ error: 'Cet email est déjà utilisé.' }, { status: 409 })
 
         const passwordHash = await hashPassword(parsed.data.password)
-        const [user] = await db.insert(users).values({ email, passwordHash }).returning({ id: users.id, email: users.email })
+        const fullName = parsed.data.fullName || null
+        const [user] = await db.insert(users).values({ email, passwordHash, fullName }).returning({ id: users.id, email: users.email })
 
         const token = await createSessionToken({ userId: user.id, email: user.email })
         const res = NextResponse.json({ user }, { status: 201 })

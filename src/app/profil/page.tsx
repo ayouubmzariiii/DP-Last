@@ -192,6 +192,10 @@ export default function ProfilePage() {
 
     const logout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' })
+        // Shared-computer hygiene: drop the per-dossier offline caches of this account.
+        try {
+            Object.keys(localStorage).filter(k => k.startsWith('dp-dossier-')).forEach(k => localStorage.removeItem(k))
+        } catch { /* noop */ }
         router.push('/login'); router.refresh()
     }
 
@@ -258,6 +262,11 @@ export default function ProfilePage() {
     const metricTileAccent: React.CSSProperties = { background: 'var(--act)', border: '1px solid var(--acb)', borderRadius: 12, padding: 16 }
     const miniBtn: React.CSSProperties = { padding: '7px 12px', fontSize: 12.5 }
 
+    // "Reprendre" hero — the most recently touched draft, one click back into the wizard.
+    const resumeTarget = projects
+        .filter(d => !d.archivedAt && d.status === 'draft')
+        .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))[0]
+
     const FILTERS: { key: Filter; label: string; count?: number }[] = [
         { key: 'tous', label: 'Tous', count: total },
         { key: 'brouillon', label: 'Brouillons', count: drafts },
@@ -311,6 +320,25 @@ export default function ProfilePage() {
                             <div className="dp-metric is-accent" style={metricTileAccent}><span className="val">{deposes}</span><span className="key">Déposés en mairie</span></div>
                         </div>
                     </div>
+
+                    {/* Reprendre — one-click resume of the latest draft */}
+                    {resumeTarget && filter === 'tous' && !query && (
+                        <div className="dp-card" style={{ marginBottom: 22, background: 'var(--act)', border: '1px solid var(--acb)' }}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div style={{ minWidth: 0 }}>
+                                    <div className="dp-eyebrow" style={{ marginBottom: 4 }}>Reprendre là où vous en étiez</div>
+                                    <div style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', overflowWrap: 'anywhere' }}>{resumeTarget.title}</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginTop: 2 }}>
+                                        Étape {resumeTarget.lastStep}/7 · {STEP_LABELS[Math.min(resumeTarget.lastStep, 7) - 1]} · modifié le {fmtDate(resumeTarget.updatedAt)}
+                                    </div>
+                                </div>
+                                <button onClick={() => router.push(`/etape/${resumeTarget.id}/${resumeTarget.lastStep || 1}`)}
+                                    className="dp-btn-primary shrink-0 justify-center">
+                                    Reprendre →
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Projects header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>

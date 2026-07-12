@@ -18,6 +18,7 @@ function isPublic(pathname: string): boolean {
     // Public marketing landing page (guests) — the page itself redirects authed users to /profil.
     if (pathname === '/') return true
     if (pathname === '/login' || pathname === '/register') return true
+    if (pathname === '/mot-de-passe-oublie' || pathname === '/reinitialiser') return true
     if (pathname.startsWith('/api/auth/')) return true
     // Dev-only test harness (self-guards against production); keep it usable without a session in dev.
     if (process.env.NODE_ENV !== 'production' && pathname.startsWith('/api/dev/')) return true

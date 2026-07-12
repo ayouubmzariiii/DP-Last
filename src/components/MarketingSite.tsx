@@ -207,7 +207,9 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     const [pricing, setPricing] = useState<'usage' | 'abo'>('usage')
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
     const [elig, setElig] = useState('menuiseries')
-    const [address, setAddress] = useState<{ adresse: string; code_postal: string; commune: string } | null>(null)
+    const [address, setAddress] = useState<{ adresse: string; code_postal: string; commune: string; coords?: { lat: number; lon: number } } | null>(null)
+    const [starting, setStarting] = useState(false)
+    const [menuOpen, setMenuOpen] = useState(false)
     const [sent, setSent] = useState(false)
     const [sliderPos, setSliderPos] = useState(52)
     const rootRef = useRef<HTMLDivElement>(null)
@@ -215,9 +217,32 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     const draggingRef = useRef(false)
 
     const go = (p: Page) => {
+        setMenuOpen(false)
         if (p === page) { try { window.scrollTo(0, 0) } catch { /* noop */ } return }
         setSent(false)
         setPage(p)
+    }
+
+    // Hero handoff — the validated address must survive into the déclaration:
+    //  • guest → stash it (sessionStorage) and go register; AuthForm creates the dossier after auth.
+    //  • authed → create the dossier right away, terrain pre-seeded, and open the wizard.
+    const startDeclaration = async () => {
+        if (!address) return
+        try { sessionStorage.setItem('dp-pending-address', JSON.stringify(address)) } catch { /* private mode */ }
+        if (!authed) { window.location.href = '/register'; return }
+        setStarting(true)
+        try {
+            const res = await fetch('/api/dossiers', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ terrainAddress: address }),
+            })
+            if (!res.ok) throw new Error()
+            const { dossier } = await res.json()
+            try { sessionStorage.removeItem('dp-pending-address') } catch { /* noop */ }
+            window.location.href = `/etape/${dossier.id}/1`
+        } catch {
+            window.location.href = '/profil'
+        }
     }
 
     // Reveal-on-scroll + scroll-to-top on page change (ports the prototype's observeReveal).
@@ -328,8 +353,29 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:10px 20px;font-size:14px')}>Commencer</a>
                             </>
                         )}
+                        {/* Mobile burger — the nav links are hidden ≤760px, this brings them back */}
+                        <button data-burger aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(v => !v)}
+                            style={s('display:none;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer;flex-shrink:0')}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round">
+                                {menuOpen ? <><path d="M6 6l12 12" /><path d="M18 6L6 18" /></> : <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>}
+                            </svg>
+                        </button>
                     </div>
                 </div>
+                {/* Mobile menu panel */}
+                {menuOpen && (
+                    <div data-mobilemenu style={s('border-top:1px solid var(--line);background:var(--paper);padding:10px 20px 16px;display:flex;flex-direction:column;gap:2px')}>
+                        {([['home', 'Accueil'], ['how', 'Comment ça marche'], ['pricing', 'Tarifs'], ['faq', 'FAQ'], ['contact', 'Contact']] as [Page, string][]).map(([p, label]) => (
+                            <button key={p} onClick={() => go(p)}
+                                style={s(`text-align:left;background:${page === p ? 'var(--act)' : 'transparent'};border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:600;color:${page === p ? 'var(--acd)' : 'var(--ink)'};padding:12px 14px`)}>
+                                {label}
+                            </button>
+                        ))}
+                        {!authed && (
+                            <a href={SIGNIN_HREF} style={s('text-decoration:none;font-size:15px;font-weight:600;color:var(--ink-2);padding:12px 14px')}>Se connecter</a>
+                        )}
+                    </div>
+                )}
             </header>
 
             {/* ===================== ACCUEIL ===================== */}
@@ -356,7 +402,9 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                                 <Check size={15} color="var(--acd)" />
                                                 {(address.commune || address.adresse || 'Votre commune')} — PLU disponible
                                             </span>
-                                            <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;padding:10px 18px;font-size:14px')}>Continuer ma déclaration →</a>
+                                            <button onClick={startDeclaration} disabled={starting} className="dp-btn-primary" style={s('padding:10px 18px;font-size:14px')}>
+                                                {starting ? 'Ouverture…' : 'Continuer ma déclaration →'}
+                                            </button>
                                         </div>
                                     ) : (
                                         <div style={s('display:flex;align-items:center;gap:14px;margin-top:17px;flex-wrap:wrap')}>
@@ -1060,6 +1108,7 @@ const SITE_CSS = `
 @media (prefers-reduced-motion:reduce){#site [data-anim]{animation:none!important}#site.reveal-on [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
 @media (max-width:860px){#site [data-hero]{grid-template-columns:1fr!important}#site [data-hero-visual]{display:none!important}#site [data-col2]{grid-template-columns:1fr!important}#site [data-split]{grid-template-columns:1fr!important}}
 @media (max-width:820px){#site [data-wrow]{grid-template-columns:1fr!important;gap:26px!important}#site [data-wrow] > *{grid-column:auto!important;grid-row:auto!important}}
-@media (max-width:760px){#site [data-navlinks]{display:none!important}#site [data-headcta]{margin-left:auto}#site [data-grid3]{grid-template-columns:1fr!important}#site [data-grid2]{grid-template-columns:repeat(2,1fr)!important}#site [data-elig]{grid-template-columns:1fr!important}#site [data-elig-grid]{grid-template-columns:repeat(2,1fr)!important}#site [data-foot]{grid-template-columns:1fr 1fr!important}}
+@media (max-width:760px){#site [data-navlinks]{display:none!important}#site [data-headcta]{margin-left:auto}#site [data-burger]{display:flex!important}#site [data-grid3]{grid-template-columns:1fr!important}#site [data-grid2]{grid-template-columns:repeat(2,1fr)!important}#site [data-elig]{grid-template-columns:1fr!important}#site [data-elig-grid]{grid-template-columns:repeat(2,1fr)!important}#site [data-foot]{grid-template-columns:1fr 1fr!important}}
 @media (max-width:520px){#site header > div{padding-left:16px!important;padding-right:16px!important;gap:12px!important}#site [data-logosub]{display:none!important}#site [data-signin]{display:none!important}#site [data-foot]{grid-template-columns:1fr!important}}
+@media (min-width:761px){#site [data-mobilemenu]{display:none!important}}
 `

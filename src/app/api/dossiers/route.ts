@@ -67,9 +67,14 @@ export async function POST(req: NextRequest) {
     const session = await getSession()
     if (!session) return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
 
-    let body: { title?: string } = {}
+    let body: {
+        title?: string
+        // Landing-page hero handoff: seed the terrain with the address the visitor validated
+        // BEFORE signing up, so their déclaration starts exactly where the promise was made.
+        terrainAddress?: { adresse?: string; code_postal?: string; commune?: string; coords?: { lat: number; lon: number } }
+    } = {}
     try { body = await req.json() } catch { /* empty body is fine */ }
-    const title = (typeof body.title === 'string' && body.title.trim()) ? body.title.trim().slice(0, 120) : 'Nouveau dossier'
+    let title = (typeof body.title === 'string' && body.title.trim()) ? body.title.trim().slice(0, 120) : 'Nouveau dossier'
 
     // Pre-fill the applicant identity from the signed-in account so Étape 1 opens already populated
     // (nom, prénom, email, téléphone) — the client only confirms it instead of retyping. Deep-clone
@@ -91,6 +96,23 @@ export async function POST(req: NextRequest) {
         }
     } catch (e) {
         console.warn('[dossiers POST] identity pre-fill skipped:', e)
+    }
+
+    // Terrain pre-seed from the landing page (address + coords drive the Étape 2 cadastre autofill).
+    const ta = body.terrainAddress
+    if (ta && typeof ta === 'object' && (ta.adresse || ta.commune)) {
+        data.terrain = {
+            ...data.terrain,
+            adresse: typeof ta.adresse === 'string' ? ta.adresse.slice(0, 200) : '',
+            code_postal: typeof ta.code_postal === 'string' ? ta.code_postal.slice(0, 10) : '',
+            commune: typeof ta.commune === 'string' ? ta.commune.slice(0, 120) : '',
+            coords: (ta.coords && Number.isFinite(ta.coords.lat) && Number.isFinite(ta.coords.lon))
+                ? { lat: ta.coords.lat, lon: ta.coords.lon } : undefined,
+            meme_adresse: false,
+        }
+        if (title === 'Nouveau dossier') {
+            title = `Projet — ${[ta.adresse, ta.commune].filter(Boolean).join(', ')}`.slice(0, 120)
+        }
     }
 
     const [row] = await db.insert(dossiers).values({

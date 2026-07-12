@@ -1097,13 +1097,13 @@ export default function Etape6() {
         ]
 
         return (
-            <div className="mb-12">
-                <div className="flex items-center justify-between relative px-2">
+            <div className="mb-12 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                <div className="flex items-center justify-between relative px-2" style={{ minWidth: 560 }}>
                     {/* Background Line */}
                     <div className="absolute top-5 left-0 w-full h-[1px] bg-[var(--line)] -translate-y-1/2 z-0" />
 
                     {steps.map((s, idx) => (
-                        <div key={s.id} className="relative z-10 flex flex-col items-center gap-2 group cursor-pointer" onClick={() => (s.id < subStep || aiGenerated) && setSubStep(s.id)}>
+                        <div key={s.id} className="relative z-10 flex flex-col items-center gap-2 group cursor-pointer px-1" onClick={() => (s.id < subStep || aiGenerated) && setSubStep(s.id)}>
                             <div className={`dp-substep ${
                                 subStep === s.id ? 'is-current scale-110 shadow-[0_0_20px_rgba(45,90,76,0.4)]' :
                                 subStep > s.id ? 'is-done' : ''

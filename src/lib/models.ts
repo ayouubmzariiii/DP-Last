@@ -652,7 +652,9 @@ export const emptyTerrain: Terrain = {
 }
 
 export const emptyTravaux: Travaux = {
-    type: 'menuiseries',
+    // No pre-selected works type: the client must choose explicitly at Étape 3 (a silent
+    // default risks a DP filed for the wrong works). '' is a valid TypeTravaux.
+    type: '',
     menuiseries: { type: 'fenetre', materiau: 'aluminium', couleur: '', couleur_ral: '', nombre: '', largeur: '', hauteur: '', remplacement: true, description: '' },
     isolation: { type_finition: 'enduit', couleur: '', epaisseur_isolant: '', materiau_isolant: '', facades_concernees: [], description: '' },
     photovoltaique: { nombre_panneaux: '', surface_totale: '', puissance_kw: '', marque: '', orientation: '', inclinaison: '', integration: 'surimposition', description: '' },

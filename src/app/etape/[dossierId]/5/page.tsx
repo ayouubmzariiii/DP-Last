@@ -214,6 +214,15 @@ export default function Etape5() {
     const facades = p.facades || []
     const extras = facades.filter(f => f.type !== 'avant')
 
+    // Exit guard: leaving with concerned façades that have no photo is allowed (the expert may
+    // proceed deliberately) but never silent — the first click explains what will be missing.
+    const missingFacades = facades.filter(f => !f.before)
+    const [ackMissing, setAckMissing] = useState(false)
+    const goPlans = () => {
+        if (missingFacades.length > 0 && !ackMissing) { setAckMissing(true); return }
+        router.push(`/etape/${dossierId}/6`)
+    }
+
     return (
         <>
             <div className="animate-fadeIn">
@@ -310,6 +319,17 @@ export default function Etape5() {
                         )}
                     </div>
 
+                    {/* Missing-façade warning (shown on first "Générer les plans" attempt) */}
+                    {ackMissing && missingFacades.length > 0 && (
+                        <div className="dp-alert animate-fadeIn" style={{ background: '#F7EFDC', border: '1px solid #E5D5AC', color: '#7A5C1E' }}>
+                            <strong>{missingFacades.length} façade{missingFacades.length > 1 ? 's' : ''} concernée{missingFacades.length > 1 ? 's' : ''} sans photo</strong>
+                            {' '}({missingFacades.map(f => f.label.toLowerCase()).join(', ')}).
+                            La simulation « après travaux » et la pièce DP5 ne couvriront que les façades photographiées —
+                            la mairie peut demander des pièces complémentaires. Ajoutez les photos manquantes,
+                            ou cliquez à nouveau sur « Continuer sans ces photos ».
+                        </div>
+                    )}
+
                     {/* Navigation */}
                     <div className="flex justify-between items-center pt-2">
                         <button onClick={() => router.push(`/etape/${dossierId}/4`)} className="dp-btn-secondary">
@@ -318,8 +338,8 @@ export default function Etape5() {
                             </svg>
                             Retour
                         </button>
-                        <button onClick={() => router.push(`/etape/${dossierId}/6`)} className="dp-btn-primary text-base">
-                            Générer les plans
+                        <button onClick={goPlans} className="dp-btn-primary text-base">
+                            {ackMissing && missingFacades.length > 0 ? 'Continuer sans ces photos' : 'Générer les plans'}
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
