@@ -151,6 +151,8 @@ interface StreetCandidate {
     full: string
     distanceM: number
     azimuth: number | null
+    facingDelta: number | null
+    facesHouse: boolean
     isPano: boolean
     date: string | null
     attribution: string
@@ -170,6 +172,7 @@ function StreetPhotoSuggester({
 }) {
     const [loading, setLoading] = useState(true)
     const [candidates, setCandidates] = useState<StreetCandidate[]>([])
+    const [idx, setIdx] = useState(0)          // which frame is being previewed
     const [busy, setBusy] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
 
@@ -190,7 +193,7 @@ function StreetPhotoSuggester({
         setLoading(true)
         fetch(`/api/street-photo?${params.toString()}`)
             .then(r => r.json())
-            .then(d => { if (live) setCandidates(Array.isArray(d.candidates) ? d.candidates : []) })
+            .then(d => { if (live) { setCandidates(Array.isArray(d.candidates) ? d.candidates : []); setIdx(0) } })
             .catch(() => { if (live) setCandidates([]) })
             .finally(() => { if (live) setLoading(false) })
         return () => { live = false }
@@ -220,11 +223,16 @@ function StreetPhotoSuggester({
     }
     if (!candidates.length) return null
 
+    const n = candidates.length
+    const cur = candidates[Math.min(idx, n - 1)]
+    const go = (delta: number) => setIdx(i => (i + delta + n) % n)
+    const navBtn = 'absolute top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-2xl leading-none shadow-md transition-colors disabled:opacity-40'
+
     return (
         <div className="dp-card mb-6" style={{ background: 'var(--act)', borderColor: 'var(--acd)' }}>
             <div className="flex items-start justify-between gap-3 mb-1">
                 <h3 className="dp-section-title mb-0 pb-0 border-0 flex items-center gap-2">
-                    <span>📍</span> Photos depuis la rue disponibles
+                    <span>📍</span> Photos depuis la rue
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap"
                     style={{ background: 'rgba(45,90,76,0.15)', color: '#2D5A4C' }}>
@@ -232,54 +240,60 @@ function StreetPhotoSuggester({
                 </span>
             </div>
             <p className="text-sm mb-4 t-muted">
-                Vues de la voie publique à cette adresse (source ouverte IGN / Panoramax, réutilisable
-                dans un dossier officiel). Choisissez-en une comme point de départ — ou téléversez vos
-                propres photos ci-dessous.
+                Parcourez les vues de la voie publique à cette adresse (source ouverte IGN / Panoramax,
+                réutilisable dans un dossier officiel) avec les flèches, choisissez le meilleur angle,
+                puis affectez-le — ou téléversez vos propres photos ci-dessous.
             </p>
 
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-                {candidates.map(c => {
-                    const b7 = busy === `${c.id}:dp7`
-                    const b8 = busy === `${c.id}:dp8`
-                    return (
-                        <div key={c.id} className="shrink-0 w-44 rounded-lg overflow-hidden"
-                            style={{ background: 'var(--surface)', border: '1px solid var(--line-3)' }}>
-                            <div className="relative">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={c.thumb} alt="Vue de la rue" className="w-full h-28 object-cover" />
-                                {c.isPano && (
-                                    <span className="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                                        style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}>360°</span>
-                                )}
-                            </div>
-                            <div className="px-2 py-2">
-                                <p className="text-[11px] t-muted mb-2">
-                                    {c.distanceM} m{c.date ? ` · ${c.date}` : ''}
-                                </p>
-                                <div className="flex gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => use(c, 'dp7')}
-                                        disabled={!!busy}
-                                        className="flex-1 text-[11px] font-semibold py-1.5 rounded-md transition-colors disabled:opacity-50"
-                                        style={{ background: '#2D5A4C', color: 'white' }}
-                                    >
-                                        {b7 ? '…' : 'Vue proche'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => use(c, 'dp8')}
-                                        disabled={!!busy}
-                                        className="flex-1 text-[11px] font-semibold py-1.5 rounded-md transition-colors disabled:opacity-50"
-                                        style={{ border: '1px solid var(--line-2)', color: 'var(--ink2)' }}
-                                    >
-                                        {b8 ? '…' : 'Vue lointaine'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                })}
+            {/* Preview of the current frame — starts on the shot that best faces the house */}
+            <div className="relative rounded-lg overflow-hidden" style={{ border: '1px solid var(--line-3)', background: 'var(--surface)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={cur.full} alt="Vue de la rue" className="w-full max-h-80 object-contain" style={{ background: 'rgba(0,0,0,0.04)' }} />
+                {cur.facesHouse && (
+                    <span className="absolute top-2 left-2 text-[11px] px-2 py-0.5 rounded-full font-semibold"
+                        style={{ background: '#2D5A4C', color: 'white' }}>🏠 Face à la maison</span>
+                )}
+                {cur.isPano && (
+                    <span className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                        style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}>360°</span>
+                )}
+                {n > 1 && (
+                    <>
+                        <button type="button" aria-label="Vue précédente" onClick={() => go(-1)} disabled={!!busy}
+                            className={`${navBtn} left-2`} style={{ background: 'var(--surface)', color: 'var(--ink2)' }}>‹</button>
+                        <button type="button" aria-label="Vue suivante" onClick={() => go(1)} disabled={!!busy}
+                            className={`${navBtn} right-2`} style={{ background: 'var(--surface)', color: 'var(--ink2)' }}>›</button>
+                    </>
+                )}
+            </div>
+
+            <div className="flex items-center justify-between mt-2 mb-3 text-[12px] t-muted">
+                <span>
+                    {cur.distanceM} m{cur.date ? ` · ${cur.date}` : ''}
+                    {cur.facingDelta != null ? ` · angle ${cur.facingDelta}° vers la maison` : ''}
+                </span>
+                <span>{Math.min(idx, n - 1) + 1} / {n}</span>
+            </div>
+
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={() => use(cur, 'dp7')}
+                    disabled={!!busy}
+                    className="flex-1 text-[13px] font-semibold py-2 rounded-md transition-colors disabled:opacity-50"
+                    style={{ background: '#2D5A4C', color: 'white' }}
+                >
+                    {busy === `${cur.id}:dp7` ? 'Import…' : 'Utiliser en vue proche (DP7)'}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => use(cur, 'dp8')}
+                    disabled={!!busy}
+                    className="flex-1 text-[13px] font-semibold py-2 rounded-md transition-colors disabled:opacity-50"
+                    style={{ border: '1px solid var(--line-2)', color: 'var(--ink2)' }}
+                >
+                    {busy === `${cur.id}:dp8` ? 'Import…' : 'Utiliser en vue lointaine (DP8)'}
+                </button>
             </div>
             {error && <p className="text-xs t-error mt-2">⚠️ {error}</p>}
         </div>
