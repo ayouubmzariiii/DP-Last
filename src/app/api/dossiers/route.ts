@@ -31,6 +31,7 @@ export async function GET() {
             summary: dossiers.summary, clientName: dossiers.clientName,
             submittedAt: dossiers.submittedAt, decision: dossiers.decision,
             decisionAt: dossiers.decisionAt, archivedAt: dossiers.archivedAt,
+            numeroDp: dossiers.numeroDp, affichageAt: dossiers.affichageAt,
         })
         .from(dossiers)
         .where(eq(dossiers.userId, session.userId))

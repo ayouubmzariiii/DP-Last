@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { DPFormData } from '@/lib/models'
 import { getTravauxDef } from '@/lib/travauxRegistry'
+import { isProtectedSector } from '@/lib/validation'
 
 export interface DossierFilesSummary {
     situation: boolean
@@ -26,6 +27,9 @@ export interface DossierSummary {
         address: string
         worksType: string
         files: DossierFilesSummary
+        // Secteur protégé (SPR / abords MH) : avis ABF → délai d'instruction porté à 2 mois.
+        // Absent (undefined) sur les résumés antérieurs à ce champ — traité comme "inconnu".
+        abf?: boolean
     }
 }
 
@@ -61,5 +65,5 @@ export function summarizeDossier(data: DPFormData): DossierSummary {
     const hasContent = !!(t.description_projet || tr.description_projet)
     const empty = !hasWork && !hasTerrain && !hasContent && !hasFiles
 
-    return { empty, summary: { applicant, address, worksType, files } }
+    return { empty, summary: { applicant, address, worksType, files, abf: isProtectedSector(data) } }
 }

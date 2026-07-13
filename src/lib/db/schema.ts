@@ -48,6 +48,10 @@ export const dossiers = pgTable('dossiers', {
     submittedAt: timestamp('submitted_at', { withTimezone: true }),
     decision: dossierDecision('decision'),
     decisionAt: timestamp('decision_at', { withTimezone: true }),
+    // Suivi d'instruction : n° d'enregistrement de la DP (porté sur le récépissé de dépôt) et date
+    // du premier jour d'affichage du panneau sur le terrain (point de départ du recours des tiers).
+    numeroDp: text('numero_dp'),
+    affichageAt: timestamp('affichage_at', { withTimezone: true }),
     // Archivage doux (le dossier reste consultable/restaurable, masqué de la liste par défaut).
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

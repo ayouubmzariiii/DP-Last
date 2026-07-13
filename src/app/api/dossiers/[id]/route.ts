@@ -34,6 +34,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
         archived?: boolean
         submittedAt?: string | null
         decision?: 'accepted' | 'rejected' | null
+        numeroDp?: string | null
+        affichageAt?: string | null
     }
     try { body = await req.json() } catch { return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 }) }
 
@@ -78,10 +80,12 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     }
     // Archivage doux.
     if (typeof body.archived === 'boolean') patch.archivedAt = body.archived ? new Date() : null
-    // Dépôt en mairie : date ISO pour marquer, null pour annuler (efface aussi la décision).
+    // Dépôt en mairie : date ISO pour marquer, null pour annuler (efface aussi la décision et le
+    // suivi qui en découle — n° d'enregistrement et affichage n'ont plus de sens sans dépôt).
     if (body.submittedAt !== undefined) {
         if (body.submittedAt === null) {
             patch.submittedAt = null; patch.decision = null; patch.decisionAt = null
+            patch.numeroDp = null; patch.affichageAt = null
         } else if (typeof body.submittedAt === 'string' && !Number.isNaN(Date.parse(body.submittedAt))) {
             patch.submittedAt = new Date(body.submittedAt)
         } else {
@@ -96,6 +100,21 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
             patch.decision = null; patch.decisionAt = null
         } else {
             return NextResponse.json({ error: 'Champ « decision » invalide.' }, { status: 400 })
+        }
+    }
+    // N° d'enregistrement de la DP (récépissé de dépôt) — chaîne vide ou null pour effacer.
+    if (body.numeroDp !== undefined) {
+        patch.numeroDp = (typeof body.numeroDp === 'string' && body.numeroDp.trim())
+            ? body.numeroDp.trim().slice(0, 40) : null
+    }
+    // Premier jour d'affichage du panneau sur le terrain — null pour effacer.
+    if (body.affichageAt !== undefined) {
+        if (body.affichageAt === null) {
+            patch.affichageAt = null
+        } else if (typeof body.affichageAt === 'string' && !Number.isNaN(Date.parse(body.affichageAt))) {
+            patch.affichageAt = new Date(body.affichageAt)
+        } else {
+            return NextResponse.json({ error: 'Champ « affichageAt » invalide.' }, { status: 400 })
         }
     }
 
