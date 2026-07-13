@@ -896,11 +896,14 @@ export default function Etape6() {
         }
     }, [subStep])
 
-    const handleGenerateAICroquis = async (facadeId?: string, customInstruction?: string) => {
-        const facadesToProcess = facadeId 
+    const handleGenerateAICroquis = async (facadeId?: string, customInstruction?: string, force = false) => {
+        // Auto-run (no facadeId, no force) only fills MISSING croquis. A manual "Régénérer les
+        // croquis" (force) re-traces every façade that has an "after" — so a croquis is never left
+        // tracing a stale/previous projected image.
+        const facadesToProcess = facadeId
             ? formData.photos.facades.filter(f => f.id === facadeId && f.after)
-            : formData.photos.facades.filter(f => f.after && !f.croquis)
-            
+            : formData.photos.facades.filter(f => f.after && (force || !f.croquis))
+
         if (facadesToProcess.length === 0) return
 
         setIsGeneratingCroquis(true)
@@ -974,9 +977,11 @@ export default function Etape6() {
                     const compressedUrl = await compressDataURL(imageUrl)
                     const url = await uploadImage(dossierId, 'after', compressedUrl, { facadeId: f.id, previousUrl: f.after })
                     const idx = newFacades.findIndex(nf => nf.id === f.id)
-                    if (idx !== -1) newFacades[idx].after = url
+                    // Invalidate the derived DP5 croquis: it was traced from the OLD "after", so it
+                    // must be re-traced from this new projected image (done at the DP5 sub-step).
+                    if (idx !== -1) { newFacades[idx].after = url; newFacades[idx].croquis = null }
                 }
-                
+
                 // Remove from local generating set as each one finishes
                 setGeneratingFacades(prev => prev.filter(id => id !== f.id))
             }
@@ -1031,7 +1036,8 @@ export default function Etape6() {
                 if (newImage) {
                     const compressedUrl = newImage.startsWith('data:image') ? await compressDataURL(newImage) : newImage
                     const url = await uploadImage(dossierId, 'after', compressedUrl, { facadeId, previousUrl: facade.after })
-                    const newFacades = formData.photos.facades.map(f => f.id === facadeId ? { ...f, after: url } : f)
+                    // New "after" → invalidate the derived croquis so DP5 is re-traced from it.
+                    const newFacades = formData.photos.facades.map(f => f.id === facadeId ? { ...f, after: url, croquis: null } : f)
                     updatePhotos({ facades: newFacades })
                 }
             } catch (err: any) { alert('Erreur: ' + err.message) }
@@ -1537,7 +1543,7 @@ export default function Etape6() {
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => handleGenerateAICroquis()}
+                                    onClick={() => handleGenerateAICroquis(undefined, undefined, true)}
                                     disabled={isGeneratingCroquis}
                                     className="dp-btn-primary px-10 py-5 whitespace-nowrap"
                                 >
