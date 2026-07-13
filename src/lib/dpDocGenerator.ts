@@ -1190,7 +1190,6 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             box(page, xOff - 2, y - 25 - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
             page.drawImage(img7, { x: xOff, y: y - 25 - dims.height, width: dims.width, height: dims.height })
             tx(page, 'Vue rapprochée depuis la voie publique', M, y - 25 - dims.height - 18, 9, fontOblique, C.dark)
-            if (photos.dp7_source) tx(page, `Source : ${photos.dp7_source}`, M, y - 25 - dims.height - 30, 7, fontOblique, C.dark)
         } else {
             placeholder(page, font, M, y - 25, colW, 200, 'Photo DP 7 manquante')
         }
@@ -1204,7 +1203,6 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             box(page, xOff - 2, y - 25 - dims.height - 2, dims.width + 4, dims.height + 4, C.white, C.black, 1)
             page.drawImage(img8, { x: xOff, y: y - 25 - dims.height, width: dims.width, height: dims.height })
             tx(page, 'Vue d\'ensemble de l\'environnement', M + colW + 12, y - 25 - dims.height - 18, 9, fontOblique, C.dark)
-            if (photos.dp8_source) tx(page, `Source : ${photos.dp8_source}`, M + colW + 12, y - 25 - dims.height - 30, 7, fontOblique, C.dark)
         } else {
             placeholder(page, font, M + colW + 12, y - 25, colW, 200, 'Photo DP 8 manquante')
         }
