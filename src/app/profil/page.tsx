@@ -83,6 +83,7 @@ function SuiviInstruction({ d, pending, onPatch }: {
     pending: boolean
     onPatch: (body: Record<string, unknown>, okMsg?: string) => void
 }) {
+    const [open, setOpen] = useState(false)
     const [numEdit, setNumEdit] = useState(false)
     const [numVal, setNumVal] = useState(d.numeroDp || '')
     const [affVal, setAffVal] = useState(() => new Date().toISOString().slice(0, 10))
@@ -111,89 +112,116 @@ function SuiviInstruction({ d, pending, onPatch }: {
         onPatch({ numeroDp: v || null }, v ? 'N° de DP enregistré.' : 'N° de DP effacé.')
     }
 
+    // Résumé sur UNE ligne pour la liste : statut + prochaine échéance. Le détail
+    // (timeline complète, n° de DP, affichage, panneau) ne s'ouvre qu'à la demande.
+    const recours = milestones.find(m => m.key === 'recours')
+    const statusColor = refused ? '#8F2E22' : outcome ? 'var(--acd)' : '#7A5C1E'
+    const headline = refused
+        ? `✗ Refusée${d.decisionAt ? ` le ${fmtD(d.decisionAt)}` : ''}`
+        : outcome === 'accepted' ? `✓ Acceptée${d.decisionAt ? ` le ${fmtD(d.decisionAt)}` : ''}`
+            : outcome === 'tacite' ? `✓ Tacite acquise le ${fmtD(suivi.outcomeDate)}`
+                : `⏳ Réponse de la mairie avant le ${fmtD(suivi.taciteDate)}`
+    const nextBit = (outcome === 'accepted' || outcome === 'tacite')
+        ? (!d.affichageAt ? ' · ⚠ panneau à afficher'
+            : recours?.status === 'current' ? ` · recours des tiers jusqu'au ${fmtD(recours.date)}`
+                : recours?.status === 'done' ? ' · délai de recours purgé' : '')
+        : ''
+
     return (
-        <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 10, ...boxStyle }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: refused ? '#8F2E22' : outcome ? 'var(--acd)' : '#7A5C1E' }}>
-                    {refused ? '✗ DP refusée' : outcome === 'accepted' ? '✓ DP acceptée' : outcome === 'tacite' ? '✓ Non-opposition tacite acquise' : 'Suivi d’instruction'}
-                    {suivi.delaiMois === 2 ? ' · secteur protégé (ABF, délai 2 mois)' : ''}
+        <div style={{ marginTop: 10, borderRadius: 10, ...boxStyle }}>
+            {/* Ligne compacte, toujours visible */}
+            <button onClick={() => setOpen(o => !o)} aria-expanded={open}
+                style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: statusColor, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {headline}{nextBit}
                 </span>
-                {/* N° d'enregistrement (porté sur le récépissé de dépôt) */}
-                {numEdit ? (
-                    <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <input className="dp-input" style={{ width: 190, padding: '5px 9px', fontSize: 12.5 }} value={numVal} autoFocus
-                            placeholder="ex : DP 059 350 26 A0123"
-                            onChange={e => setNumVal(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') commitNum(); if (e.key === 'Escape') setNumEdit(false) }}
-                            aria-label="Numéro de la déclaration préalable" />
-                        <button onClick={commitNum} className="dp-btn-primary" style={miniBtn}>OK</button>
-                    </span>
-                ) : (
-                    <button onClick={() => { setNumVal(d.numeroDp || ''); setNumEdit(true) }} disabled={pending}
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', fontFamily: 'inherit', textDecoration: 'underline' }}>
-                        {d.numeroDp ? `N° ${d.numeroDp} · modifier` : '＋ N° de DP (sur le récépissé)'}
-                    </button>
-                )}
-            </div>
+                <span style={{ flexShrink: 0, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{open ? 'Réduire ▴' : 'Suivi ▾'}</span>
+            </button>
 
-            {/* Timeline légale */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {milestones.map(m => (
-                    <div key={m.key} style={{ display: 'flex', gap: 9, alignItems: 'baseline' }}>
-                        <span aria-hidden style={{ width: 14, textAlign: 'center', flexShrink: 0, fontWeight: 700, fontSize: 12, color: DOT[m.status].color }}>{DOT[m.status].ch}</span>
-                        <div style={{ minWidth: 0 }}>
-                            <span style={{ fontSize: 12.5, fontWeight: m.status === 'current' || m.status === 'alert' ? 700 : 600, color: 'var(--ink)' }}>
-                                {m.label}{m.date ? ` — ${fmtD(m.date)}` : ''}
-                            </span>
-                            {m.detail && <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 1 }}>{m.detail}</div>}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Actions contextuelles */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                {!d.decision && (
-                    <>
-                        <button onClick={() => onPatch({ decision: 'accepted' }, 'Félicitations — DP acceptée !')} disabled={pending} className="dp-btn-primary" style={miniBtn}>
-                            {outcome === 'tacite' ? '✓ Confirmer l’acceptation (tacite)' : '✓ Acceptée'}
-                        </button>
-                        <button onClick={() => onPatch({ decision: 'rejected' }, 'Décision enregistrée.')} disabled={pending} className="dp-btn-secondary" style={miniBtn}>✗ Refusée</button>
-                        <button onClick={() => onPatch({ submittedAt: null }, 'Dépôt annulé.')} disabled={pending} className="dp-btn-secondary" style={{ ...miniBtn, opacity: .8 }}>Annuler le dépôt</button>
-                    </>
-                )}
-                {(outcome === 'accepted' || outcome === 'tacite') && (
-                    <>
-                        {!d.affichageAt ? (
-                            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                                <input type="date" className="dp-input" style={{ width: 150, padding: '5px 9px', fontSize: 12.5 }} value={affVal}
-                                    max={new Date().toISOString().slice(0, 10)}
-                                    onChange={e => setAffVal(e.target.value)} aria-label="Date de pose du panneau" />
-                                <button onClick={() => affVal && onPatch({ affichageAt: new Date(`${affVal}T12:00:00`).toISOString() }, 'Date d’affichage enregistrée — le délai de recours court.')}
-                                    disabled={pending || !affVal} className="dp-btn-secondary" style={miniBtn}>
-                                    📌 Panneau posé à cette date
-                                </button>
+            {open && (
+                <div className="animate-fadeIn" style={{ padding: '2px 12px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                        <span style={{ fontSize: 11.5, color: 'var(--ink-2)' }}>
+                            {suivi.delaiMois === 2 ? 'Secteur protégé (ABF) : délai d’instruction de 2 mois.' : 'Délai d’instruction de droit commun : 1 mois.'}
+                        </span>
+                        {/* N° d'enregistrement (porté sur le récépissé de dépôt) */}
+                        {numEdit ? (
+                            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                                <input className="dp-input" style={{ width: 190, padding: '5px 9px', fontSize: 12.5 }} value={numVal} autoFocus
+                                    placeholder="ex : DP 059 350 26 A0123"
+                                    onChange={e => setNumVal(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') commitNum(); if (e.key === 'Escape') setNumEdit(false) }}
+                                    aria-label="Numéro de la déclaration préalable" />
+                                <button onClick={commitNum} className="dp-btn-primary" style={miniBtn}>OK</button>
                             </span>
                         ) : (
-                            <button onClick={() => onPatch({ affichageAt: null }, 'Date d’affichage effacée.')} disabled={pending}
-                                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', fontFamily: 'inherit' }}>
-                                corriger la date d’affichage
+                            <button onClick={() => { setNumVal(d.numeroDp || ''); setNumEdit(true) }} disabled={pending}
+                                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', fontFamily: 'inherit', textDecoration: 'underline' }}>
+                                {d.numeroDp ? `N° ${d.numeroDp} · modifier` : '＋ N° de DP (sur le récépissé)'}
                             </button>
                         )}
-                    </>
-                )}
-                {!refused && (
-                    <button onClick={() => window.open(`/api/dossiers/${d.id}/panneau`, '_blank')} className="dp-btn-secondary" style={miniBtn}>
-                        📋 Panneau d’affichage (PDF)
-                    </button>
-                )}
-                {d.decision && (
-                    <button onClick={() => onPatch({ decision: null }, 'Retour en instruction.')} disabled={pending}
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', fontFamily: 'inherit' }}>
-                        modifier la décision
-                    </button>
-                )}
-            </div>
+                    </div>
+
+                    {/* Timeline légale */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {milestones.map(m => (
+                            <div key={m.key} style={{ display: 'flex', gap: 9, alignItems: 'baseline' }}>
+                                <span aria-hidden style={{ width: 14, textAlign: 'center', flexShrink: 0, fontWeight: 700, fontSize: 12, color: DOT[m.status].color }}>{DOT[m.status].ch}</span>
+                                <div style={{ minWidth: 0 }}>
+                                    <span style={{ fontSize: 12.5, fontWeight: m.status === 'current' || m.status === 'alert' ? 700 : 600, color: 'var(--ink)' }}>
+                                        {m.label}{m.date ? ` — ${fmtD(m.date)}` : ''}
+                                    </span>
+                                    {m.detail && <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 1 }}>{m.detail}</div>}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Actions contextuelles */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {!d.decision && (
+                            <>
+                                <button onClick={() => onPatch({ decision: 'accepted' }, 'Félicitations — DP acceptée !')} disabled={pending} className="dp-btn-primary" style={miniBtn}>
+                                    {outcome === 'tacite' ? '✓ Confirmer l’acceptation (tacite)' : '✓ Acceptée'}
+                                </button>
+                                <button onClick={() => onPatch({ decision: 'rejected' }, 'Décision enregistrée.')} disabled={pending} className="dp-btn-secondary" style={miniBtn}>✗ Refusée</button>
+                                <button onClick={() => onPatch({ submittedAt: null }, 'Dépôt annulé.')} disabled={pending} className="dp-btn-secondary" style={{ ...miniBtn, opacity: .8 }}>Annuler le dépôt</button>
+                            </>
+                        )}
+                        {(outcome === 'accepted' || outcome === 'tacite') && (
+                            <>
+                                {!d.affichageAt ? (
+                                    <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <input type="date" className="dp-input" style={{ width: 150, padding: '5px 9px', fontSize: 12.5 }} value={affVal}
+                                            max={new Date().toISOString().slice(0, 10)}
+                                            onChange={e => setAffVal(e.target.value)} aria-label="Date de pose du panneau" />
+                                        <button onClick={() => affVal && onPatch({ affichageAt: new Date(`${affVal}T12:00:00`).toISOString() }, 'Date d’affichage enregistrée — le délai de recours court.')}
+                                            disabled={pending || !affVal} className="dp-btn-secondary" style={miniBtn}>
+                                            📌 Panneau posé à cette date
+                                        </button>
+                                    </span>
+                                ) : (
+                                    <button onClick={() => onPatch({ affichageAt: null }, 'Date d’affichage effacée.')} disabled={pending}
+                                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', fontFamily: 'inherit' }}>
+                                        corriger la date d’affichage
+                                    </button>
+                                )}
+                            </>
+                        )}
+                        {!refused && (
+                            <button onClick={() => window.open(`/api/dossiers/${d.id}/panneau`, '_blank')} className="dp-btn-secondary" style={miniBtn}>
+                                📋 Panneau d’affichage (PDF)
+                            </button>
+                        )}
+                        {d.decision && (
+                            <button onClick={() => onPatch({ decision: null }, 'Retour en instruction.')} disabled={pending}
+                                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', textDecoration: 'underline', fontFamily: 'inherit' }}>
+                                modifier la décision
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
