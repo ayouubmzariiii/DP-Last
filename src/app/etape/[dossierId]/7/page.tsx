@@ -35,10 +35,10 @@ export default function Etape7() {
 
     const [generatingCerfa, setGeneratingCerfa] = useState(false)
     const [generatingDP, setGeneratingDP] = useState(false)
-    const [generatingNotice, setGeneratingNotice] = useState(false)
+    const [generatingPanneau, setGeneratingPanneau] = useState(false)
     const [cerfaDone, setCerfaDone] = useState(false)
     const [dpDone, setDpDone] = useState(false)
-    const [noticeDone, setNoticeDone] = useState(false)
+    const [panneauDone, setPanneauDone] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     // ── Completeness & validation gate ────────────────────────────────────
@@ -136,33 +136,28 @@ export default function Etape7() {
         }
     }
 
-    // Standalone notice (DP4). Not gated on the engagement signature (the notice is a descriptive
-    // piece, not the signed CERFA) — only requires the notice to have been generated at étape Plans.
-    const downloadNotice = async () => {
-        if (blocked) return
-        setGeneratingNotice(true)
+    // Panneau d'affichage réglementaire — the on-site sign that must be posted on the terrain once
+    // the DP is granted (it starts the 2-month third-party appeal window). Served pre-filled from the
+    // saved dossier; not gated on the engagement signature (it's a display panel, not the filed form).
+    const downloadPanneau = async () => {
+        setGeneratingPanneau(true)
         setError(null)
         try {
-            const res = await fetch('/api/generate-notice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            })
-            if (await handleServerIssues(res)) return
+            const res = await fetch(`/api/dossiers/${dossierId}/panneau`)
             if (!res.ok) throw new Error('Erreur lors de la génération')
             const blob = await res.blob()
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `Notice_descriptive_DP4_${demandeur.nom}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
+            a.download = `Panneau_affichage_${demandeur.nom}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
             a.click()
             URL.revokeObjectURL(url)
-            setNoticeDone(true)
+            setPanneauDone(true)
         } catch (e) {
-            setError('Erreur lors de la génération de la notice. Réessayez.')
+            setError('Erreur lors de la génération du panneau d’affichage. Réessayez.')
             console.error(e)
         } finally {
-            setGeneratingNotice(false)
+            setGeneratingPanneau(false)
         }
     }
 
@@ -500,30 +495,30 @@ export default function Etape7() {
                                 </button>
                             </div>
 
-                            {/* Notice descriptive (DP4) — standalone */}
+                            {/* Panneau d'affichage réglementaire — à poser sur le terrain */}
                             <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}>📝</div>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}>📋</div>
                                     <div>
-                                        <div className="font-bold t-ink">Notice descriptive (DP4)</div>
-                                        <div className="text-xs t-ink2">La pièce DP4, en document séparé</div>
+                                        <div className="font-bold t-ink">Panneau d’affichage</div>
+                                        <div className="text-xs t-ink2">À poser sur le terrain</div>
                                     </div>
-                                    {noticeDone && <span className="ml-auto t-ok text-xl">✅</span>}
+                                    {panneauDone && <span className="ml-auto t-ok text-xl">✅</span>}
                                 </div>
                                 <p className="text-xs t-ink2 mb-4">
-                                    Déjà incluse dans le dossier complet — mais chaque pièce se dépose <strong className="t-ink2">séparément</strong> sur le guichet en ligne (GNAU / AD’AU). Téléchargez-la à part pour la joindre comme fichier DP4 (ou la relire/imprimer seule).
+                                    Ce n’est <strong className="t-ink2">pas</strong> une pièce du dossier : c’est le panneau réglementaire à <strong className="t-ink2">afficher sur le terrain</strong>, visible de la rue, une fois l’autorisation obtenue. Il fait courir le <strong className="t-ink2">délai de recours des tiers (2 mois)</strong>. Pré-rempli ; complétez le n° et la date de décision à la pose.
                                 </p>
                                 <button
-                                    onClick={downloadNotice}
-                                    disabled={generatingNotice || blocked}
+                                    onClick={downloadPanneau}
+                                    disabled={generatingPanneau}
                                     className="dp-btn-secondary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {generatingNotice ? (
+                                    {generatingPanneau ? (
                                         <>
                                             <div className="dp-spinner dp-spinner-sm" />
                                             Génération en cours...
                                         </>
-                                    ) : noticeDone ? '📝 Re-télécharger la notice' : '📝 Télécharger la notice (DP4)'}
+                                    ) : panneauDone ? '📋 Re-télécharger le panneau' : '📋 Télécharger le panneau d’affichage'}
                                 </button>
                             </div>
                         </div>
