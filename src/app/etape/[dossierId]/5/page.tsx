@@ -144,6 +144,148 @@ function PhotoUpload({ label, sublabel, icon, value, onChange, dossierId, kind, 
     )
 }
 
+// One street-level photo suggestion coming back from /api/street-photo (Panoramax).
+interface StreetCandidate {
+    id: string
+    thumb: string
+    full: string
+    distanceM: number
+    azimuth: number | null
+    isPano: boolean
+    date: string | null
+    attribution: string
+}
+
+// Panoramax suggestions: when the terrain address has open-data street imagery, offer it as a
+// one-click pre-fill for DP7/DP8 — the client can always upload their own instead. Renders nothing
+// while loading finds nothing, so an address without coverage never shows a dead end.
+function StreetPhotoSuggester({
+    dossierId, terrain, dp7, dp8, onPick,
+}: {
+    dossierId: string
+    terrain: DPFormData['terrain']
+    dp7: string | null
+    dp8: string | null
+    onPick: (kind: 'dp7' | 'dp8', url: string, source: string) => void
+}) {
+    const [loading, setLoading] = useState(true)
+    const [candidates, setCandidates] = useState<StreetCandidate[]>([])
+    const [busy, setBusy] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+
+    const lat = terrain.coords?.lat
+    const lon = terrain.coords?.lon
+    const addressKey = `${lat ?? ''}|${lon ?? ''}|${terrain.adresse}|${terrain.commune}`
+
+    useEffect(() => {
+        const params = new URLSearchParams()
+        if (typeof lat === 'number' && typeof lon === 'number') {
+            params.set('lat', String(lat)); params.set('lon', String(lon))
+        } else if (terrain.adresse || terrain.commune) {
+            params.set('address', terrain.adresse || ''); params.set('commune', terrain.commune || '')
+        } else {
+            setLoading(false); return
+        }
+        let live = true
+        setLoading(true)
+        fetch(`/api/street-photo?${params.toString()}`)
+            .then(r => r.json())
+            .then(d => { if (live) setCandidates(Array.isArray(d.candidates) ? d.candidates : []) })
+            .catch(() => { if (live) setCandidates([]) })
+            .finally(() => { if (live) setLoading(false) })
+        return () => { live = false }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [addressKey])
+
+    const use = async (c: StreetCandidate, kind: 'dp7' | 'dp8') => {
+        setBusy(`${c.id}:${kind}`); setError(null)
+        try {
+            const url = await uploadImage(dossierId, kind, c.full, { previousUrl: kind === 'dp7' ? dp7 : dp8 })
+            onPick(kind, url, c.attribution)
+        } catch (e) {
+            console.error('Panoramax pick failed', e)
+            setError('Impossible d’importer cette photo. Réessayez ou téléversez la vôtre.')
+        } finally {
+            setBusy(null)
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center gap-2 mb-5 text-[13px] t-muted">
+                <span className="dp-spinner" />
+                Recherche de photos de la rue à cette adresse…
+            </div>
+        )
+    }
+    if (!candidates.length) return null
+
+    return (
+        <div className="dp-card mb-6" style={{ background: 'var(--act)', borderColor: 'var(--acd)' }}>
+            <div className="flex items-start justify-between gap-3 mb-1">
+                <h3 className="dp-section-title mb-0 pb-0 border-0 flex items-center gap-2">
+                    <span>📍</span> Photos depuis la rue disponibles
+                </h3>
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap"
+                    style={{ background: 'rgba(45,90,76,0.15)', color: '#2D5A4C' }}>
+                    Panoramax · open data
+                </span>
+            </div>
+            <p className="text-sm mb-4 t-muted">
+                Vues de la voie publique à cette adresse (source ouverte IGN / Panoramax, réutilisable
+                dans un dossier officiel). Choisissez-en une comme point de départ — ou téléversez vos
+                propres photos ci-dessous.
+            </p>
+
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                {candidates.map(c => {
+                    const b7 = busy === `${c.id}:dp7`
+                    const b8 = busy === `${c.id}:dp8`
+                    return (
+                        <div key={c.id} className="shrink-0 w-44 rounded-lg overflow-hidden"
+                            style={{ background: 'var(--surface)', border: '1px solid var(--line-3)' }}>
+                            <div className="relative">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={c.thumb} alt="Vue de la rue" className="w-full h-28 object-cover" />
+                                {c.isPano && (
+                                    <span className="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                                        style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}>360°</span>
+                                )}
+                            </div>
+                            <div className="px-2 py-2">
+                                <p className="text-[11px] t-muted mb-2">
+                                    {c.distanceM} m{c.date ? ` · ${c.date}` : ''}
+                                </p>
+                                <div className="flex gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => use(c, 'dp7')}
+                                        disabled={!!busy}
+                                        className="flex-1 text-[11px] font-semibold py-1.5 rounded-md transition-colors disabled:opacity-50"
+                                        style={{ background: '#2D5A4C', color: 'white' }}
+                                    >
+                                        {b7 ? '…' : 'Vue proche'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => use(c, 'dp8')}
+                                        disabled={!!busy}
+                                        className="flex-1 text-[11px] font-semibold py-1.5 rounded-md transition-colors disabled:opacity-50"
+                                        style={{ border: '1px solid var(--line-2)', color: 'var(--ink2)' }}
+                                    >
+                                        {b8 ? '…' : 'Vue lointaine'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+            {error && <p className="text-xs t-error mt-2">⚠️ {error}</p>}
+        </div>
+    )
+}
+
 // French label ↔ facade type, and the facades a project actually touches — so we only ask for the
 // photos the works need (DP7 doubles as the street-facing façade), instead of a fixed grid of four.
 const FACADE_LABEL: Record<'avant' | 'arriere' | 'droite' | 'gauche', string> = {
@@ -242,6 +384,19 @@ export default function Etape5() {
                 <div className="dp-rule" />
 
                 <div className="space-y-6">
+                    {/* Panoramax suggestions — street imagery for this address, if any (open data). */}
+                    <StreetPhotoSuggester
+                        dossierId={dossierId}
+                        terrain={formData.terrain}
+                        dp7={p.dp7_vue_proche}
+                        dp8={p.dp8_vue_lointaine}
+                        onPick={(kind, url, source) => updatePhotos(
+                            kind === 'dp7'
+                                ? { dp7_vue_proche: url, dp7_source: source }
+                                : { dp8_vue_lointaine: url, dp8_source: source }
+                        )}
+                    />
+
                     {/* DP7 & DP8 — the only two photos the client must take */}
                     <div className="dp-card">
                         <h3 className="dp-section-title">Photos de repérage <span className="t-muted font-normal">· obligatoires</span></h3>
@@ -258,7 +413,7 @@ export default function Etape5() {
                                 dossierId={dossierId}
                                 kind="dp7"
                                 value={p.dp7_vue_proche}
-                                onChange={v => updatePhotos({ dp7_vue_proche: v })}
+                                onChange={v => updatePhotos({ dp7_vue_proche: v, dp7_source: null })}
                                 required
                             />
                             <PhotoUpload
@@ -269,7 +424,7 @@ export default function Etape5() {
                                 dossierId={dossierId}
                                 kind="dp8"
                                 value={p.dp8_vue_lointaine}
-                                onChange={v => updatePhotos({ dp8_vue_lointaine: v })}
+                                onChange={v => updatePhotos({ dp8_vue_lointaine: v, dp8_source: null })}
                                 required
                             />
                         </div>

@@ -232,6 +232,10 @@ export interface PhotosUploadees {
     // DP7/DP8 - photos extérieures
     dp7_vue_proche: string | null
     dp8_vue_lointaine: string | null
+    // Attribution when a DP7/DP8 photo comes from an open-data source (Panoramax): printed as a
+    // credit on the dossier, as Licence Ouverte requires. null when the client uploaded their own.
+    dp7_source?: string | null
+    dp8_source?: string | null
     // Apres travaux simulées (via IA)
     facade_apres_ai: string | null    // photorealistic simulation (DP6) (Deprecated: use facades[0].after)
     facade_croquis_ai: string | null  // architectural drawing (DP5) (Deprecated: use facades[0].croquis)
