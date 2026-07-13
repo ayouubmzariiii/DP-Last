@@ -248,7 +248,15 @@ export function pluAspectConflicts(data: DPFormData): { material: AspectConflict
 
     let material: AspectConflict | null = null
     if (chosenMat) {
-        const rule = forbiddenHit(facade.forbidden_materials, MATERIAL_ALIASES[chosenMat] || [chosenMat])
+        // A joinery material must be checked against joinery rules only. Règlement "forbidden
+        // materials" lists mix wall-cladding items (e.g. "bardage PVC, bois composite, métallique")
+        // with joinery-relevant ones (PVC, aluminium…). For menuiseries, drop the cladding-specific
+        // ("bardage") entries so solid wood ("bois") isn't wrongly flagged by the "bois composite"
+        // substring while PVC / aluminium joinery are still caught.
+        const matList = tr.type === 'menuiseries' && Array.isArray(facade.forbidden_materials)
+            ? facade.forbidden_materials.filter((m: unknown) => !normAspect(String(m)).includes('bardage'))
+            : facade.forbidden_materials
+        const rule = forbiddenHit(matList, MATERIAL_ALIASES[chosenMat] || [chosenMat])
         if (rule) material = { chosen: chosenMat, rule }
     }
     let color: AspectConflict | null = null
