@@ -35,8 +35,10 @@ export default function Etape7() {
 
     const [generatingCerfa, setGeneratingCerfa] = useState(false)
     const [generatingDP, setGeneratingDP] = useState(false)
+    const [generatingNotice, setGeneratingNotice] = useState(false)
     const [cerfaDone, setCerfaDone] = useState(false)
     const [dpDone, setDpDone] = useState(false)
+    const [noticeDone, setNoticeDone] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     // ── Completeness & validation gate ────────────────────────────────────
@@ -131,6 +133,36 @@ export default function Etape7() {
             console.error(e)
         } finally {
             setGeneratingDP(false)
+        }
+    }
+
+    // Standalone notice (DP4). Not gated on the engagement signature (the notice is a descriptive
+    // piece, not the signed CERFA) — only requires the notice to have been generated at étape Plans.
+    const downloadNotice = async () => {
+        if (blocked) return
+        setGeneratingNotice(true)
+        setError(null)
+        try {
+            const res = await fetch('/api/generate-notice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            })
+            if (await handleServerIssues(res)) return
+            if (!res.ok) throw new Error('Erreur lors de la génération')
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `Notice_descriptive_DP4_${demandeur.nom}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
+            a.click()
+            URL.revokeObjectURL(url)
+            setNoticeDone(true)
+        } catch (e) {
+            setError('Erreur lors de la génération de la notice. Réessayez.')
+            console.error(e)
+        } finally {
+            setGeneratingNotice(false)
         }
     }
 
@@ -465,6 +497,33 @@ export default function Etape7() {
                                             Génération en cours...
                                         </>
                                     ) : dpDone ? '📁 Re-télécharger le dossier DP' : '📁 Télécharger le dossier DP'}
+                                </button>
+                            </div>
+
+                            {/* Notice descriptive (DP4) — standalone */}
+                            <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}>📝</div>
+                                    <div>
+                                        <div className="font-bold t-ink">Notice descriptive (DP4)</div>
+                                        <div className="text-xs t-ink2">La pièce DP4, en document séparé</div>
+                                    </div>
+                                    {noticeDone && <span className="ml-auto t-ok text-xl">✅</span>}
+                                </div>
+                                <p className="text-xs t-ink2 mb-4">
+                                    Déjà incluse dans le dossier complet — mais chaque pièce se dépose <strong className="t-ink2">séparément</strong> sur le guichet en ligne (GNAU / AD’AU). Téléchargez-la à part pour la joindre comme fichier DP4 (ou la relire/imprimer seule).
+                                </p>
+                                <button
+                                    onClick={downloadNotice}
+                                    disabled={generatingNotice || blocked}
+                                    className="dp-btn-secondary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {generatingNotice ? (
+                                        <>
+                                            <div className="dp-spinner dp-spinner-sm" />
+                                            Génération en cours...
+                                        </>
+                                    ) : noticeDone ? '📝 Re-télécharger la notice' : '📝 Télécharger la notice (DP4)'}
                                 </button>
                             </div>
                         </div>
