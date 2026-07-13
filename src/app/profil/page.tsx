@@ -67,7 +67,10 @@ type Sort = 'updated' | 'created' | 'title'
 
 // Un projet abouti s'ouvre directement sur la page de résultat (récapitulatif + génération
 // des documents, étape 7) ; un brouillon reprend là où l'utilisateur s'était arrêté.
-const openStep = (d: DossierMeta) => (d.status === 'complete' || d.submittedAt) ? 7 : (d.lastStep || 1)
+// Garde-fou : un dossier marqué complet/déposé mais sans travaux renseignés (état incohérent,
+// p. ex. créé via l'API) repart dans l'assistant plutôt que sur un récapitulatif vide.
+const openStep = (d: DossierMeta) =>
+    ((d.status === 'complete' || d.submittedAt) && d.summary?.worksType) ? 7 : (d.lastStep || 1)
 
 const fmtD = (x?: Date | string | null) => {
     if (!x) return ''
@@ -474,11 +477,28 @@ export default function ProfilePage() {
                                 <div className="dp-meta" style={{ marginTop: 2 }}>{account?.createdAt ? `Membre depuis le ${fmtDate(account.createdAt)}` : 'Compte'}</div>
                             </div>
                         </div>
+                        {/* Tuiles cliquables : raccourcis vers le filtre correspondant de la liste */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
-                            <div className="dp-metric" style={metricTile}><span className="val">{total}</span><span className="key">Projets</span></div>
-                            <div className="dp-metric" style={metricTile}><span className="val">{drafts}</span><span className="key">Brouillons</span></div>
-                            <div className="dp-metric" style={metricTile}><span className="val">{complete}</span><span className="key">Complets</span></div>
-                            <div className="dp-metric is-accent" style={metricTileAccent}><span className="val">{deposes}</span><span className="key">Déposés en mairie</span></div>
+                            {([
+                                { key: 'tous', label: 'Projets', value: total },
+                                { key: 'brouillon', label: 'Brouillons', value: drafts },
+                                { key: 'complet', label: 'Complets', value: complete },
+                                { key: 'depose', label: 'Déposés en mairie', value: deposes, accent: true },
+                            ] as { key: Filter; label: string; value: number; accent?: boolean }[]).map(t => (
+                                <button
+                                    key={t.key}
+                                    onClick={() => { setFilter(t.key); setQuery('') }}
+                                    className={`dp-metric${t.accent ? ' is-accent' : ''}`}
+                                    aria-label={`Filtrer : ${t.label}`}
+                                    style={{
+                                        ...(t.accent ? metricTileAccent : metricTile),
+                                        cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                                        ...(filter === t.key ? { borderColor: 'var(--ac)', boxShadow: '0 0 0 1px var(--ac) inset' } : {}),
+                                    }}
+                                >
+                                    <span className="val">{t.value}</span><span className="key">{t.label}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
 
