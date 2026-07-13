@@ -9,16 +9,20 @@
 //
 // Severity model (chosen with the owner: dossiers are expert-reviewed before
 // filing, scope is renovation of an existing maison individuelle):
-//   • 'fatal' — legally essential; a dossier missing this is not recevable.
-//               Generation is hard-blocked.
-//   • 'warn'  — strongly recommended / conditional; surfaced loudly but the
-//               reviewing expert may proceed deliberately.
+//   • 'fatal'     — legally essential; a dossier missing this is not recevable.
+//                   Generation is hard-blocked.
+//   • 'forbidden' — a chosen material/teinte is explicitly PROHIBITED by the
+//                   règlement d'urbanisme (not merely risky). Rendered red as
+//                   "interdit", blocks generation, and proposes a compliant
+//                   alternative.
+//   • 'warn'      — strongly recommended / conditional; surfaced loudly but the
+//                   reviewing expert may proceed deliberately.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { DPFormData } from './models'
 import { getTravauxDef } from './travauxRegistry'
 
-export type Severity = 'fatal' | 'warn'
+export type Severity = 'fatal' | 'forbidden' | 'warn'
 export type StepId = 1 | 2 | 3 | 4 | 7
 
 export interface ValidationIssue {
@@ -158,13 +162,14 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
         add(4, 'Conformité PLU', 'warn', 'abf', 'Secteur protégé (SPR / abords de Monument Historique) : avis de l’ABF requis, délai porté à 2 mois.')
 
     // Deterministic aspect conflict: the chosen material/teinte is explicitly on the règlement's
-    // forbidden list. A near-certain ground for refusal in an aspect-controlled zone — surfaced as
-    // a loud warning (the PLU extraction can be an estimation, so it is not hard-blocking).
+    // forbidden list → INTERDIT (severity 'forbidden' = red, blocks generation), with a compliant
+    // alternative proposed from the same règlement's allowed list.
     const aspect = pluAspectConflicts(data)
+    const alt = pluAspectAlternatives(data)
     if (aspect.material)
-        add(4, 'Conformité PLU', 'warn', 'plu_mat_forbidden', `Matériau « ${aspect.material.chosen} » proscrit par le règlement (liste des matériaux interdits : « ${aspect.material.rule} »). Fort risque de refus — choisissez un matériau autorisé ou justifiez auprès de la mairie/l’ABF avant dépôt.`, 'materiau')
+        add(4, 'Conformité PLU', 'forbidden', 'plu_mat_forbidden', `Matériau « ${aspect.material.chosen} » INTERDIT par le règlement d’urbanisme (matériaux proscrits : « ${aspect.material.rule} »).${alt.material ? ` Alternative conforme : ${alt.material}.` : ' Choisissez un matériau figurant dans la palette autorisée.'}`, 'materiau')
     if (aspect.color)
-        add(4, 'Conformité PLU', 'warn', 'plu_col_forbidden', `Teinte « ${aspect.color.chosen} » proscrite par le règlement (« ${aspect.color.rule} »). À corriger ou confirmer avec la palette autorisée avant dépôt.`, 'couleur')
+        add(4, 'Conformité PLU', 'forbidden', 'plu_col_forbidden', `Teinte « ${aspect.color.chosen} » INTERDITE par le règlement d’urbanisme (teintes proscrites : « ${aspect.color.rule} »).${alt.color ? ` Alternative conforme : ${alt.color}.` : ' Choisissez une teinte de la palette autorisée.'}`, 'couleur')
 
     // ── Étape 7 — Pièces & engagement ─────────────────────────────────────
     // Concerned façades without a photo: the DP5 (façades) and DP6 (insertion) will only
@@ -255,6 +260,19 @@ export function pluAspectConflicts(data: DPFormData): { material: AspectConflict
     return { material, color }
 }
 
+/** Compliant alternatives to propose when a material/teinte is forbidden — read from the SAME
+ *  règlement's allowed lists (or its free-text colour restriction). Returns short human strings. */
+export function pluAspectAlternatives(data: DPFormData): { material: string | null; color: string | null } {
+    const facade = data.terrain?.plu?.extractedRules?.facade
+    if (!facade) return { material: null, color: null }
+    const list = (v: unknown, n = 3): string | null =>
+        Array.isArray(v) && v.length ? v.map(String).map(s => s.trim()).filter(Boolean).slice(0, n).join(', ') : null
+    const material = list(facade.allowed_materials)
+    const color = list(facade.allowed_colors)
+        || (typeof facade.color_restrictions === 'string' && facade.color_restrictions.trim() ? facade.color_restrictions.trim() : null)
+    return { material, color }
+}
+
 /** True when the parcel is in a protected sector (SPR / abords MH) — binding ABF avis applies. */
 export function isProtectedSector(data: DPFormData): boolean {
     const plu = data.terrain?.plu
@@ -287,15 +305,18 @@ export function piecesChecklist(data: DPFormData): PieceStatus[] {
 
 // ── Convenience aggregations ─────────────────────────────────────────────────
 export const fatalIssues = (issues: ValidationIssue[]) => issues.filter(i => i.severity === 'fatal')
+export const forbiddenIssues = (issues: ValidationIssue[]) => issues.filter(i => i.severity === 'forbidden')
 export const warnIssues = (issues: ValidationIssue[]) => issues.filter(i => i.severity === 'warn')
+// What hard-blocks generation: missing legal essentials AND règlement-forbidden aspect choices.
+export const blockingIssues = (issues: ValidationIssue[]) => issues.filter(i => i.severity === 'fatal' || i.severity === 'forbidden')
 
 export function issuesForStep(data: DPFormData, step: StepId): ValidationIssue[] {
     return validateDPForm(data).filter(i => i.step === step)
 }
 
-/** True when the dossier has no fatal field issues AND no fatal missing pieces. */
+/** True when the dossier has no blocking field issues (fatal or forbidden) AND no fatal missing pieces. */
 export function canGenerate(data: DPFormData): boolean {
-    const noFatalFields = fatalIssues(validateDPForm(data)).length === 0
+    const noBlockingFields = blockingIssues(validateDPForm(data)).length === 0
     const noFatalPieces = piecesChecklist(data).every(p => p.present || p.severity !== 'fatal')
-    return noFatalFields && noFatalPieces
+    return noBlockingFields && noFatalPieces
 }

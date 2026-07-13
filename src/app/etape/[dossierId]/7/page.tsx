@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
-import { validateDPForm, piecesChecklist, fatalIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
+import { validateDPForm, piecesChecklist, fatalIssues, forbiddenIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
 import { getTravauxDef } from '@/lib/travauxRegistry'
 
 function RecapSection({ title, icon, items }: {
@@ -42,12 +42,13 @@ export default function Etape7() {
     // ── Completeness & validation gate ────────────────────────────────────
     const issues = validateDPForm(formData)
     const fatals = fatalIssues(issues)
+    const forbiddens = forbiddenIssues(issues)   // aspect choices INTERDITS par le règlement (red, blocking)
     const warns = warnIssues(issues)
     const pieces = piecesChecklist(formData)
     const missingFatalPieces = pieces.filter(p => !p.present && p.severity === 'fatal')
     // Test mode no longer blocks generation — it lets you preview the real output with the fictional
     // sample data (the "données fictives" banner makes clear the dossier is not for real filing).
-    const blocked = fatals.length > 0 || missingFatalPieces.length > 0
+    const blocked = fatals.length > 0 || forbiddens.length > 0 || missingFatalPieces.length > 0
 
     // The engagement (lieu / date / signature) is an action the user performs ON THIS page, in its
     // own section — so we keep it OUT of the top completeness panel (which would otherwise flag
@@ -55,7 +56,7 @@ export default function Etape7() {
     // contextually at the engagement section and the download buttons instead.
     const engagementFatals = fatals.filter(i => i.section === 'Engagement')
     const dataFatals = fatals.filter(i => i.section !== 'Engagement')
-    const dataReady = dataFatals.length === 0 && missingFatalPieces.length === 0
+    const dataReady = dataFatals.length === 0 && forbiddens.length === 0 && missingFatalPieces.length === 0
     const engagementComplete = engagementFatals.length === 0
 
     // Surface server-side validation failures (safety-net bypass) cleanly.
@@ -259,6 +260,20 @@ export default function Etape7() {
                                     </li>
                                 ))}
                             </ul>
+                        )}
+
+                        {forbiddens.length > 0 && (
+                            <div className="mt-4 pt-4" style={{ borderTop: '1px solid #EBC3BB' }}>
+                                <p className="dp-meta t-error mb-2 font-bold">⛔ {forbiddens.length} choix interdit(s) par le règlement d’urbanisme — bloquant</p>
+                                <ul className="space-y-1.5">
+                                    {forbiddens.map(i => (
+                                        <li key={i.id} className="flex items-start gap-2 text-sm t-error font-medium">
+                                            <span className="mt-0.5">⛔</span>
+                                            <span><span className="t-muted font-semibold">[{i.section}]</span> {i.message}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
                         )}
 
                         {warns.length > 0 && (

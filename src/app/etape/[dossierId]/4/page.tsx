@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
-import { isProtectedSector, pluAspectConflicts } from '@/lib/validation'
+import { isProtectedSector, pluAspectConflicts, pluAspectAlternatives } from '@/lib/validation'
 import { travauxAspect } from '@/lib/travauxRegistry'
 
 export default function Etape4() {
@@ -171,6 +171,7 @@ export default function Etape4() {
     // Deterministic aspect conflict — the chosen material/teinte is on the règlement's forbidden
     // list. Flagged inline below AND folded into the acknowledgement gate (near-certain refusal).
     const aspectConflict = pluAspectConflicts(formData)
+    const aspectAlt = pluAspectAlternatives(formData)
     const aspect = travauxAspect(formData)
 
     // A plain-language "are my works allowed here?" answer for the top card — clients who want the
@@ -334,6 +335,37 @@ export default function Etape4() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* ── INTERDIT — deterministic aspect conflict (material/teinte on the
+                            règlement's forbidden list). Red, explicit, with a compliant alternative. */}
+                        {(aspectConflict.material || aspectConflict.color) && (
+                            <div className="dp-card" style={{ borderColor: '#E0A4A4', background: '#FBEAE6' }}>
+                                <div className="flex items-start gap-3">
+                                    <div className="text-3xl leading-none">⛔</div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="dp-meta t-error font-bold" style={{ letterSpacing: '.04em' }}>Interdit par le règlement d’urbanisme</div>
+                                        <p className="text-sm t-ink2 mt-1">Un ou plusieurs de vos choix figurent explicitement parmi les <strong className="t-error">éléments proscrits</strong> du règlement de votre zone. En l’état, le dépôt serait très probablement refusé.</p>
+                                        <ul className="mt-3 space-y-2.5">
+                                            {aspectConflict.material && (
+                                                <li className="text-sm">
+                                                    <div className="t-error font-semibold">✗ Matériau « {aspectConflict.material.chosen} » — interdit (proscrit : « {aspectConflict.material.rule} »)</div>
+                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : {aspectAlt.material || 'choisissez un matériau de la palette autorisée par le règlement.'}</div>
+                                                </li>
+                                            )}
+                                            {aspectConflict.color && (
+                                                <li className="text-sm">
+                                                    <div className="t-error font-semibold">✗ Teinte « {aspectConflict.color.chosen} » — interdite (proscrite : « {aspectConflict.color.rule} »)</div>
+                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : {aspectAlt.color || 'choisissez une teinte sobre de la palette autorisée.'}</div>
+                                                </li>
+                                            )}
+                                        </ul>
+                                        <button onClick={() => router.push(`/etape/${dossierId}/3`)} className="dp-btn-primary mt-4" style={{ padding: '8px 16px', fontSize: 13 }}>
+                                            Corriger mes choix (étape Travaux)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Details toggle */}
                         <button
