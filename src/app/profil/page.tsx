@@ -65,6 +65,10 @@ const LIFECYCLE_CHIP: Record<Lifecycle, { label: string; cls: string; style?: Re
 type Filter = 'tous' | 'brouillon' | 'complet' | 'depose' | 'archive'
 type Sort = 'updated' | 'created' | 'title'
 
+// Un projet abouti s'ouvre directement sur la page de résultat (récapitulatif + génération
+// des documents, étape 7) ; un brouillon reprend là où l'utilisateur s'était arrêté.
+const openStep = (d: DossierMeta) => (d.status === 'complete' || d.submittedAt) ? 7 : (d.lastStep || 1)
+
 const fmtD = (x?: Date | string | null) => {
     if (!x) return ''
     try { return new Date(x).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { return '' }
@@ -246,7 +250,7 @@ export default function ProfilePage() {
     const [clientEditId, setClientEditId] = useState<string | null>(null)
     const [clientVal, setClientVal] = useState('')
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-    const [dupMenuId, setDupMenuId] = useState<string | null>(null)
+    const [menuId, setMenuId] = useState<string | null>(null)
     const [pendingId, setPendingId] = useState<string | null>(null)
 
     const load = useCallback(async () => {
@@ -299,7 +303,7 @@ export default function ProfilePage() {
         }
     }, [load])
 
-    const startRename = (d: DossierMeta) => { setEditingId(d.id); setEditTitle(d.title); setConfirmDeleteId(null); setDupMenuId(null) }
+    const startRename = (d: DossierMeta) => { setEditingId(d.id); setEditTitle(d.title); setConfirmDeleteId(null); setMenuId(null) }
     const commitRename = async (d: DossierMeta) => {
         const title = editTitle.trim()
         setEditingId(null)
@@ -316,7 +320,7 @@ export default function ProfilePage() {
     }
 
     const duplicate = async (d: DossierMeta, mode: 'full' | 'terrain') => {
-        setDupMenuId(null); setPendingId(d.id); setError(null)
+        setMenuId(null); setPendingId(d.id); setError(null)
         try {
             const res = await fetch(`/api/dossiers/${d.id}/duplicate`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }),
@@ -561,9 +565,10 @@ export default function ProfilePage() {
                                 const chip = LIFECYCLE_CHIP[lc]
                                 const isPending = pendingId === d.id
                                 return (
-                                    <div key={d.id} className="dp-card" style={{ padding: '16px 18px', opacity: lc === 'archive' ? .85 : 1, position: 'relative' }}>
-                                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                                            <div className="w-full sm:flex-1" style={{ minWidth: 0 }}>
+                                    <div key={d.id} className="dp-card" style={{ padding: '14px 16px', opacity: lc === 'archive' ? .85 : 1 }}>
+                                        {/* En-tête : titre + méta (pleine largeur) · actions compactes à droite */}
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
                                                 {/* Title row — inline rename */}
                                                 {editingId === d.id ? (
                                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
@@ -580,8 +585,8 @@ export default function ProfilePage() {
                                                         <button onClick={() => setEditingId(null)} className="dp-btn-secondary" style={miniBtn}>Annuler</button>
                                                     </div>
                                                 ) : (
-                                                    <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                    <button onClick={() => router.push(`/etape/${d.id}/${openStep(d)}`)} style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', maxWidth: '100%' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
                                                             <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflowWrap: 'anywhere' }}>{d.title}</span>
                                                             <span className={chip.cls} style={chip.style}>{chip.label}</span>
                                                             {d.clientName && <span className="dp-chip" style={{ fontSize: 11 }}>👤 {d.clientName}</span>}
@@ -593,103 +598,105 @@ export default function ProfilePage() {
                                                     <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', marginBottom: 4, overflowWrap: 'anywhere' }}>{details}</div>
                                                 )}
                                                 <div className="dp-meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12.5, lineHeight: 1.5 }}>
-                                                    {d.summary?.applicant ? `${d.summary.applicant} · ` : ''}Étape {d.lastStep}/7 · {STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · modifié le {fmtDate(d.updatedAt)}
+                                                    {d.summary?.applicant ? `${d.summary.applicant} · ` : ''}
+                                                    {lc === 'brouillon' ? `Étape ${d.lastStep}/7 · ${STEP_LABELS[Math.min(d.lastStep, 7) - 1]} · ` : ''}
+                                                    modifié le {fmtDate(d.updatedAt)}
                                                 </div>
-
-                                                {/* Client (usage pro) — inline edit */}
-                                                {clientEditId === d.id ? (
-                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-                                                        <input
-                                                            className="dp-input"
-                                                            style={{ maxWidth: 260, padding: '6px 10px', fontSize: 13 }}
-                                                            value={clientVal}
-                                                            autoFocus
-                                                            placeholder="Nom du client"
-                                                            onChange={e => setClientVal(e.target.value)}
-                                                            onKeyDown={e => { if (e.key === 'Enter') commitClientEdit(d); if (e.key === 'Escape') setClientEditId(null) }}
-                                                            aria-label="Nom du client"
-                                                        />
-                                                        <button onClick={() => commitClientEdit(d)} className="dp-btn-primary" style={miniBtn}>OK</button>
-                                                        <button onClick={() => setClientEditId(null)} className="dp-btn-secondary" style={miniBtn}>Annuler</button>
-                                                    </div>
-                                                ) : (
-                                                    <button onClick={() => startClientEdit(d)} style={{ background: 'none', border: 'none', padding: 0, marginTop: 6, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', fontFamily: 'inherit' }}>
-                                                        {d.clientName ? `👤 Client : ${d.clientName} · modifier` : '＋ Associer un client'}
-                                                    </button>
-                                                )}
-
-                                                {chips.length > 0 && (
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                                                        {chips.map(c => (
-                                                            <span key={c} className="dp-chip is-ok" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center' }}>
-                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-                                                                {c}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* Suivi d'instruction en mairie */}
-                                                {lc === 'complet' && (
-                                                    <div style={{ marginTop: 12 }}>
-                                                        <button onClick={() => patchDossier(d.id, { submittedAt: new Date().toISOString() }, 'Dossier marqué comme déposé en mairie.')} disabled={isPending} className="dp-btn-secondary" style={miniBtn}>
-                                                            📮 Marquer comme déposé en mairie
-                                                        </button>
-                                                    </div>
-                                                )}
-                                                {d.submittedAt && lc !== 'archive' && (
-                                                    <SuiviInstruction d={d} pending={isPending} onPatch={(body, okMsg) => patchDossier(d.id, body, okMsg)} />
-                                                )}
                                             </div>
 
-                                            {/* Actions */}
-                                            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto sm:flex-col sm:items-stretch" style={{ position: 'relative' }}>
-                                                {confirmDeleteId === d.id ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 10, background: '#FDF4F1', border: '1px solid #EBC3BB', maxWidth: 240 }}>
-                                                        <span style={{ fontSize: 12.5, color: '#8F2E22', fontWeight: 600 }}>Supprimer définitivement « {d.title} » ?</span>
-                                                        <div style={{ display: 'flex', gap: 8 }}>
-                                                            <button onClick={() => remove(d)} disabled={isPending} className="dp-btn-outline" style={{ ...miniBtn, color: '#8F2E22', borderColor: '#EBC3BB' }}>
-                                                                {isPending ? 'Suppression…' : 'Supprimer'}
-                                                            </button>
-                                                            <button onClick={() => setConfirmDeleteId(null)} className="dp-btn-secondary" style={miniBtn}>Annuler</button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <button onClick={() => router.push(`/etape/${d.id}/${d.lastStep || 1}`)} className="dp-btn-primary flex-1 sm:flex-none justify-center" style={{ padding: '9px 16px', fontSize: 13 }}>Ouvrir</button>
-                                                        <button onClick={() => startRename(d)} className="dp-btn-secondary flex-1 sm:flex-none justify-center" style={miniBtn}>Renommer</button>
-                                                        <button onClick={() => { setDupMenuId(dupMenuId === d.id ? null : d.id); setConfirmDeleteId(null) }} disabled={isPending} className="dp-btn-secondary flex-1 sm:flex-none justify-center" style={miniBtn}>
-                                                            {isPending ? <span className="dp-spinner dp-spinner-sm" /> : 'Dupliquer ▾'}
-                                                        </button>
-                                                        {lc === 'archive' ? (
-                                                            <button onClick={() => patchDossier(d.id, { archived: false }, 'Projet restauré.')} disabled={isPending} className="dp-btn-secondary flex-1 sm:flex-none justify-center" style={miniBtn}>Restaurer</button>
-                                                        ) : (
-                                                            <button onClick={() => patchDossier(d.id, { archived: true }, 'Projet archivé — retrouvez-le via le filtre « Archivés ».')} disabled={isPending} className="dp-btn-secondary flex-1 sm:flex-none justify-center" style={miniBtn}>Archiver</button>
-                                                        )}
-                                                        <button onClick={() => { setConfirmDeleteId(d.id); setDupMenuId(null) }} className="dp-btn-secondary justify-center shrink-0" style={{ padding: '7px 11px', fontSize: 13 }} title="Supprimer" aria-label="Supprimer">🗑</button>
-                                                    </>
-                                                )}
+                                            {/* Actions : ouvrir + menu ⋮ (le reste vit dans le menu) */}
+                                            <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center', position: 'relative' }}>
+                                                <button onClick={() => router.push(`/etape/${d.id}/${openStep(d)}`)} className="dp-btn-primary" style={{ padding: '8px 14px', fontSize: 13 }}>
+                                                    {lc === 'brouillon' ? 'Reprendre' : 'Ouvrir'}
+                                                </button>
+                                                <button onClick={() => { setMenuId(menuId === d.id ? null : d.id); setConfirmDeleteId(null) }} disabled={isPending}
+                                                    className="dp-btn-secondary" style={{ padding: '8px 11px', fontSize: 15, lineHeight: 1 }}
+                                                    title="Plus d’actions" aria-label="Plus d’actions" aria-expanded={menuId === d.id}>
+                                                    {isPending ? <span className="dp-spinner dp-spinner-sm" /> : '⋮'}
+                                                </button>
 
-                                                {/* Duplicate menu */}
-                                                {dupMenuId === d.id && (
+                                                {/* Menu d'actions secondaires */}
+                                                {menuId === d.id && (
                                                     <>
-                                                        <div onClick={() => setDupMenuId(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
-                                                        <div className="dp-card" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 50, padding: 8, width: 280, boxShadow: '0 12px 32px -12px rgba(37,34,30,.35)' }}>
-                                                            <button onClick={() => duplicate(d, 'full')} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
-                                                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-                                                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Copie identique</div>
-                                                                <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2 }}>Tout est repris : travaux, photos, plans, simulations.</div>
-                                                            </button>
-                                                            <button onClick={() => duplicate(d, 'terrain')} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 8, padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
-                                                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-                                                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Même terrain, nouveaux travaux</div>
-                                                                <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2 }}>Demandeur, terrain et analyse PLU conservés — travaux, photos et plans remis à zéro.</div>
-                                                            </button>
+                                                        <div onClick={() => setMenuId(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
+                                                        <div className="dp-card" style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, padding: 6, width: 264, boxShadow: '0 12px 32px -12px rgba(37,34,30,.35)' }}>
+                                                            {([
+                                                                { label: 'Renommer', onClick: () => startRename(d) },
+                                                                { label: 'Dupliquer — copie identique', desc: 'Tout est repris : travaux, photos, plans.', onClick: () => duplicate(d, 'full') },
+                                                                { label: 'Dupliquer — même terrain', desc: 'Terrain et PLU conservés, travaux remis à zéro.', onClick: () => duplicate(d, 'terrain') },
+                                                                lc === 'archive'
+                                                                    ? { label: 'Restaurer', onClick: () => { setMenuId(null); patchDossier(d.id, { archived: false }, 'Projet restauré.') } }
+                                                                    : { label: 'Archiver', onClick: () => { setMenuId(null); patchDossier(d.id, { archived: true }, 'Projet archivé — retrouvez-le via le filtre « Archivés ».') } },
+                                                                { label: 'Supprimer…', danger: true, onClick: () => { setMenuId(null); setConfirmDeleteId(d.id) } },
+                                                            ] as { label: string; desc?: string; danger?: boolean; onClick: () => void }[]).map(item => (
+                                                                <button key={item.label} onClick={item.onClick}
+                                                                    style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 8, padding: '9px 11px', cursor: 'pointer', fontFamily: 'inherit' }}
+                                                                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                                                                    <div style={{ fontSize: 13, fontWeight: 600, color: item.danger ? '#8F2E22' : 'var(--ink)' }}>{item.label}</div>
+                                                                    {item.desc && <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 1 }}>{item.desc}</div>}
+                                                                </button>
+                                                            ))}
                                                         </div>
                                                     </>
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Client (usage pro) — inline edit */}
+                                        {clientEditId === d.id ? (
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                                                <input
+                                                    className="dp-input"
+                                                    style={{ maxWidth: 260, padding: '6px 10px', fontSize: 13 }}
+                                                    value={clientVal}
+                                                    autoFocus
+                                                    placeholder="Nom du client"
+                                                    onChange={e => setClientVal(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') commitClientEdit(d); if (e.key === 'Escape') setClientEditId(null) }}
+                                                    aria-label="Nom du client"
+                                                />
+                                                <button onClick={() => commitClientEdit(d)} className="dp-btn-primary" style={miniBtn}>OK</button>
+                                                <button onClick={() => setClientEditId(null)} className="dp-btn-secondary" style={miniBtn}>Annuler</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => startClientEdit(d)} style={{ background: 'none', border: 'none', padding: 0, marginTop: 6, cursor: 'pointer', fontSize: 12, color: 'var(--muted)', fontFamily: 'inherit' }}>
+                                                {d.clientName ? `👤 Client : ${d.clientName} · modifier` : '＋ Associer un client'}
+                                            </button>
+                                        )}
+
+                                        {chips.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                                {chips.map(c => (
+                                                    <span key={c} className="dp-chip is-ok" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center' }}>
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                                                        {c}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Suivi d'instruction en mairie */}
+                                        {lc === 'complet' && (
+                                            <div style={{ marginTop: 10 }}>
+                                                <button onClick={() => patchDossier(d.id, { submittedAt: new Date().toISOString() }, 'Dossier marqué comme déposé en mairie.')} disabled={isPending} className="dp-btn-secondary" style={miniBtn}>
+                                                    📮 Marquer comme déposé en mairie
+                                                </button>
+                                            </div>
+                                        )}
+                                        {d.submittedAt && lc !== 'archive' && (
+                                            <SuiviInstruction d={d} pending={isPending} onPatch={(body, okMsg) => patchDossier(d.id, body, okMsg)} />
+                                        )}
+
+                                        {/* Confirmation de suppression — pleine largeur, sous le contenu */}
+                                        {confirmDeleteId === d.id && (
+                                            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 12px', borderRadius: 10, background: '#FDF4F1', border: '1px solid #EBC3BB' }}>
+                                                <span style={{ fontSize: 12.5, color: '#8F2E22', fontWeight: 600, flex: 1, minWidth: 180 }}>Supprimer définitivement « {d.title} » ?</span>
+                                                <button onClick={() => remove(d)} disabled={isPending} className="dp-btn-outline" style={{ ...miniBtn, color: '#8F2E22', borderColor: '#EBC3BB' }}>
+                                                    {isPending ? 'Suppression…' : 'Supprimer'}
+                                                </button>
+                                                <button onClick={() => setConfirmDeleteId(null)} className="dp-btn-secondary" style={miniBtn}>Annuler</button>
+                                            </div>
+                                        )}
                                     </div>
                                 )
                             })}
