@@ -18,8 +18,6 @@ export interface StreetPhotoCandidate {
     lon: number
     distanceM: number      // distance from the target point
     azimuth: number | null // camera heading (°), for context
-    facingDelta: number | null // |camera heading − bearing to the house| (0 = looks straight at it)
-    facesHouse: boolean    // camera is roughly pointed at the terrain
     isPano: boolean        // 360° panorama — warps as a flat DP photo, so deprioritised
     date: string | null    // capture date, YYYY-MM-DD
     attribution: string
@@ -38,21 +36,6 @@ function haversineM(aLat: number, aLon: number, bLat: number, bLon: number): num
     const dLon = toRad(bLon - aLon)
     const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2
     return 2 * R * Math.asin(Math.sqrt(s))
-}
-
-// Compass bearing (°, 0=N) from point A to point B.
-function bearingDeg(aLat: number, aLon: number, bLat: number, bLon: number): number {
-    const toRad = (d: number) => (d * Math.PI) / 180
-    const φ1 = toRad(aLat), φ2 = toRad(bLat), Δλ = toRad(bLon - aLon)
-    const y = Math.sin(Δλ) * Math.cos(φ2)
-    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
-    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
-}
-
-// Smallest angle between two headings (0–180°).
-function angularDiff(a: number, b: number): number {
-    const d = Math.abs(a - b) % 360
-    return d > 180 ? 360 - d : d
 }
 
 // GET /api/street-photo?lat=..&lon=..  (preferred)  |  ?address=..&commune=..
@@ -99,23 +82,16 @@ export async function GET(req: NextRequest) {
                 const id = String(f?.id || '')
                 if (!id || !full) return null
                 const fov = typeof p['field_of_view'] === 'number' ? p['field_of_view'] : null
-                const hasPos = Number.isFinite(fLat) && Number.isFinite(fLon)
-                const azimuth = typeof p['view:azimuth'] === 'number' ? Math.round(p['view:azimuth']) : null
-                // How well the camera looks toward the house: compare its heading to the bearing
-                // from the camera position to the terrain point.
-                const facingDelta = (azimuth != null && hasPos)
-                    ? Math.round(angularDiff(azimuth, bearingDeg(fLat, fLon, lat, lon)))
-                    : null
                 return {
                     id,
                     thumb: assets.thumb?.href || assets.sd?.href || full,
                     full,
                     lat: fLat,
                     lon: fLon,
-                    distanceM: hasPos ? Math.round(haversineM(lat, lon, fLat, fLon)) : 99999,
-                    azimuth,
-                    facingDelta,
-                    facesHouse: facingDelta != null && facingDelta <= 55,
+                    distanceM: (Number.isFinite(fLat) && Number.isFinite(fLon))
+                        ? Math.round(haversineM(lat, lon, fLat, fLon))
+                        : 99999,
+                    azimuth: typeof p['view:azimuth'] === 'number' ? Math.round(p['view:azimuth']) : null,
                     isPano: fov != null ? fov >= 300 : false,
                     date: typeof p.datetime === 'string' ? p.datetime.slice(0, 10) : null,
                     attribution: ATTRIBUTION,
@@ -123,16 +99,10 @@ export async function GET(req: NextRequest) {
             })
             .filter((c): c is StreetPhotoCandidate => c !== null)
 
-        // Rank: usable flat pictures first (a 360° pano warps as a DP photo), then shots that
-        // actually look at the house, then nearest. This puts "the right angle" at the front.
-        candidates.sort((a, b) =>
-            (Number(a.isPano) - Number(b.isPano)) ||
-            (Number(b.facesHouse) - Number(a.facesHouse)) ||
-            ((a.facingDelta ?? 999) - (b.facingDelta ?? 999)) ||
-            (a.distanceM - b.distanceM)
-        )
+        // Flat pictures first (a 360° pano looks distorted as a DP photo), then closest.
+        candidates.sort((a, b) => (Number(a.isPano) - Number(b.isPano)) || (a.distanceM - b.distanceM))
 
-        return NextResponse.json({ candidates: candidates.slice(0, 12), center: { lat, lon } })
+        return NextResponse.json({ candidates: candidates.slice(0, 6), center: { lat, lon } })
     } catch (e) {
         console.error('[street-photo] Panoramax lookup failed:', e)
         return NextResponse.json({ candidates: [], center: { lat, lon } })
