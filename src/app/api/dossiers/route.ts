@@ -37,8 +37,9 @@ export async function GET() {
         .where(eq(dossiers.userId, session.userId))
         .orderBy(desc(dossiers.updatedAt))
 
-    // Self-heal legacy rows (summary column added after their last save).
-    const missing = rows.filter(r => !r.summary).map(r => r.id)
+    // Self-heal legacy rows: no summary at all, or a summary saved before the
+    // `photo` thumbnail field existed (absent key ≠ null: null means "no photo").
+    const missing = rows.filter(r => !r.summary?.summary || !('photo' in r.summary.summary)).map(r => r.id)
     const healed = new Map<string, ReturnType<typeof summarizeDossier>>()
     if (missing.length) {
         try {
@@ -57,7 +58,7 @@ export async function GET() {
     }
 
     const out = rows.map(({ summary, ...meta }) => {
-        const s = summary || healed.get(meta.id)
+        const s = healed.get(meta.id) || summary
         return { ...meta, empty: s?.empty ?? false, summary: s?.summary }
     })
     return NextResponse.json({ dossiers: out })

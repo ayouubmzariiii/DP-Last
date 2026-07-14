@@ -30,6 +30,9 @@ export interface DossierSummary {
         // Secteur protégé (SPR / abords MH) : avis ABF → délai d'instruction porté à 2 mois.
         // Absent (undefined) sur les résumés antérieurs à ce champ — traité comme "inconnu".
         abf?: boolean
+        // Vignette du projet : la photo « avant » de la façade principale (ou DP7 à défaut).
+        // null = pas de photo ; absent (undefined) = résumé antérieur à ce champ (re-généré au list).
+        photo?: string | null
     }
 }
 
@@ -65,5 +68,16 @@ export function summarizeDossier(data: DPFormData): DossierSummary {
     const hasContent = !!(t.description_projet || tr.description_projet)
     const empty = !hasWork && !hasTerrain && !hasContent && !hasFiles
 
-    return { empty, summary: { applicant, address, worksType, files, abf: isProtectedSector(data) } }
+    // Card thumbnail: prefer the main façade's "before" photo, then any façade, then DP7,
+    // then the legacy field. Only URLs (blob https or /public paths) — never inline base64,
+    // which would bloat the summary column.
+    const isUrl = (u?: string | null): u is string => !!u && (u.startsWith('http') || u.startsWith('/'))
+    const photo = [
+        facades.find(f => f.type === 'avant')?.before,
+        facades.find(f => f.before)?.before,
+        ph.dp7_vue_proche,
+        ph.facade_avant,
+    ].find(isUrl) ?? null
+
+    return { empty, summary: { applicant, address, worksType, files, abf: isProtectedSector(data), photo } }
 }
