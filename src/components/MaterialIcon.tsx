@@ -199,9 +199,37 @@ export function MaterialInline({ text }: { text?: string | null }) {
     )
 }
 
-// Sélecteur visuel : une grille de tuiles matière (vignette + libellé).
+// Icônes « élément » au trait (fenêtre, porte, volet, clôture…) pour les champs
+// de type qui ne sont pas une matière mais méritent aussi un visuel.
+export type ElementId =
+    | 'fenetre' | 'porte' | 'volet' | 'baie_vitree' | 'porte_fenetre' | 'fenetre_toit'
+    | 'mur' | 'mur_bahut' | 'grillage_cloture' | 'panneaux' | 'claire_voie'
+
+const ELEMENT_PATHS: Record<ElementId, React.ReactNode> = {
+    fenetre: (<><rect x="4" y="3" width="16" height="18" rx="1.5" /><path d="M12 3v18M4 12h16" /></>),
+    porte: (<><rect x="6" y="3" width="12" height="18" rx="1.5" /><path d="M6 21h12" /><circle cx="15" cy="12.5" r="1" fill="currentColor" stroke="none" /></>),
+    volet: (<><rect x="3" y="3" width="8" height="18" rx="1" /><rect x="13" y="3" width="8" height="18" rx="1" /><path d="M5 7h4M5 11h4M5 15h4M15 7h4M15 11h4M15 15h4" /></>),
+    baie_vitree: (<><rect x="2" y="4" width="20" height="16" rx="1.5" /><path d="M12 4v16" /><path d="M6 12h3M9.5 10.5L8 12l1.5 1.5M18 12h-3M14.5 10.5L16 12l-1.5 1.5" /></>),
+    porte_fenetre: (<><rect x="6" y="3" width="12" height="18" rx="1.5" /><path d="M12 3v18M6 13h12" /><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none" /></>),
+    fenetre_toit: (<><path d="M3 16L14 5l7 5" /><rect x="9" y="9.5" width="7" height="6" rx="1" transform="rotate(-45 12.5 12.5)" /></>),
+    mur: (<><path d="M3 6h18v13H3z" /><path d="M3 10.3h18M3 14.6h18M9 6v4.3M15 6v4.3M6 10.3v4.3M12 10.3v4.3M18 10.3v4.3M9 14.6V19M15 14.6V19" /></>),
+    mur_bahut: (<><path d="M3 14h18v6H3z" /><path d="M10.5 14v6M3 17h18" /><path d="M5.5 14V5M9.5 14V5M13.5 14V5M17.5 14V5M20.5 14V5" /></>),
+    grillage_cloture: (<><path d="M4 4v17M20 4v17" /><path d="M4 7l16 10M20 7L4 17M4 12l10 9M20 12l-10 9M9 4l11 7M15 4L4 11" strokeWidth="1" /></>),
+    panneaux: (<><path d="M4 4v17M20 4v17" /><path d="M4 8h16M4 11h16M4 15h16M4 18h16" /></>),
+    claire_voie: (<><path d="M4 21V6l1.5-2L7 6v15M10.5 21V6L12 4l1.5 2v15M17 21V6l1.5-2L20 6v15" /><path d="M2 12h20M2 17h20" strokeWidth="1" /></>),
+}
+
+export function ElementIcon({ id, size = 30 }: { id: ElementId; size?: number }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
+            {ELEMENT_PATHS[id]}
+        </svg>
+    )
+}
+
+// Sélecteur visuel : une grille de tuiles (vignette matière OU icône au trait + libellé).
 export function MaterialTiles({ options, value, onChange, columns }: {
-    options: { value: string; label: string; material: MaterialId }[]
+    options: { value: string; label: string; material?: MaterialId; element?: ElementId }[]
     value: string
     onChange: (v: string) => void
     columns?: number
@@ -221,7 +249,13 @@ export function MaterialTiles({ options, value, onChange, columns }: {
                             boxShadow: on ? '0 8px 18px -10px rgba(45,90,76,.5)' : '0 1px 2px rgba(37,34,30,.04)',
                             transition: 'border-color .15s, background .15s, box-shadow .15s',
                         }}>
-                        <MaterialSwatch id={o.material} size={34} />
+                        {o.material ? (
+                            <MaterialSwatch id={o.material} size={34} />
+                        ) : o.element ? (
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, color: on ? 'var(--acd)' : 'var(--ink-2)' }}>
+                                <ElementIcon id={o.element} size={30} />
+                            </span>
+                        ) : null}
                         <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2, color: on ? 'var(--acd)' : 'var(--ink-2)', textAlign: 'center' }}>{o.label}</span>
                     </button>
                 )

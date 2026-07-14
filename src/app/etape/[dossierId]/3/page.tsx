@@ -106,15 +106,18 @@ export default function Etape3() {
                         <div className="dp-card animate-fadeIn">
                             <h3 className="dp-section-title">🪟 Détails des menuiseries</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Type de menuiserie *</label>
-                                    <select className="dp-select" value={t.menuiseries?.type || ''} onChange={e => updateMen({ type: e.target.value as never })}>
-                                        <option value="">-- Sélectionner --</option>
-                                        <option value="fenetre">Fenêtre(s)</option>
-                                        <option value="porte">Porte(s) extérieure(s)</option>
-                                        <option value="volet">Volet(s)</option>
-                                        <option value="baie_vitree">Baie(s) vitrée(s)</option>
-                                    </select>
+                                    <MaterialTiles
+                                        value={t.menuiseries?.type || ''}
+                                        onChange={v => updateMen({ type: v as never })}
+                                        options={[
+                                            { value: 'fenetre', label: 'Fenêtre(s)', element: 'fenetre' },
+                                            { value: 'porte', label: 'Porte(s) extérieure(s)', element: 'porte' },
+                                            { value: 'volet', label: 'Volet(s)', element: 'volet' },
+                                            { value: 'baie_vitree', label: 'Baie(s) vitrée(s)', element: 'baie_vitree' },
+                                        ]}
+                                    />
                                 </div>
                                 <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Matériau *</label>
@@ -132,10 +135,6 @@ export default function Etape3() {
                                 <div className="dp-form-group">
                                     <label className="dp-label">Couleur</label>
                                     <RalPicker format="label" placeholder="ex : Blanc, RAL 9016, « anthracite »" value={t.menuiseries?.couleur || ''} onChange={v => updateMen({ couleur: v })} />
-                                </div>
-                                <div className="dp-form-group">
-                                    <label className="dp-label">Code RAL (optionnel)</label>
-                                    <RalPicker placeholder="ex : RAL 7016 ou « anthracite »" value={t.menuiseries?.couleur_ral || ''} onChange={v => updateMen({ couleur_ral: v })} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Nombre d'éléments</label>
@@ -278,16 +277,20 @@ export default function Etape3() {
                         <div className="dp-card animate-fadeIn">
                             <h3 className="dp-section-title">🧱 Détails de la clôture</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Type de clôture *</label>
-                                    <select className="dp-select" value={t.cloture?.type_cloture || ''} onChange={e => updateClo({ type_cloture: e.target.value as never })}>
-                                        <option value="">-- Sélectionner --</option>
-                                        <option value="mur">Mur plein</option>
-                                        <option value="mur_bahut">Mur-bahut + grille / grillage</option>
-                                        <option value="grillage">Grillage</option>
-                                        <option value="panneaux">Panneaux rigides</option>
-                                        <option value="claire_voie">Clôture à claire-voie</option>
-                                    </select>
+                                    <MaterialTiles
+                                        columns={5}
+                                        value={t.cloture?.type_cloture || ''}
+                                        onChange={v => updateClo({ type_cloture: v as never })}
+                                        options={[
+                                            { value: 'mur', label: 'Mur plein', element: 'mur' },
+                                            { value: 'mur_bahut', label: 'Mur-bahut + grille', element: 'mur_bahut' },
+                                            { value: 'grillage', label: 'Grillage', element: 'grillage_cloture' },
+                                            { value: 'panneaux', label: 'Panneaux rigides', element: 'panneaux' },
+                                            { value: 'claire_voie', label: 'Claire-voie', element: 'claire_voie' },
+                                        ]}
+                                    />
                                 </div>
                                 <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Matériau</label>
@@ -405,15 +408,18 @@ export default function Etape3() {
                         <div className="dp-card animate-fadeIn">
                             <h3 className="dp-section-title">🚪 Détails de l'ouverture</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Type d'ouverture *</label>
-                                    <select className="dp-select" value={t.ouverture?.type_ouverture || ''} onChange={e => updateOuv({ type_ouverture: e.target.value as never })}>
-                                        <option value="">-- Sélectionner --</option>
-                                        <option value="fenetre">Fenêtre</option>
-                                        <option value="porte">Porte</option>
-                                        <option value="porte_fenetre">Porte-fenêtre</option>
-                                        <option value="fenetre_toit">Fenêtre de toit (velux)</option>
-                                    </select>
+                                    <MaterialTiles
+                                        value={t.ouverture?.type_ouverture || ''}
+                                        onChange={v => updateOuv({ type_ouverture: v as never })}
+                                        options={[
+                                            { value: 'fenetre', label: 'Fenêtre', element: 'fenetre' },
+                                            { value: 'porte', label: 'Porte', element: 'porte' },
+                                            { value: 'porte_fenetre', label: 'Porte-fenêtre', element: 'porte_fenetre' },
+                                            { value: 'fenetre_toit', label: 'Fenêtre de toit', element: 'fenetre_toit' },
+                                        ]}
+                                    />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Opération *</label>
