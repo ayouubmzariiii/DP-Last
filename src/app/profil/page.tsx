@@ -589,12 +589,12 @@ export default function ProfilePage() {
                                         {/* En-tête : vignette « avant » · titre + méta (pleine largeur) · actions compactes à droite */}
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                                             <button onClick={() => router.push(`/etape/${d.id}/${openStep(d)}`)} aria-label={`Ouvrir ${d.title}`}
-                                                style={{ width: 56, height: 56, flexShrink: 0, padding: 0, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--surface-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(37,34,30,.06)' }}>
+                                                style={{ width: 80, height: 80, flexShrink: 0, padding: 0, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--surface-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px -2px rgba(37,34,30,.12)' }}>
                                                 {d.summary?.photo ? (
                                                     // eslint-disable-next-line @next/next/no-img-element
                                                     <img src={d.summary.photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                                                 ) : (
-                                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                                                         <path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" />
                                                     </svg>
                                                 )}
