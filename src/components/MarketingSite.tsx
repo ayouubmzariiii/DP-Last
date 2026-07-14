@@ -158,15 +158,15 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
 
             {/* ===================== HEADER ===================== */}
             <header style={s('position:sticky;top:0;z-index:60;background:rgba(241,236,227,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)')}>
-                <div style={s('max-width:1160px;margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:22px')}>
+                <div data-head style={s('max-width:1160px;margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:22px')}>
                     <a href="#top" style={s('display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none')}>
                         <div style={s('display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:40px;height:40px;border-radius:11px;background:linear-gradient(155deg,var(--ac),var(--acd));box-shadow:0 6px 16px -8px rgba(45,90,76,.6);flex-shrink:0')}>
                             <span style={s('font-family:var(--hf);font-weight:600;font-size:19px;line-height:1;letter-spacing:-.03em;color:#fff')}>dp</span>
                             <span style={s('width:14px;height:1.5px;border-radius:2px;background:rgba(255,255,255,.5)')}></span>
                         </div>
-                        <div style={s('white-space:nowrap')}>
+                        <div data-logotext style={s('white-space:nowrap')}>
                             <div style={s('font-family:var(--hf);font-size:16px;font-weight:600;line-height:1.05;color:var(--ink)')}>DP Travaux</div>
-                            <div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.09em;color:var(--muted);text-transform:uppercase')}>Déclaration préalable</div>
+                            <div data-logosub style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.09em;color:var(--muted);text-transform:uppercase')}>Déclaration préalable</div>
                         </div>
                     </a>
                     <nav data-nav-center style={s('flex:1;display:flex;align-items:center;justify-content:center;gap:30px')}>
@@ -186,7 +186,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                             <a href="/profil" className="dp-btn-primary" style={s('padding:10px 20px;font-size:14px;text-decoration:none')}>Mon espace</a>
                         ) : (
                             <>
-                                <a href="/login" data-nav style={s('font-size:14px;font-weight:600;color:var(--ink-2);white-space:nowrap;transition:color .15s;text-decoration:none')}>Se connecter</a>
+                                <a href="/login" data-nav data-signin style={s('font-size:14px;font-weight:600;color:var(--ink-2);white-space:nowrap;transition:color .15s;text-decoration:none')}>Se connecter</a>
                                 <a href="/register" className="dp-btn-primary" style={s('padding:10px 20px;font-size:14px;text-decoration:none')}>Commencer</a>
                             </>
                         )}
@@ -364,8 +364,8 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:3px')}>Type de travaux</div>
                                 </div>
                             </div>
-                            <div style={s('display:flex;gap:12px;margin-top:22px')}>
-                                <div className="dp-metric is-accent" style={s('flex:1')}><div className="val">{ev.verdict}</div><span className="key">Régime</span></div>
+                            <div data-eligmetrics style={s('display:flex;gap:12px;margin-top:22px;flex-wrap:wrap')}>
+                                <div className="dp-metric is-accent" style={s('flex:1 1 140px')}><div className="val">{ev.verdict}</div><span className="key">Régime</span></div>
                                 <div className="dp-metric" style={s('flex:0 0 auto;min-width:120px')}><div className="val">{ev.delai}</div><span className="key">Instruction</span></div>
                             </div>
                             <p style={s('font-size:15px;line-height:1.6;color:var(--ink-2);margin:20px 0 0')}>{ev.note}</p>
@@ -593,7 +593,7 @@ html{scroll-behavior:smooth}
 }
 @media (max-width:860px){
   #site [data-ba]{grid-template-columns:1fr!important;gap:36px!important}
-  #site [data-elig]{grid-template-columns:1fr!important}
+  #site [data-elig]{grid-template-columns:minmax(0,1fr)!important}
 }
 @media (max-width:820px){
   #site [data-nav-center]{display:none!important}
@@ -609,8 +609,18 @@ html{scroll-behavior:smooth}
   #site [data-simreco]{flex-direction:column;align-items:flex-start!important}
   #site [data-howgrid]{grid-template-columns:1fr!important}
   #site [data-foot]{justify-content:flex-start!important}
+  #site [data-eligtiles]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
-@media (max-width:420px){
-  #site [data-eligtiles]{grid-template-columns:repeat(2,1fr)!important}
+/* Header: keep the logo + primary CTA on one line on phones. */
+@media (max-width:560px){
+  #site [data-head]{padding-left:16px!important;padding-right:16px!important;gap:12px!important}
+  #site [data-logosub]{display:none!important}
+  #site [data-signin]{display:none!important}
+}
+@media (max-width:400px){
+  #site [data-logotext]{display:none!important}
+}
+@media (max-width:360px){
+  #site [data-hero] .dp-btn-primary,#site [data-hero] .dp-btn-secondary{flex:1 1 100%!important}
 }
 `
