@@ -4,7 +4,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { TypeTravaux } from '@/lib/models'
 import { TRAVAUX_LIST, getTravauxDef, travauxDescription } from '@/lib/travauxRegistry'
-import RalPicker, { RalHint } from '@/components/RalPicker'
+import RalPicker from '@/components/RalPicker'
+import { MaterialTiles } from '@/components/MaterialIcon'
 
 // Selection cards are derived from the travaux registry — adding a work type there makes its
 // card appear here automatically (its detail sub-form is still rendered per-type below).
@@ -115,20 +116,22 @@ export default function Etape3() {
                                         <option value="baie_vitree">Baie(s) vitrée(s)</option>
                                     </select>
                                 </div>
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Matériau *</label>
-                                    <select className="dp-select" value={t.menuiseries?.materiau || ''} onChange={e => updateMen({ materiau: e.target.value as never })}>
-                                        <option value="">-- Sélectionner --</option>
-                                        <option value="pvc">PVC</option>
-                                        <option value="aluminium">Aluminium</option>
-                                        <option value="bois">Bois</option>
-                                        <option value="mixte">Mixte bois/aluminium</option>
-                                    </select>
+                                    <MaterialTiles
+                                        value={t.menuiseries?.materiau || ''}
+                                        onChange={v => updateMen({ materiau: v as never })}
+                                        options={[
+                                            { value: 'pvc', label: 'PVC', material: 'pvc' },
+                                            { value: 'aluminium', label: 'Aluminium', material: 'aluminium' },
+                                            { value: 'bois', label: 'Bois', material: 'bois' },
+                                            { value: 'mixte', label: 'Mixte bois/alu', material: 'mixte' },
+                                        ]}
+                                    />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Couleur</label>
-                                    <input className="dp-input" placeholder="ex: Blanc RAL 9016" value={t.menuiseries?.couleur || ''} onChange={e => updateMen({ couleur: e.target.value })} />
-                                    <RalHint text={t.menuiseries?.couleur} />
+                                    <RalPicker format="label" placeholder="ex : Blanc, RAL 9016, « anthracite »" value={t.menuiseries?.couleur || ''} onChange={v => updateMen({ couleur: v })} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Code RAL (optionnel)</label>
@@ -168,20 +171,22 @@ export default function Etape3() {
                         <div className="dp-card animate-fadeIn">
                             <h3 className="dp-section-title">🏠 Détails de l'isolation extérieure</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Type de finition *</label>
-                                    <select className="dp-select" value={t.isolation?.type_finition || ''} onChange={e => updateIso({ type_finition: e.target.value as never })}>
-                                        <option value="">-- Sélectionner --</option>
-                                        <option value="enduit">Enduit de finition</option>
-                                        <option value="bardage_bois">Bardage bois</option>
-                                        <option value="bardage_metal">Bardage métal / acier</option>
-                                        <option value="bardage_composite">Bardage composite / HPL</option>
-                                    </select>
+                                    <MaterialTiles
+                                        value={t.isolation?.type_finition || ''}
+                                        onChange={v => updateIso({ type_finition: v as never })}
+                                        options={[
+                                            { value: 'enduit', label: 'Enduit de finition', material: 'enduit' },
+                                            { value: 'bardage_bois', label: 'Bardage bois', material: 'bardage_bois' },
+                                            { value: 'bardage_metal', label: 'Bardage métal / acier', material: 'acier' },
+                                            { value: 'bardage_composite', label: 'Composite / HPL', material: 'composite' },
+                                        ]}
+                                    />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Couleur de finition</label>
-                                    <input className="dp-input" placeholder="ex: Beige sablé, Gris anthracite" value={t.isolation?.couleur || ''} onChange={e => updateIso({ couleur: e.target.value })} />
-                                    <RalHint text={t.isolation?.couleur} />
+                                    <RalPicker format="label" placeholder="ex : Beige sablé, RAL 7016" value={t.isolation?.couleur || ''} onChange={v => updateIso({ couleur: v })} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Matériau isolant</label>
@@ -284,14 +289,25 @@ export default function Etape3() {
                                         <option value="claire_voie">Clôture à claire-voie</option>
                                     </select>
                                 </div>
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Matériau</label>
-                                    <input className="dp-input" placeholder="ex: Aluminium, PVC, bois, maçonnerie" value={t.cloture?.materiau || ''} onChange={e => updateClo({ materiau: e.target.value })} />
+                                    <MaterialTiles
+                                        columns={5}
+                                        value={t.cloture?.materiau || ''}
+                                        onChange={v => updateClo({ materiau: v })}
+                                        options={[
+                                            { value: 'Aluminium', label: 'Aluminium', material: 'aluminium' },
+                                            { value: 'PVC', label: 'PVC', material: 'pvc' },
+                                            { value: 'Bois', label: 'Bois', material: 'bois' },
+                                            { value: 'Maçonnerie', label: 'Maçonnerie', material: 'maconnerie' },
+                                            { value: 'Grillage acier', label: 'Grillage', material: 'grillage' },
+                                        ]}
+                                    />
+                                    <input className="dp-input mt-2" placeholder="ou précisez : ex. acier thermolaqué, gabion…" value={t.cloture?.materiau || ''} onChange={e => updateClo({ materiau: e.target.value })} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Couleur</label>
-                                    <input className="dp-input" placeholder="ex: Gris anthracite RAL 7016" value={t.cloture?.couleur || ''} onChange={e => updateClo({ couleur: e.target.value })} />
-                                    <RalHint text={t.cloture?.couleur} />
+                                    <RalPicker format="label" placeholder="ex : Gris anthracite, RAL 7016" value={t.cloture?.couleur || ''} onChange={v => updateClo({ couleur: v })} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Hauteur (m) *</label>
@@ -318,20 +334,22 @@ export default function Etape3() {
                         <div className="dp-card animate-fadeIn">
                             <h3 className="dp-section-title">🎨 Détails du ravalement</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Finition *</label>
-                                    <select className="dp-select" value={t.ravalement?.finition || ''} onChange={e => updateRav({ finition: e.target.value as never })}>
-                                        <option value="">-- Sélectionner --</option>
-                                        <option value="enduit">Enduit</option>
-                                        <option value="peinture">Peinture / ravalement peint</option>
-                                        <option value="pierre_apparente">Pierre apparente (rejointoiement)</option>
-                                        <option value="bardage">Bardage</option>
-                                    </select>
+                                    <MaterialTiles
+                                        value={t.ravalement?.finition || ''}
+                                        onChange={v => updateRav({ finition: v as never })}
+                                        options={[
+                                            { value: 'enduit', label: 'Enduit', material: 'enduit' },
+                                            { value: 'peinture', label: 'Peinture', material: 'peinture' },
+                                            { value: 'pierre_apparente', label: 'Pierre apparente', material: 'pierre' },
+                                            { value: 'bardage', label: 'Bardage', material: 'bardage_bois' },
+                                        ]}
+                                    />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Teinte / couleur *</label>
-                                    <input className="dp-input" placeholder="ex: Ton pierre, RAL 1015" value={t.ravalement?.couleur || ''} onChange={e => updateRav({ couleur: e.target.value })} />
-                                    <RalHint text={t.ravalement?.couleur} />
+                                    <RalPicker format="label" placeholder="ex : Ton pierre, RAL 1015" value={t.ravalement?.couleur || ''} onChange={v => updateRav({ couleur: v })} />
                                 </div>
                                 <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Façades concernées</label>
@@ -360,14 +378,23 @@ export default function Etape3() {
                                         <option value="changement_materiau">Changement de matériau de couverture</option>
                                     </select>
                                 </div>
-                                <div className="dp-form-group">
+                                <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Matériau de couverture *</label>
-                                    <input className="dp-input" placeholder="ex: Tuile terre cuite, ardoise, zinc, bac acier" value={t.toiture?.materiau_couverture || ''} onChange={e => updateToit({ materiau_couverture: e.target.value })} />
+                                    <MaterialTiles
+                                        value={t.toiture?.materiau_couverture || ''}
+                                        onChange={v => updateToit({ materiau_couverture: v })}
+                                        options={[
+                                            { value: 'Tuile terre cuite', label: 'Tuile terre cuite', material: 'tuile' },
+                                            { value: 'Ardoise', label: 'Ardoise', material: 'ardoise' },
+                                            { value: 'Zinc', label: 'Zinc', material: 'zinc' },
+                                            { value: 'Bac acier', label: 'Bac acier', material: 'bac_acier' },
+                                        ]}
+                                    />
+                                    <input className="dp-input mt-2" placeholder="ou précisez : ex. tuile plate, chaume…" value={t.toiture?.materiau_couverture || ''} onChange={e => updateToit({ materiau_couverture: e.target.value })} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Teinte / couleur</label>
-                                    <input className="dp-input" placeholder="ex: Rouge nuancé, ardoise" value={t.toiture?.couleur || ''} onChange={e => updateToit({ couleur: e.target.value })} />
-                                    <RalHint text={t.toiture?.couleur} />
+                                    <RalPicker format="label" placeholder="ex : Rouge nuancé, RAL 7016" value={t.toiture?.couleur || ''} onChange={v => updateToit({ couleur: v })} />
                                 </div>
                             </div>
                         </div>

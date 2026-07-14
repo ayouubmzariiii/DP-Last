@@ -6,10 +6,11 @@ import { useDPContext } from '@/lib/context'
 import { validateDPForm, piecesChecklist, fatalIssues, forbiddenIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
 import { getTravauxDef } from '@/lib/travauxRegistry'
 import { RalInline } from '@/components/RalPicker'
+import { MaterialInline } from '@/components/MaterialIcon'
 
 function RecapSection({ title, icon, items }: {
     title: string; icon: string;
-    items: { label: string; value: string | undefined | null }[]
+    items: { label: string; value: string | undefined | null; material?: boolean }[]
 }) {
     return (
         <div className="dp-card">
@@ -20,7 +21,7 @@ function RecapSection({ title, icon, items }: {
                 {items.filter(i => i.value).map((item) => (
                     <div key={item.label}>
                         <dt className="dp-meta">{item.label}</dt>
-                        <dd className="text-sm font-medium t-ink mt-1"><RalInline text={item.value} /></dd>
+                        <dd className="text-sm font-medium t-ink mt-1">{item.material ? <MaterialInline text={item.value!} /> : <RalInline text={item.value} />}</dd>
                     </div>
                 ))}
             </dl>
@@ -174,7 +175,7 @@ export default function Etape7() {
             const m = travaux.menuiseries
             return [
                 { label: 'Type', value: m.type },
-                { label: 'Matériau', value: m.materiau },
+                { label: 'Matériau', value: m.materiau, material: true },
                 { label: 'Couleur', value: m.couleur },
                 { label: 'Teinte RAL', value: m.couleur_ral },
                 { label: 'Nombre', value: m.nombre },
@@ -185,7 +186,7 @@ export default function Etape7() {
         if (travaux.type === 'isolation' && travaux.isolation) {
             const i = travaux.isolation
             return [
-                { label: 'Finition', value: i.type_finition },
+                { label: 'Finition', value: i.type_finition, material: true },
                 { label: 'Couleur', value: i.couleur },
                 { label: 'Isolant', value: i.materiau_isolant },
                 { label: 'Épaisseur', value: i.epaisseur_isolant ? i.epaisseur_isolant + ' cm' : undefined },
@@ -208,7 +209,7 @@ export default function Etape7() {
             const c = travaux.cloture
             return [
                 { label: 'Type', value: c.type_cloture },
-                { label: 'Matériau', value: c.materiau },
+                { label: 'Matériau', value: c.materiau, material: true },
                 { label: 'Couleur', value: c.couleur },
                 { label: 'Hauteur', value: c.hauteur ? c.hauteur + ' m' : undefined },
             ]
@@ -216,9 +217,9 @@ export default function Etape7() {
         if (travaux.type === 'ravalement' && travaux.ravalement) {
             const r = travaux.ravalement
             return [
-                { label: 'Finition', value: r.finition },
+                { label: 'Finition', value: r.finition, material: true },
                 { label: 'Teinte / couleur', value: r.couleur },
-                { label: 'Matériau', value: r.materiau },
+                { label: 'Matériau', value: r.materiau, material: true },
                 { label: 'Façades', value: r.facades_concernees?.join(', ') },
             ]
         }
@@ -226,7 +227,7 @@ export default function Etape7() {
             const t = travaux.toiture
             return [
                 { label: 'Opération', value: t.operation },
-                { label: 'Matériau de couverture', value: t.materiau_couverture },
+                { label: 'Matériau de couverture', value: t.materiau_couverture, material: true },
                 { label: 'Couleur', value: t.couleur },
             ]
         }

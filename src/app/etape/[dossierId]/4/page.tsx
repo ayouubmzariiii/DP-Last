@@ -6,6 +6,7 @@ import { useDPContext } from '@/lib/context'
 import { isProtectedSector, pluAspectConflicts, pluAspectAlternatives } from '@/lib/validation'
 import { travauxAspect } from '@/lib/travauxRegistry'
 import { RalHint, RalInline } from '@/components/RalPicker'
+import { MaterialInline } from '@/components/MaterialIcon'
 
 export default function Etape4() {
     const router = useRouter()
@@ -350,8 +351,8 @@ export default function Etape4() {
                                         <ul className="mt-3 space-y-2.5">
                                             {aspectConflict.material && (
                                                 <li className="text-sm">
-                                                    <div className="t-error font-semibold">✗ Matériau « {aspectConflict.material.chosen} » — interdit (proscrit : « {aspectConflict.material.rule} »)</div>
-                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : <RalInline text={aspectAlt.material || 'choisissez un matériau de la palette autorisée par le règlement.'} /></div>
+                                                    <div className="t-error font-semibold">✗ Matériau « <MaterialInline text={aspectConflict.material.chosen} /> » — interdit (proscrit : « {aspectConflict.material.rule} »)</div>
+                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : <MaterialInline text={aspectAlt.material || 'choisissez un matériau de la palette autorisée par le règlement.'} /></div>
                                                 </li>
                                             )}
                                             {aspectConflict.color && (

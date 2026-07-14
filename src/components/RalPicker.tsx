@@ -49,10 +49,13 @@ export function RalInline({ text }: { text?: string | null }) {
     )
 }
 
-export default function RalPicker({ value, onChange, placeholder }: {
+export default function RalPicker({ value, onChange, placeholder, format = 'code' }: {
     value: string
     onChange: (v: string) => void
     placeholder?: string
+    // 'code' stocke « RAL 7016 » (champ RAL dédié) ; 'label' stocke
+    // « Gris anthracite (RAL 7016) » (champs couleur lisibles par la mairie).
+    format?: 'code' | 'label'
 }) {
     const [open, setOpen] = useState(false)
     const rootRef = useRef<HTMLDivElement>(null)
@@ -69,7 +72,7 @@ export default function RalPicker({ value, onChange, placeholder }: {
         return () => document.removeEventListener('mousedown', onDown)
     }, [open])
 
-    const pick = (c: RalColor) => { onChange(`RAL ${c.code}`); setOpen(false) }
+    const pick = (c: RalColor) => { onChange(format === 'label' ? `${c.name} (RAL ${c.code})` : `RAL ${c.code}`); setOpen(false) }
 
     return (
         <div ref={rootRef} style={{ position: 'relative' }}>
