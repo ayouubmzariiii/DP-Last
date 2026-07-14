@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
 import { computeSuivi, type MilestoneStatus } from '@/lib/dossierTimeline'
+import { euro } from '@/lib/billing/plans'
 
 interface DossierFiles {
     situation: boolean
@@ -240,7 +241,13 @@ export default function ProfilePage() {
     const [error, setError] = useState<string | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
-    const [tab, setTab] = useState<'projets' | 'params'>('projets')
+    const [tab, setTab] = useState<'projets' | 'facturation' | 'params'>('projets')
+
+    // Open a specific tab from ?tab= (e.g. the checkout success link → ?tab=facturation).
+    useEffect(() => {
+        const t = new URLSearchParams(window.location.search).get('tab')
+        if (t === 'facturation' || t === 'params') setTab(t)
+    }, [])
 
     // Toolbar
     const [query, setQuery] = useState('')
@@ -455,6 +462,7 @@ export default function ProfilePage() {
             {/* Tab switcher */}
             <div style={{ display: 'inline-flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: 4, margin: '0 0 28px' }}>
                 <button onClick={() => setTab('projets')} style={tabStyle(tab === 'projets')}>Mes projets</button>
+                <button onClick={() => setTab('facturation')} style={tabStyle(tab === 'facturation')}>Abonnement</button>
                 <button onClick={() => setTab('params')} style={tabStyle(tab === 'params')}>Paramètres</button>
             </div>
 
@@ -734,6 +742,8 @@ export default function ProfilePage() {
                         </div>
                     )}
                 </>
+            ) : tab === 'facturation' ? (
+                <BillingTab onNotice={(m) => setNotice(m)} />
             ) : (
                 <SettingsTab account={account} onSaved={(a) => setAccount(a)} onDeleted={() => { router.push('/'); router.refresh() }} />
             )}
@@ -901,6 +911,109 @@ function SettingsTab({ account, onSaved, onDeleted }: {
                     </button>
                 </div>
             </div>
+        </div>
+    )
+}
+
+// ── Billing / subscription tab ───────────────────────────────────────────────
+interface Ent { plan: string | null; planName: string | null; planStatus: string | null; quota: number; used: number; quotaRemaining: number | null; credits: number; periodEnd: string | null; cancelAtPeriodEnd: boolean; unlimited: boolean; canGenerate: boolean }
+interface Pay { id: string; kind: string; label: string; amountCents: number; creditsGranted: number; createdAt: string }
+
+function BillingTab({ onNotice }: { onNotice: (m: string) => void }) {
+    const [ent, setEnt] = useState<Ent | null>(null)
+    const [history, setHistory] = useState<Pay[]>([])
+    const [loading, setLoading] = useState(true)
+    const [busy, setBusy] = useState(false)
+
+    const load = useCallback(async () => {
+        try {
+            const res = await fetch('/api/billing/me')
+            if (res.ok) { const d = await res.json(); setEnt(d.entitlements); setHistory(d.history || []) }
+        } finally { setLoading(false) }
+    }, [])
+    useEffect(() => { load() }, [load])
+
+    const cancel = async () => {
+        setBusy(true)
+        try {
+            const res = await fetch('/api/billing/cancel', { method: 'POST' })
+            if (res.ok) { const d = await res.json(); setEnt(d.entitlements); onNotice('Résiliation programmée en fin de période.') }
+        } finally { setBusy(false) }
+    }
+
+    const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+    const meta: React.CSSProperties = { fontFamily: 'var(--mf)', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)' }
+
+    if (loading) return <div className="dp-card" style={{ textAlign: 'center', padding: 48 }}><span className="dp-spinner dp-spinner-lg" /></div>
+
+    const hasPlan = !!ent?.plan
+    const pct = ent && ent.quota > 0 ? Math.min(100, Math.round((ent.used / ent.quota) * 100)) : 0
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Current plan */}
+            <div className="dp-card">
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                    <div>
+                        <div style={meta}>Votre abonnement</div>
+                        <div style={{ fontFamily: 'var(--hf)', fontSize: 26, fontWeight: 600, color: 'var(--ink)', marginTop: 4 }}>
+                            {hasPlan ? ent!.planName : 'Aucun abonnement'}
+                            {hasPlan && ent!.cancelAtPeriodEnd && <span className="dp-chip" style={{ marginLeft: 10, fontSize: 11, background: '#FBF1DC', color: '#7A5C1E', borderColor: '#E5D5AC' }}>Résiliation programmée</span>}
+                            {hasPlan && !ent!.cancelAtPeriodEnd && <span className="dp-chip is-ok" style={{ marginLeft: 10, fontSize: 11 }}>Actif</span>}
+                        </div>
+                        {hasPlan && ent!.periodEnd && (
+                            <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 6 }}>{ent!.cancelAtPeriodEnd ? 'Prend fin le' : 'Se renouvelle le'} {fmtDate(ent!.periodEnd)}</div>
+                        )}
+                    </div>
+                    <Link href="/#pricing" className="dp-btn-secondary" style={{ textDecoration: 'none' }}>{hasPlan ? 'Changer d’offre' : 'Voir les offres'}</Link>
+                </div>
+
+                {/* Quota + credits */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 22 }}>
+                    <div className="dp-metric">
+                        <div className="val">{ent!.unlimited ? 'Illimité' : hasPlan ? `${ent!.used} / ${ent!.quota}` : '—'}</div>
+                        <span className="key">Dossiers ce mois</span>
+                        {hasPlan && !ent!.unlimited && (
+                            <div style={{ height: 6, borderRadius: 4, background: 'var(--line-2)', overflow: 'hidden', marginTop: 10 }}>
+                                <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,var(--ac),var(--acd))' }} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="dp-metric is-accent">
+                        <div className="val">{ent!.credits}</div>
+                        <span className="key">Crédits à l’usage</span>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, marginTop: 18, flexWrap: 'wrap' }}>
+                    <Link href="/#pricing" className="dp-btn-primary" style={{ textDecoration: 'none' }}>Acheter des crédits / dossiers</Link>
+                    {hasPlan && !ent!.cancelAtPeriodEnd && (
+                        <button onClick={cancel} disabled={busy} className="dp-btn-outline">{busy ? 'Traitement…' : 'Résilier l’abonnement'}</button>
+                    )}
+                </div>
+            </div>
+
+            {/* History */}
+            <div className="dp-card">
+                <div style={{ ...meta, marginBottom: 4 }}>Historique</div>
+                {history.length === 0 ? (
+                    <p style={{ fontSize: 14, color: 'var(--ink-2)', margin: '12px 0 0' }}>Aucun paiement pour le moment.</p>
+                ) : (
+                    <div style={{ marginTop: 8 }}>
+                        {history.map((p) => (
+                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 0', borderTop: '1px solid var(--line-2)' }}>
+                                <div>
+                                    <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{p.label}</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{fmtDate(p.createdAt)}{p.creditsGranted > 0 ? ` · +${p.creditsGranted} crédit${p.creditsGranted > 1 ? 's' : ''}` : ''}</div>
+                                </div>
+                                <div style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{euro(p.amountCents)}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <p style={{ textAlign: 'center', fontFamily: 'var(--mf)', fontSize: 11, color: 'var(--faint)' }}>Paiement de démonstration — l’encaissement réel sera activé prochainement.</p>
         </div>
     )
 }

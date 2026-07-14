@@ -9,6 +9,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useCart } from '@/lib/billing/cart'
+import { type SkuId } from '@/lib/billing/plans'
 
 type CSS = React.CSSProperties
 
@@ -99,6 +102,11 @@ const fr = (n: number) => Math.round(n).toLocaleString('fr-FR')
 
 export default function MarketingSite({ authed = false }: { authed?: boolean }) {
     const appHref = authed ? '/profil' : '/register'
+    const router = useRouter()
+    const cart = useCart()
+    // Buy a one-off SKU: drop it in the cart and head to checkout (guests get bounced
+    // to /login?next=/checkout by middleware, and the cart survives the round-trip).
+    const buySku = (sku: SkuId) => { cart.add(sku); router.push('/checkout') }
     const [pricing, setPricing] = useState<'abo' | 'usage'>('abo')
     const [elig, setElig] = useState('menuiseries')
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
@@ -167,6 +175,12 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <a data-nav href="#contact" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Contact</a>
                     </nav>
                     <div style={s('display:flex;align-items:center;gap:16px;flex-shrink:0')}>
+                        {cart.count > 0 && (
+                            <a href="/checkout" aria-label={`Panier (${cart.count})`} style={s('position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);text-decoration:none')}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M6 6h15l-1.5 9h-12z" /><path d="M6 6L5 3H2" /><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /></svg>
+                                <span style={s('position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--ac);color:#fff;font-family:var(--mf);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center')}>{cart.count}</span>
+                            </a>
+                        )}
                         {authed ? (
                             <a href="/profil" className="dp-btn-primary" style={s('padding:10px 20px;font-size:14px;text-decoration:none')}>Mon espace</a>
                         ) : (
@@ -468,7 +482,21 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                         </li>
                                     ))}
                                 </ul>
-                                <a href={p.key === 'e' ? '#contact' : appHref} className={p.highlight ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('margin-top:24px;justify-content:center;width:100%;padding:12px;text-decoration:none')}>{p.cta}</a>
+                                {(() => {
+                                    const cls = p.highlight ? 'dp-btn-primary' : 'dp-btn-secondary'
+                                    const st = s('margin-top:24px;justify-content:center;width:100%;padding:12px;text-decoration:none')
+                                    // Subscriptions → checkout with the plan; Agence → contact.
+                                    // One-off (Dossier 69 / Pack 179) → add to cart; Découverte → free sign-up.
+                                    if (pricing === 'abo') {
+                                        const to = p.key === 's' ? '/checkout?plan=studio' : p.key === 'c' ? '/checkout?plan=cabinet' : '#contact'
+                                        return <a href={to} className={cls} style={st}>{p.cta}</a>
+                                    }
+                                    if (p.key === 'o' || p.key === 'p') {
+                                        const sku: SkuId = p.key === 'o' ? 'dossier' : 'pack'
+                                        return <button onClick={() => buySku(sku)} className={cls} style={st}>{p.cta}</button>
+                                    }
+                                    return <a href={appHref} className={cls} style={st}>{p.cta}</a>
+                                })()}
                             </div>
                         ))}
                     </div>

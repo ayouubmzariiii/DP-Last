@@ -27,9 +27,48 @@ export const users = pgTable('users', {
     // Réinitialisation de mot de passe : hash SHA-256 du token envoyé par email + expiration.
     resetTokenHash: text('reset_token_hash'),
     resetTokenExpires: timestamp('reset_token_expires', { withTimezone: true }),
+    // Non-expiring dossier credits bought à l'usage (one-off / packs). Subscription
+    // quota is tracked separately on `subscriptions`; credits are the top-up balance.
+    credits: integer('credits').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// One active subscription per user. `quota` is dossiers/period (0 = illimité, Agence);
+// `used` resets when the period rolls over (handled lazily in the billing service).
+export const subscriptions = pgTable('subscriptions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+    plan: text('plan').notNull(),                                   // 'studio' | 'cabinet' | 'agence'
+    status: text('status').notNull().default('active'),             // 'active' | 'canceled'
+    quota: integer('quota').notNull().default(0),                   // 0 = illimité
+    used: integer('used').notNull().default(0),
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull().defaultNow(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+    provider: text('provider').notNull().default('mock'),
+    providerRef: text('provider_ref'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Payment / order history (mock for now). One row per confirmed checkout line.
+export const payments = pgTable('payments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),                                   // 'subscription' | 'oneoff'
+    sku: text('sku').notNull(),                                     // plan id or SKU id
+    label: text('label').notNull(),
+    amountCents: integer('amount_cents').notNull().default(0),
+    currency: text('currency').notNull().default('eur'),
+    creditsGranted: integer('credits_granted').notNull().default(0),
+    status: text('status').notNull().default('paid'),
+    provider: text('provider').notNull().default('mock'),
+    providerRef: text('provider_ref'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+    userIdx: index('payments_user_id_idx').on(t.userId),
+}))
 
 export const dossiers = pgTable('dossiers', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -54,6 +93,10 @@ export const dossiers = pgTable('dossiers', {
     affichageAt: timestamp('affichage_at', { withTimezone: true }),
     // Archivage doux (le dossier reste consultable/restaurable, masqué de la liste par défaut).
     archivedAt: timestamp('archived_at', { withTimezone: true }),
+    // Facturation : date de la première génération du dossier définitif. Sert de garde-fou
+    // d'idempotence pour ne décompter qu'UNE fois le quota/crédit, même si l'utilisateur
+    // re-télécharge le dossier. Null = jamais généré / jamais décompté.
+    billedAt: timestamp('billed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
@@ -64,3 +107,5 @@ export const dossiers = pgTable('dossiers', {
 export type UserRow = typeof users.$inferSelect
 export type DossierRow = typeof dossiers.$inferSelect
 export type NewDossierRow = typeof dossiers.$inferInsert
+export type SubscriptionRow = typeof subscriptions.$inferSelect
+export type PaymentRow = typeof payments.$inferSelect
