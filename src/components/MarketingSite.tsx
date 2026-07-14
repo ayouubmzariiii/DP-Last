@@ -170,7 +170,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <a data-nav href="#faq" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>FAQ</a>
                         <a data-nav href="#contact" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Contact</a>
                     </nav>
-                    <div style={s('display:flex;align-items:center;gap:16px;flex-shrink:0')}>
+                    <div data-headcta style={s('display:flex;align-items:center;gap:16px;flex-shrink:0;margin-left:auto')}>
                         {authed ? (
                             <a href="/profil" className="dp-btn-primary" style={s('padding:10px 20px;font-size:14px;text-decoration:none')}>Mon espace</a>
                         ) : (
