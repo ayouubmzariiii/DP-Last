@@ -21,6 +21,7 @@
 
 import { DPFormData } from './models'
 import { getTravauxDef } from './travauxRegistry'
+import { buildDetailChecks } from './pluEvaluate'
 
 export type Severity = 'fatal' | 'forbidden' | 'warn'
 export type StepId = 1 | 2 | 3 | 4 | 7
@@ -202,70 +203,22 @@ export interface PieceStatus {
 // ── PLU aspect (material / teinte) conflict detection ────────────────────────
 export interface AspectConflict { chosen: string; rule: string }
 
-const normAspect = (s: string): string =>
-    (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
-
-// French labels the chosen enum value may appear as inside the règlement's forbidden list.
-const MATERIAL_ALIASES: Record<string, string[]> = {
-    pvc: ['pvc'],
-    aluminium: ['aluminium', 'alu'],
-    bois: ['bois'],
-    mixte: ['mixte', 'bois-aluminium'],
-    enduit: ['enduit'],
-    bardage_bois: ['bardage bois', 'bardage en bois', 'bois'],
-    bardage_metal: ['bardage metal', 'bardage metallique', 'metal', 'tole', 'acier', 'zinc'],
-    bardage_composite: ['bardage composite', 'composite', 'hpl', 'fibrociment'],
-}
-
-/** Return the forbidden-list entry a value matches, or null. Exact match for short tokens (≤3
- *  chars like "pvc"), substring match only for longer ones — avoids "or"/"gris" false positives. */
-function forbiddenHit(list: unknown, candidates: string[]): string | null {
-    if (!Array.isArray(list)) return null
-    const cand = candidates.map(normAspect).filter(Boolean)
-    for (const raw of list) {
-        const nf = normAspect(String(raw))
-        if (!nf) continue
-        for (const c of cand) {
-            if (c === nf) return String(raw)
-            if (c.length >= 4 && nf.length >= 4 && (c.includes(nf) || nf.includes(c))) return String(raw)
-        }
-    }
-    return null
-}
-
-/** Deterministically detect when the declared material/teinte is on the PLU's forbidden list.
- *  Returns the offending {chosen, rule} pair per axis (or null). Used both by the validator
- *  (step-4 warning → surfaces in the step-7 gate) and by the étape-4 comparison table. */
+/** Deterministically detect when a declared material/teinte matches a forbidden entry of the
+ *  règlement (or a heritage proscription). DELEGATES to the same engine as the étape-4 analysis
+ *  (buildDetailChecks), so the « INTERDIT » card, the step-7 generation gate and the analysis
+ *  verdict use one single detection and can never disagree. Covers ALL work types.
+ *  Only forbidden-list / heritage matches (check.rule set) block — whitelist misses stay
+ *  warnings/violations in the analysis itself. */
 export function pluAspectConflicts(data: DPFormData): { material: AspectConflict | null; color: AspectConflict | null } {
-    const facade = data.terrain?.plu?.extractedRules?.facade
+    const plu = data.terrain?.plu
     const tr = data.travaux
-    if (!facade || !tr?.type) return { material: null, color: null }
-
-    const chosenMat = tr.type === 'menuiseries' ? tr.menuiseries?.materiau
-        : tr.type === 'isolation' ? tr.isolation?.type_finition : ''
-    const chosenColor = tr.type === 'menuiseries' ? tr.menuiseries?.couleur
-        : tr.type === 'isolation' ? tr.isolation?.couleur : ''
-
-    let material: AspectConflict | null = null
-    if (chosenMat) {
-        // A joinery material must be checked against joinery rules only. Règlement "forbidden
-        // materials" lists mix wall-cladding items (e.g. "bardage PVC, bois composite, métallique")
-        // with joinery-relevant ones (PVC, aluminium…). For menuiseries, drop the cladding-specific
-        // ("bardage") entries so solid wood ("bois") isn't wrongly flagged by the "bois composite"
-        // substring while PVC / aluminium joinery are still caught.
-        const matList = tr.type === 'menuiseries' && Array.isArray(facade.forbidden_materials)
-            ? facade.forbidden_materials.filter((m: unknown) => !normAspect(String(m)).includes('bardage'))
-            : facade.forbidden_materials
-        const rule = forbiddenHit(matList, MATERIAL_ALIASES[chosenMat] || [chosenMat])
-        if (rule) material = { chosen: chosenMat, rule }
+    if (!plu?.extractedRules || !tr?.type) return { material: null, color: null }
+    const checks = buildDetailChecks(tr, plu.extractedRules, plu.overlays, plu.source === 'reglement')
+    const pick = (kind: 'material' | 'color'): AspectConflict | null => {
+        const hit = checks.find(c => c.kind === kind && c.verdict === 'violation' && c.rule)
+        return hit ? { chosen: hit.value, rule: hit.rule! } : null
     }
-    let color: AspectConflict | null = null
-    if (chosenColor) {
-        const tokens = [chosenColor, ...chosenColor.split(/[\s/]+/)].filter(w => w.length >= 4)
-        const rule = forbiddenHit(facade.forbidden_colors, tokens.length ? tokens : [chosenColor])
-        if (rule) color = { chosen: chosenColor, rule }
-    }
-    return { material, color }
+    return { material: pick('material'), color: pick('color') }
 }
 
 /** Compliant alternatives to propose when a material/teinte is forbidden — read from the SAME

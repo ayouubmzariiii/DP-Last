@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { isProtectedSector, pluAspectConflicts, pluAspectAlternatives } from '@/lib/validation'
 import { travauxAspect } from '@/lib/travauxRegistry'
+import { evaluateProject } from '@/lib/pluEvaluate'
 import { RalHint, RalInline } from '@/components/RalPicker'
 import { MaterialInline } from '@/components/MaterialIcon'
 
@@ -26,6 +27,19 @@ export default function Etape4() {
 
     const plu = terrain.plu
     const hasReport = !!plu?.analysisReport
+
+    // LIVE re-evaluation: verdict, violations and the field-by-field checklist are recomputed
+    // from the stored règlement rules + the CURRENT travaux on every render. Editing a détail
+    // (or applying the suggestion) can therefore never leave a stale « autorisé » verdict while
+    // another détail is still non-conforme — what the header says always matches every check.
+    // Only the AI counter-proposal is kept from the last server run (regenerated on re-analysis).
+    const liveEval = useMemo(() => {
+        const stored = plu?.evaluationResult
+        if (!plu?.extractedRules) return stored
+        const ev: any = evaluateProject(travaux, plu.extractedRules, plu.overlays, plu.source === 'reglement')
+        if (plu.verified === false && ev.violations.length === 0 && !/NON.?CONFORME/i.test(ev.status)) ev.status = 'CONFORMITÉ INCERTAINE'
+        return { ...(stored || {}), ...ev, proposal: stored?.proposal ?? null }
+    }, [travaux, plu])
 
     const runAnalysis = async (travauxArg: typeof travaux = travaux) => {
         if (!travauxArg.type) {
@@ -135,7 +149,7 @@ export default function Etape4() {
 
     // Returns a warm semantic tone ('error' | 'warn' | 'ok') consumed by the .dp-alert variants.
     const getVerdictDetails = (): { tone: 'error' | 'warn' | 'ok'; badge: string; sub: string; icon: string } => {
-        const result = plu?.evaluationResult
+        const result = liveEval
         if (!result) {
             // Fallback to old parsing logic if evaluationResult doesn't exist
             const txt = (parsed['STATUT DE CONFORMITÉ'] || '').toUpperCase()
@@ -178,14 +192,14 @@ export default function Etape4() {
 
     // A plain-language "are my works allowed here?" answer for the top card — clients who want the
     // technical breakdown open the "détails techniques" toggle underneath.
-    const evViolations: string[] = plu?.evaluationResult?.violations || []
-    const evWarnings: string[] = plu?.evaluationResult?.warnings || []
+    const evViolations: string[] = liveEval?.violations || []
+    const evWarnings: string[] = liveEval?.warnings || []
     const evProposal: any = plu?.evaluationResult?.proposal
     const reliable = !!plu && plu.source !== 'estimation' && plu.verified !== false && !plu.isRnu
     const plainAnswer: { head: string; sub: string } = (() => {
         if (evViolations.length > 0)
             return { head: 'En l’état, vos travaux ne sont pas conformes', sub: 'Le règlement d’urbanisme de votre zone s’oppose à certains de vos choix. Une solution pour rendre le projet conforme vous est proposée ci-dessous.' }
-        if (plu?.evaluationResult?.decision === 'PERMIS_CONSTRUIRE')
+        if (liveEval?.decision === 'PERMIS_CONSTRUIRE')
             return { head: 'Un permis de construire est nécessaire', sub: 'Votre projet dépasse le cadre d’une simple déclaration préalable.' }
         if (verdict.tone === 'warn')
             return { head: 'Vos travaux sont autorisés, sous conditions', sub: verdict.sub }
@@ -342,12 +356,12 @@ export default function Etape4() {
                         {/* ── CONFORMITÉ DÉTAIL PAR DÉTAIL — every characteristic of the works,
                             checked one by one against the règlement. Same rows the server used to
                             build the verdict, so this list and the verdict can never disagree. ── */}
-                        {Array.isArray(plu?.evaluationResult?.detailChecks) && plu.evaluationResult.detailChecks.length > 0 && (
+                        {Array.isArray(liveEval?.detailChecks) && liveEval.detailChecks.length > 0 && (
                             <div className="dp-card">
                                 <h3 className="dp-section-title flex items-center gap-2"><span>🔎</span> Conformité détail par détail</h3>
                                 <p className="text-xs t-ink2 mb-2">Chaque caractéristique de vos travaux, confrontée au règlement de la zone{reliable ? '' : ' (analyse estimative — à confirmer avec le règlement officiel)'}. Relancer l&apos;analyse re-vérifie <strong>tous</strong> les détails.</p>
                                 <div>
-                                    {plu.evaluationResult.detailChecks.map((c: any) => {
+                                    {liveEval.detailChecks.map((c: any) => {
                                         const chip = c.verdict === 'ok'
                                             ? { label: '✓ Conforme', cls: 'dp-chip is-ok', style: undefined as React.CSSProperties | undefined }
                                             : c.verdict === 'violation'

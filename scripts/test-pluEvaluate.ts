@@ -1,6 +1,7 @@
 // Unit tests for the deterministic PLU conformity engine.
 // Run: npx tsx scripts/test-pluEvaluate.ts   (exits non-zero on any failure)
 import { evaluateProject, buildDetailChecks, type DetailCheck } from '../src/lib/pluEvaluate'
+import { pluAspectConflicts } from '../src/lib/validation'
 
 let failures = 0
 function check(name: string, cond: boolean, detail?: unknown) {
@@ -133,6 +134,49 @@ section('Hors secteur protégé, sans règles : projet conforme')
     const r = evaluateProject({ type: 'menuiseries', menuiseries: { type: 'fenetre', materiau: 'pvc', couleur: 'Blanc (RAL 9016)' } }, RULES_EMPTY, NO_OVERLAYS)
     check('statut PROBABLEMENT CONFORME', r.status === 'PROBABLEMENT CONFORME', r)
     check('PVC autorisé hors SPR', row(r.detailChecks, 'materiau')?.verdict === 'ok')
+}
+
+section('Scénario rapporté : porte aluminium rose — les DEUX défauts flagués ensemble, verdict et carte INTERDIT d’accord')
+{
+    // Règlement as extracted by the AI: forbidden lists phrased as in real documents.
+    const rules = {
+        ...RULES_EMPTY,
+        facade: {
+            ...RULES_EMPTY.facade,
+            forbidden_materials: ['menuiseries aluminium', 'PVC'],
+            forbidden_colors: ['rose', 'couleurs vives'],
+            allowed_materials: ['bois'],
+        },
+    }
+    const before = { type: 'menuiseries', menuiseries: { type: 'porte', materiau: 'aluminium', couleur: 'Rose' } }
+    const r1 = evaluateProject(before, rules, NO_OVERLAYS, true)
+    check('matériau aluminium détecté via « menuiseries aluminium » (alias/substring)', row(r1.detailChecks, 'materiau')?.verdict === 'violation', row(r1.detailChecks, 'materiau'))
+    check('teinte rose détectée en même temps', row(r1.detailChecks, 'couleur')?.verdict === 'violation', row(r1.detailChecks, 'couleur'))
+    check('les deux catégories présentes → la proposition corrigera matériau ET couleur', r1.categories.includes('facade_mat') && r1.categories.includes('color'), r1.categories)
+
+    // The user applies the "bois" suggestion but keeps the pink: the verdict MUST stay non conforme.
+    const after = { type: 'menuiseries', menuiseries: { type: 'porte', materiau: 'bois', couleur: 'Rose' } }
+    const r2 = evaluateProject(after, rules, NO_OVERLAYS, true)
+    check('après correction du matériau seul → toujours NON CONFORME (le rose reste interdit)', r2.status === 'NON CONFORME', r2.violations)
+    check('matériau bois conforme', row(r2.detailChecks, 'materiau')?.verdict === 'ok')
+
+    // The « INTERDIT » card / generation gate (pluAspectConflicts) delegates to the SAME engine.
+    const data: any = { travaux: after, terrain: { plu: { extractedRules: rules, overlays: NO_OVERLAYS, source: 'reglement' } } }
+    const conflicts = pluAspectConflicts(data)
+    check('carte INTERDIT : teinte rose signalée', conflicts.color?.chosen === 'Rose' && !!conflicts.color?.rule, conflicts)
+    check('carte INTERDIT : matériau bois non signalé', conflicts.material === null, conflicts.material)
+    const dataBefore: any = { travaux: before, terrain: { plu: { extractedRules: rules, overlays: NO_OVERLAYS, source: 'reglement' } } }
+    const conflictsBefore = pluAspectConflicts(dataBefore)
+    check('carte INTERDIT (avant correction) : matériau ET teinte signalés', !!conflictsBefore.material && !!conflictsBefore.color, conflictsBefore)
+}
+
+section('Menuiserie bois : PAS flaguée par les règles de bardage (« bardage bois composite » proscrit)')
+{
+    const rules = { ...RULES_EMPTY, facade: { ...RULES_EMPTY.facade, forbidden_materials: ['bardage bois composite', 'bardage métallique'] } }
+    const r = evaluateProject({ type: 'menuiseries', menuiseries: { type: 'fenetre', materiau: 'bois' } }, rules, NO_OVERLAYS, true)
+    check('bois massif ok malgré « bardage bois composite » proscrit', row(r.detailChecks, 'materiau')?.verdict === 'ok', row(r.detailChecks, 'materiau'))
+    const iso = evaluateProject({ type: 'isolation', isolation: { type_finition: 'bardage_metal' } }, rules, NO_OVERLAYS, true)
+    check('bardage métal (ITE) bien flagué via son alias', row(iso.detailChecks, 'type_finition')?.verdict === 'violation', row(iso.detailChecks, 'type_finition'))
 }
 
 console.log(failures === 0 ? '\nAll PLU engine tests passed.' : `\n${failures} test(s) FAILED.`)

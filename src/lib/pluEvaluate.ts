@@ -26,6 +26,45 @@ export interface DetailCheck {
     note: string                                  // short per-row explanation
     message?: string                              // full sentence for the violations/warnings lists
     category?: string                             // violation category → drives the editable proposal
+    // The règlement entry (or heritage proscription) the value matched when the verdict is a
+    // forbidden-match violation — consumed by pluAspectConflicts so the « INTERDIT » card and the
+    // generation gate use the EXACT same detection as this engine (they can never disagree).
+    rule?: string
+}
+
+// Enum form values → the vocabulary a règlement actually uses for them.
+const MATERIAL_ALIASES: Record<string, string[]> = {
+    pvc: ['pvc'],
+    aluminium: ['aluminium', 'alu'],
+    bois: ['bois'],
+    mixte: ['mixte', 'bois-aluminium'],
+    enduit: ['enduit'],
+    bardage_bois: ['bardage bois', 'bardage en bois', 'bois'],
+    bardage_metal: ['bardage metal', 'bardage metallique', 'metal', 'tole', 'acier', 'zinc'],
+    bardage_composite: ['bardage composite', 'composite', 'hpl', 'fibrociment'],
+}
+
+// Return the list entry a value (or one of its aliases/tokens) matches, or null. Exact match for
+// short tokens (≤3 chars like "pvc"), mutual substring only for longer ones — avoids "or"/"gris"
+// false positives while catching "aluminium" inside "menuiseries aluminium".
+function listHit(list: unknown, candidates: string[]): string | null {
+    if (!Array.isArray(list)) return null
+    const cand = candidates.map(norm).filter(Boolean)
+    for (const raw of list) {
+        const nf = norm(String(raw))
+        if (!nf) continue
+        for (const c of cand) {
+            if (c === nf) return String(raw)
+            if (c.length >= 4 && nf.length >= 4 && (c.includes(nf) || nf.includes(c))) return String(raw)
+        }
+    }
+    return null
+}
+
+// Candidates for matching: the raw value, its aliases, and its ≥4-char words.
+function matchCandidates(raw: string, aliases?: string[]): string[] {
+    const tokens = raw.split(/[\s/,()]+/).filter(w => w.length >= 4)
+    return [raw, ...(aliases || []), ...tokens]
 }
 
 // Heritage (SPR / abords MH) proscriptions — reliable regardless of the règlement PDF.
@@ -38,7 +77,10 @@ type CheckCtx = { rules: any; heritage: boolean; strict: boolean }
 
 // A material-ish field vs the règlement lists + heritage proscriptions.
 // bucket picks which rules section applies; fence falls back to facade rules.
-function checkMaterial(key: string, label: string, raw: string, ctx: CheckCtx, bucket: 'facade' | 'roof' | 'fence', category: string, required: boolean): DetailCheck {
+// opts.aliases: règlement vocabulary for enum values; opts.joinery: drop the
+// cladding-specific ("bardage …") entries so solid-wood joinery isn't wrongly
+// flagged by e.g. "bardage bois composite" while PVC/alu joinery is still caught.
+function checkMaterial(key: string, label: string, raw: string, ctx: CheckCtx, bucket: 'facade' | 'roof' | 'fence', category: string, required: boolean, opts?: { aliases?: string[]; joinery?: boolean }): DetailCheck {
     const base: Omit<DetailCheck, 'verdict' | 'note'> = { key, label, value: (raw || '').trim(), kind: 'material', category }
     const v = norm(raw)
     if (!v) return { ...base, verdict: required ? 'missing' : 'na', note: required ? 'Non renseigné — complétez ce champ à l’étape Travaux.' : 'Non renseigné.' }
@@ -46,20 +88,23 @@ function checkMaterial(key: string, label: string, raw: string, ctx: CheckCtx, b
     // Fences: the clôture article's own lists apply, but a matériau the règlement forbids on
     // façades stays forbidden on the clôture too (the fence section may simply not repeat it).
     // The allowed-list is NOT inherited — a façade "enduit only" rule must not flag a grillage.
-    const forbidden = bucket === 'fence'
-        ? Array.from(new Set([...normList(R?.forbidden_materials), ...normList(ctx.rules?.facade?.forbidden_materials)]))
-        : normList(R?.forbidden_materials)
+    let forbiddenList: unknown[] = bucket === 'fence'
+        ? [...(Array.isArray(R?.forbidden_materials) ? R.forbidden_materials : []), ...(Array.isArray(ctx.rules?.facade?.forbidden_materials) ? ctx.rules.facade.forbidden_materials : [])]
+        : (Array.isArray(R?.forbidden_materials) ? R.forbidden_materials : [])
+    if (opts?.joinery) forbiddenList = forbiddenList.filter(m => !norm(String(m)).includes('bardage'))
     const allowedRaw: string[] = Array.isArray(R?.allowed_materials) ? R.allowed_materials : []
-    const allowed = normList(allowedRaw)
+    const cand = matchCandidates((raw || '').trim(), opts?.aliases)
     const heritageList = bucket === 'roof' ? HERITAGE_ROOF : HERITAGE_MAT
-    if (ctx.heritage && heritageList.some(x => v.includes(x))) {
-        return { ...base, verdict: 'violation', note: 'Proscrit en secteur protégé : l’ABF impose des matériaux traditionnels.', message: `${label} « ${raw} » proscrit en secteur protégé (SPR / PSMV / abords de Monument Historique) : l'ABF impose des matériaux traditionnels (bois, pierre, enduit à la chaux). Refus très probable en l'état.` }
+    const heritageHit = ctx.heritage ? (heritageList.find(x => v.includes(x)) || listHit(heritageList, cand) || null) : null
+    if (heritageHit) {
+        return { ...base, verdict: 'violation', rule: String(heritageHit), note: 'Proscrit en secteur protégé : l’ABF impose des matériaux traditionnels.', message: `${label} « ${raw} » proscrit en secteur protégé (SPR / PSMV / abords de Monument Historique) : l'ABF impose des matériaux traditionnels (bois, pierre, enduit à la chaux). Refus très probable en l'état.` }
     }
-    if (forbidden.some(x => v.includes(x))) {
-        return { ...base, verdict: 'violation', note: 'Figure parmi les matériaux interdits par le règlement de la zone.', message: `${label} « ${raw} » interdit par le règlement de la zone.` }
+    const forbiddenHit = listHit(forbiddenList, cand)
+    if (forbiddenHit) {
+        return { ...base, verdict: 'violation', rule: forbiddenHit, note: `Figure parmi les matériaux interdits par le règlement de la zone (« ${forbiddenHit} »).`, message: `${label} « ${raw} » interdit par le règlement de la zone (matériaux proscrits : « ${forbiddenHit} »).` }
     }
-    if (allowed.length) {
-        if (allowed.some(x => v.includes(x) || x.includes(v))) return { ...base, verdict: 'ok', note: 'Dans la liste des matériaux autorisés par le règlement.' }
+    if (allowedRaw.length) {
+        if (listHit(allowedRaw, cand)) return { ...base, verdict: 'ok', note: 'Dans la liste des matériaux autorisés par le règlement.' }
         const list = allowedRaw.join(', ')
         return ctx.strict
             ? { ...base, verdict: 'violation', note: `Hors de la liste des matériaux autorisés par le règlement (${list}).`, message: `${label} « ${raw} » hors de la liste des matériaux autorisés par le règlement de la zone (${list}).` }
@@ -80,16 +125,17 @@ function checkColor(key: string, label: string, raw: string, ctx: CheckCtx, buck
         return Array.isArray(facR?.[field]) ? facR[field] : []
     }
     const forbiddenRaw = pick('forbidden_colors'), allowedRaw = pick('allowed_colors')
-    const forbidden = normList(forbiddenRaw), allowed = normList(allowedRaw)
+    const cand = matchCandidates((raw || '').trim())
     const isBright = v.includes('vif') || (BRIGHT_COLORS.some(b => v.includes(b)) && !NEUTRAL_COLORS.some(n => v.includes(n)))
     if (ctx.heritage && isBright) {
-        return { ...base, verdict: 'violation', note: 'Teinte vive, proscrite en secteur protégé : palette sobre locale exigée (ABF).', message: `Teinte « ${raw} » proscrite en secteur protégé : seules les teintes sobres de la palette locale, validées par l'ABF, sont admises.` }
+        return { ...base, verdict: 'violation', rule: 'teintes vives', note: 'Teinte vive, proscrite en secteur protégé : palette sobre locale exigée (ABF).', message: `Teinte « ${raw} » proscrite en secteur protégé : seules les teintes sobres de la palette locale, validées par l'ABF, sont admises.` }
     }
-    if (forbidden.some(x => v.includes(x))) {
-        return { ...base, verdict: 'violation', note: 'Figure parmi les teintes interdites par le règlement de la zone.', message: `Teinte « ${raw} » interdite par le règlement de la zone.` }
+    const forbiddenHit = listHit(forbiddenRaw, cand)
+    if (forbiddenHit) {
+        return { ...base, verdict: 'violation', rule: forbiddenHit, note: `Figure parmi les teintes interdites par le règlement de la zone (« ${forbiddenHit} »).`, message: `Teinte « ${raw} » interdite par le règlement de la zone (teintes proscrites : « ${forbiddenHit} »).` }
     }
-    if (allowed.length) {
-        if (allowed.some(x => v.includes(x) || x.includes(v))) return { ...base, verdict: 'ok', note: 'Dans la palette de teintes autorisée par le règlement.' }
+    if (allowedRaw.length) {
+        if (listHit(allowedRaw, cand)) return { ...base, verdict: 'ok', note: 'Dans la palette de teintes autorisée par le règlement.' }
         const list = allowedRaw.join(', ')
         return ctx.strict
             ? { ...base, verdict: 'violation', note: `Hors de la palette autorisée par le règlement (${list}).`, message: `Teinte « ${raw} » hors de la palette de teintes autorisée par le règlement de la zone (${list}).` }
@@ -117,7 +163,7 @@ export function buildDetailChecks(travaux: any, rules: any, overlays: any, stric
             m.type
                 ? { key: 'type', label: 'Type de menuiserie', value: m.type, kind: 'text', verdict: 'ok', note: 'Aucune restriction de type détectée dans le règlement.' }
                 : { key: 'type', label: 'Type de menuiserie', value: '', kind: 'text', verdict: 'missing', note: 'Non renseigné — complétez ce champ à l’étape Travaux.' },
-            checkMaterial('materiau', 'Matériau', m.materiau, ctx, 'facade', 'facade_mat', true),
+            checkMaterial('materiau', 'Matériau', m.materiau, ctx, 'facade', 'facade_mat', true, { aliases: MATERIAL_ALIASES[norm(m.materiau)] || [], joinery: true }),
             checkColor('couleur', 'Couleur', `${m.couleur || ''}${m.couleur_ral ? ` (${m.couleur_ral})` : ''}`.trim(), ctx, 'facade', false),
             naCheck('nombre', 'Nombre d’éléments', m.nombre),
             naCheck('dimensions', 'Dimensions', m.largeur && m.hauteur ? `${m.largeur} × ${m.hauteur} cm` : ''),
@@ -126,7 +172,7 @@ export function buildDetailChecks(travaux: any, rules: any, overlays: any, stric
     } else if (t === 'isolation' && travaux.isolation) {
         const iso = travaux.isolation
         out.push(
-            checkMaterial('type_finition', 'Type de finition', (iso.type_finition || '').replace(/_/g, ' '), ctx, 'facade', 'facade_mat', true),
+            checkMaterial('type_finition', 'Type de finition', (iso.type_finition || '').replace(/_/g, ' '), ctx, 'facade', 'facade_mat', true, { aliases: MATERIAL_ALIASES[norm(iso.type_finition)] || [] }),
             checkColor('couleur', 'Couleur de finition', iso.couleur, ctx, 'facade', false),
             naCheck('materiau_isolant', 'Matériau isolant', iso.materiau_isolant, 'Non visible une fois posé : sans incidence sur l’aspect extérieur.'),
         )
