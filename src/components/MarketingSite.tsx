@@ -144,16 +144,27 @@ const ELIG_MAP: Record<string, { label: string; emoji: string; img: string; verd
 }
 const ELIG_KEYS = ['menuiseries', 'ite', 'solaire', 'cloture', 'abri', 'piscine', 'ravalement', 'veranda']
 
-interface Plan { key: string; name: string; price: string; unit: string; per: string; tag: string; highlight: boolean; kind: 'primary' | 'secondary'; cta: string; desc: string; features: string[] }
+// ── ROI « Conçu pour les architectes » ──────────────────────────────────────
+// Baseline observed in agencies: a DP produced by hand takes ≈ 2 h of drawing
+// and layout and costs up to 100 € (internal time or outsourcing). With DP
+// Travaux the same dossier takes ≈ 10 min, at ≈ 5 € on the Cabinet plan (199 € / 40).
+const ROI = { manualMin: 120, manualEur: 100, toolMin: 10, toolEur: 5 }
+const frNum = (n: number) => Math.round(n).toLocaleString('fr-FR')
+
+interface Plan { key: string; name: string; price: string; unit: string; per: string; tag: string; highlight: boolean; kind: 'primary' | 'secondary'; cta: string; desc: string; features: string[]; contact?: boolean }
+// Individual, pay-per-dossier offers. Priced against the alternative: up to
+// 100 € and 2 h when a pro does it by hand — 49 € for ≈ 10 min stays a bargain.
 const PLANS_USAGE: Plan[] = [
     { key: 'd', name: 'Découverte', price: '0', unit: '€', per: 'pour toujours', tag: '', highlight: false, kind: 'secondary', cta: 'Commencer', desc: 'Pour créer et vérifier votre dossier, sans payer.', features: ['Parcours guidé complet', 'Analyse PLU de votre parcelle', 'Aperçu du CERFA et des pièces', 'Mode test avec filigrane', 'Sauvegarde de vos projets'] },
-    { key: 'o', name: 'Dossier complet', price: '59', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer en mairie.', features: ['Tout de Découverte, plus :', 'CERFA 16702*03 pré-rempli', 'Pièces DP1 à DP8 assemblées', 'Vues « après » générées par IA', 'Notice descriptive rédigée', 'Export PDF & ZIP sans filigrane', '1 série de modifications incluse'] },
-    { key: 'p', name: 'Pack Rénovation', price: '149', unit: '€', per: '3 dossiers', tag: '', highlight: false, kind: 'secondary', cta: 'Choisir le pack', desc: 'Plusieurs chantiers ? Économisez.', features: ['Tout de Dossier complet', '3 dossiers, quand vous voulez', 'Modifications illimitées 6 mois', 'Assistance par email prioritaire'] },
+    { key: 'o', name: 'Dossier complet', price: '49', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer, en ≈ 10 minutes.', features: ['Tout de Découverte, plus :', 'CERFA 16702*03 pré-rempli', 'Pièces DP1 à DP8 assemblées', 'Vues « après » générées par IA', 'Notice descriptive rédigée', 'Export PDF & ZIP sans filigrane', '1 série de modifications incluse'] },
+    { key: 'p', name: 'Pack Rénovation', price: '119', unit: '€', per: '3 dossiers', tag: '', highlight: false, kind: 'secondary', cta: 'Choisir le pack', desc: 'Plusieurs chantiers ? 39,70 € le dossier.', features: ['Tout de Dossier complet', '3 dossiers, quand vous voulez', 'Modifications illimitées 6 mois', 'Assistance par email prioritaire'] },
 ]
+// Professional subscriptions — the main offer. Sized in dossiers per month so
+// the per-dossier price collapses with volume (7,90 € → ≈ 5 € → sur mesure).
 const PLANS_ABO: Plan[] = [
-    { key: 'd', name: 'Découverte', price: '0', unit: '€', per: 'pour toujours', tag: '', highlight: false, kind: 'secondary', cta: 'Commencer', desc: 'Pour essayer le service.', features: ['Parcours guidé complet', 'Analyse PLU de votre parcelle', 'Aperçu du CERFA et des pièces', 'Mode test avec filigrane'] },
-    { key: 'm', name: 'Pro Mensuel', price: '39', unit: '€', per: 'par mois', tag: 'Sans engagement', highlight: true, kind: 'primary', cta: 'Essayer 14 jours', desc: 'Pour artisans, architectes et agences.', features: ['Dossiers illimités', 'Multi-projets et multi-clients', 'Exports à votre marque', 'Modèles de notices réutilisables', 'Support prioritaire', 'Facturation mensuelle'] },
-    { key: 'a', name: 'Pro Annuel', price: '390', unit: '€', per: 'par an', tag: '2 mois offerts', highlight: false, kind: 'secondary', cta: 'Passer à l\'annuel', desc: 'Le tarif Pro le plus avantageux.', features: ['Tout de Pro Mensuel', '2 mois offerts', 'Accès anticipé aux nouveautés', 'Un interlocuteur dédié'] },
+    { key: 's', name: 'Studio', price: '79', unit: '€', per: 'par mois', tag: '', highlight: false, kind: 'secondary', cta: 'Essayer 14 jours', desc: 'Indépendants, artisans et petits cabinets.', features: ['10 dossiers par mois — 7,90 € l\'unité', 'Multi-projets et multi-clients', 'Exports à votre marque', 'Modèles de notices réutilisables', 'Modifications illimitées', 'Sans engagement, résiliable en un clic'] },
+    { key: 'c', name: 'Cabinet', price: '199', unit: '€', per: 'par mois', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Essayer 14 jours', desc: 'Cabinets d\'architecture et maîtres d\'œuvre.', features: ['Tout de Studio, plus :', '40 dossiers par mois — ≈ 5 € l\'unité', '5 utilisateurs inclus', 'Suivi par client et par chantier', 'Support prioritaire sous 4 h', 'Facturation annuelle : −15 %'] },
+    { key: 'e', name: 'Agence', price: 'Sur devis', unit: '', per: 'volume sur mesure', tag: '', highlight: false, kind: 'secondary', cta: 'Parler à l\'équipe', contact: true, desc: 'Groupes, réseaux et grands comptes.', features: ['Dossiers et utilisateurs illimités', 'Déploiement multi-agences', 'API et intégrations sur mesure', 'SSO et gestion des accès', 'Interlocuteur dédié et formation', 'Tarif dégressif au volume'] },
 ]
 
 const INCLUDED = ['Analyse PLU incluse', 'Projets sauvegardés', 'Support par email', 'Hébergé en France', 'Sans engagement']
@@ -165,8 +176,11 @@ const CMP_RAW: [string, string, string, string][] = [
     ['Export sans filigrane', 'n', 'y', 'y'],
     ['Pièces DP1 à DP8 assemblées', 'n', 'y', 'y'],
     ['Vues « après » par IA', 'n', 'y', 'y'],
+    ['Dossiers inclus', 'n', '1', '10 → illimités'],
     ['Modifications du dossier', 'n', '1 série', 'Illimitées'],
-    ['Multi-projets et marque perso.', 'n', 'n', 'y'],
+    ['Multi-clients et marque perso.', 'n', 'n', 'y'],
+    ['Utilisateurs', '1', '1', '1 → illimités'],
+    ['API, SSO, intégrations', 'n', 'n', 'Agence'],
     ['Support', 'Email', 'Email', 'Prioritaire'],
 ]
 
@@ -193,7 +207,8 @@ const FAQ_DATA: { title: string; items: FaqItem[] }[] = [
         { id: 'd1', q: 'Quand dois-je payer ?', a: 'La création, l\'analyse PLU et l\'aperçu sont gratuits. Le paiement n\'intervient qu\'au moment de générer le dossier définitif, sans filigrane.' },
         { id: 'd2', q: 'Puis-je modifier mon dossier après génération ?', a: 'Oui. L\'offre Dossier complet inclut une série de modifications. Les offres Pro permettent des modifications illimitées.' },
         { id: 'd3', q: 'Le paiement est-il sécurisé ?', a: 'Oui, les paiements sont traités par un prestataire certifié. Nous ne stockons aucune donnée bancaire.' },
-        { id: 'd4', q: 'Suis-je engagé sur la durée ?', a: 'Aucun engagement pour le paiement à l\'usage. Les abonnements Pro sont résiliables à tout moment.' },
+        { id: 'd4', q: 'Suis-je engagé sur la durée ?', a: 'Aucun engagement pour le paiement à l\'usage. Les abonnements Studio et Cabinet sont résiliables à tout moment.' },
+        { id: 'd5', q: 'Comment sont facturés les abonnements professionnels ?', a: 'Chaque formule inclut un volume mensuel de dossiers : 10 avec Studio (79 €), 40 avec Cabinet (199 €, soit ≈ 5 € le dossier), sur mesure avec Agence. La facturation annuelle de Cabinet est remisée de 15 %.' },
     ] },
 ]
 const HOME_FAQ_IDS: Record<string, boolean> = { a1: true, a3: true, b1: true, c1: true, d1: true }
@@ -204,7 +219,9 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     // Authenticated visitors' CTAs lead to their space; guests' lead to registration.
     const appHref = authed ? '/profil' : '/register'
     const [page, setPage] = useState<Page>('home')
-    const [pricing, setPricing] = useState<'usage' | 'abo'>('usage')
+    // Pros (abonnements) are the primary offer; individuals switch to « à l'usage ».
+    const [pricing, setPricing] = useState<'usage' | 'abo'>('abo')
+    const [volume, setVolume] = useState(10)
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
     const [elig, setElig] = useState('menuiseries')
     const [address, setAddress] = useState<{ adresse: string; code_postal: string; commune: string; coords?: { lat: number; lon: number } } | null>(null)
@@ -222,6 +239,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
         setSent(false)
         setPage(p)
     }
+    const goPricing = (mode: 'usage' | 'abo') => { setPricing(mode); go('pricing') }
 
     // Hero handoff — the validated address must survive into the déclaration:
     //  • guest → stash it (sessionStorage) and go register; AuthForm creates the dossier after auth.
@@ -312,6 +330,11 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
 
     const ev = ELIG_MAP[elig] || ELIG_MAP.menuiseries
     const plans = pricing === 'usage' ? PLANS_USAGE : PLANS_ABO
+
+    // ROI calculator (home, « Conçu pour les architectes ») — driven by `volume`.
+    const savedHoursMonth = (volume * (ROI.manualMin - ROI.toolMin)) / 60
+    const savedEurMonth = volume * (ROI.manualEur - ROI.toolEur)
+    const savedDaysYear = (savedHoursMonth * 12) / 8
     const cmpCell = (v: string) => (v === 'y' ? { c: '✓', st: s('color:var(--acd);font-weight:700;font-size:16px') }
         : v === 'n' ? { c: '—', st: s('color:var(--faint);font-weight:400') }
         : { c: v, st: s('color:inherit;font-weight:600;font-size:13.5px') })
@@ -690,26 +713,90 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         </div>
                     </section>
 
+                    {/* MADE FOR ARCHITECTS — ROI */}
+                    <section data-reveal style={s('max-width:1120px;margin:0 auto;padding:78px 28px 20px')}>
+                        <div style={s('max-width:680px;margin:0 auto 46px;text-align:center')}>
+                            <span className="dp-eyebrow">Conçu pour les architectes</span>
+                            <h2 style={sectionHeadH2}>2 heures de production, <span style={italicAc}>ramenées à 10 minutes</span>.</h2>
+                            <p style={s('font-size:16.5px;line-height:1.6;color:var(--ink-2);margin:14px auto 0;max-width:58ch')}>Une déclaration préalable faite à la main, c&apos;est environ 2 heures de dessin et de mise en forme — et jusqu&apos;à 100&nbsp;€ de coût de production. DP Travaux livre le même dossier, conforme au PLU, en ≈&nbsp;10&nbsp;minutes.</p>
+                        </div>
+
+                        {/* Before / after cost cards */}
+                        <div data-col2 style={s('display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:22px')}>
+                            <div className="dp-card" style={s('padding:26px')}>
+                                <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:18px')}>Dossier fait à la main</div>
+                                <div style={s('display:flex;flex-direction:column;gap:14px')}>
+                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line-2);padding-bottom:13px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Temps de production</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--ink)')}>≈ 2 h</span></div>
+                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line-2);padding-bottom:13px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Coût par dossier</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--ink)')}>jusqu&apos;à 100 €</span></div>
+                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Reprises après refus</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:#B4442F')}>À votre charge</span></div>
+                                </div>
+                            </div>
+                            <div className="dp-card dp-spec" style={s('padding:26px;background:var(--act);border-color:var(--acb)')}>
+                                <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--acd);margin-bottom:18px')}>Avec DP Travaux</div>
+                                <div style={s('display:flex;flex-direction:column;gap:14px')}>
+                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--acb);padding-bottom:13px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Temps de production</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--acd)')}>≈ 10 min</span></div>
+                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--acb);padding-bottom:13px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Coût par dossier</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--acd)')}>dès 5 €</span></div>
+                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Conformité PLU</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--acd)')}>Vérifiée avant dépôt</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ROI calculator */}
+                        <div className="dp-card" style={s('padding:30px 28px')}>
+                            <div data-col2 style={s('display:grid;grid-template-columns:.9fr 1.1fr;gap:34px;align-items:center')}>
+                                <div>
+                                    <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:10px')}>Votre volume</div>
+                                    <div style={s('font-family:var(--hf);font-size:30px;font-weight:600;color:var(--ink);line-height:1.15')}>{volume} dossier{volume > 1 ? 's' : ''} <span style={s('font-size:18px;font-weight:500;color:var(--ink-2)')}>par mois</span></div>
+                                    <input type="range" min={1} max={60} step={1} value={volume} onChange={(e) => setVolume(Number(e.target.value))} aria-label="Nombre de dossiers par mois" style={s('width:100%;margin:18px 0 6px;cursor:pointer')} />
+                                    <div style={s('display:flex;justify-content:space-between;font-family:var(--mf);font-size:10px;letter-spacing:.05em;color:var(--faint)')}><span>1</span><span>60</span></div>
+                                </div>
+                                <div data-grid2 style={s('display:grid;grid-template-columns:repeat(3,1fr);gap:14px')}>
+                                    <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:13px;padding:18px 16px;text-align:center')}>
+                                        <div style={s('font-family:var(--hf);font-size:clamp(24px,2.6vw,30px);font-weight:600;color:var(--ink);line-height:1')}>≈ {frNum(savedHoursMonth)} h</div>
+                                        <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:8px')}>Gagnées par mois</div>
+                                    </div>
+                                    <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:13px;padding:18px 16px;text-align:center')}>
+                                        <div style={s('font-family:var(--hf);font-size:clamp(24px,2.6vw,30px);font-weight:600;color:var(--ink);line-height:1')}>{frNum(savedEurMonth)} €</div>
+                                        <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:8px')}>Économisés par mois</div>
+                                    </div>
+                                    <div style={s('background:var(--act);border:1px solid var(--acb);border-radius:13px;padding:18px 16px;text-align:center')}>
+                                        <div style={s('font-family:var(--hf);font-size:clamp(24px,2.6vw,30px);font-weight:600;color:var(--acd);line-height:1')}>{frNum(savedEurMonth * 12)} €</div>
+                                        <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--acd);margin-top:8px')}>Par an · ≈ {frNum(savedDaysYear)} jours ouvrés</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={s('display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line-2);margin-top:24px;padding-top:20px')}>
+                                <span style={s('font-family:var(--mf);font-size:10.5px;color:var(--faint);line-height:1.5;max-width:64ch')}>Base : 2 h et 100 € de coût de production par dossier fait à la main, contre ≈ 10 min et ≈ 5 € le dossier avec l&apos;offre Cabinet.</span>
+                                <button className="dp-btn-primary" onClick={() => goPricing('abo')} style={s('flex-shrink:0')}>Voir les offres pro →</button>
+                            </div>
+                        </div>
+                    </section>
+
                     {/* PRICING TEASER */}
                     <section data-reveal style={s('max-width:1120px;margin:0 auto;padding:78px 28px 20px')}>
                         <div style={s('max-width:660px;margin:0 auto 46px;text-align:center')}>
                             <span className="dp-eyebrow">Tarifs</span>
-                            <h2 style={sectionHeadH2}>Payez seulement <span style={italicAc}>quand c&apos;est prêt</span>.</h2>
-                            <p style={s('font-size:16.5px;line-height:1.6;color:var(--ink-2);margin:14px auto 0;max-width:54ch')}>Créez, testez et vérifiez gratuitement. Vous ne payez qu&apos;au moment de générer votre dossier définitif.</p>
+                            <h2 style={sectionHeadH2}>Dès 5 € le dossier, <span style={italicAc}>selon votre volume</span>.</h2>
+                            <p style={s('font-size:16.5px;line-height:1.6;color:var(--ink-2);margin:14px auto 0;max-width:54ch')}>Des abonnements pensés pour les cabinets qui déposent chaque semaine — et un tarif à l&apos;unité pour les particuliers.</p>
                         </div>
                         <div data-grid3 style={s('display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch')}>
-                            {PLANS_USAGE.map((p) => (
+                            {PLANS_ABO.map((p) => (
                                 <div key={p.key} style={planCardStyle(p.highlight)}>
                                     {p.highlight && <span style={planTagStyle}>{p.tag}</span>}
                                     <div style={s('font-family:var(--hf);font-size:19px;font-weight:600;color:var(--ink)')}>{p.name}</div>
-                                    <div style={s('display:flex;align-items:baseline;gap:4px;margin:12px 0 4px')}><span style={s('font-family:var(--hf);font-size:42px;font-weight:600;color:var(--ink);line-height:1')}>{p.price}</span><span style={s('font-size:20px;color:var(--ink)')}>{p.unit}</span><span style={s('font-size:13px;color:var(--muted);margin-left:2px')}>{p.per}</span></div>
+                                    <div style={s('display:flex;align-items:baseline;gap:4px;margin:12px 0 4px')}><span style={{ fontFamily: 'var(--hf)', fontSize: p.contact ? 30 : 42, fontWeight: 600, color: 'var(--ink)', lineHeight: 1 }}>{p.price}</span><span style={s('font-size:20px;color:var(--ink)')}>{p.unit}</span><span style={s('font-size:13px;color:var(--muted);margin-left:2px')}>{p.per}</span></div>
                                     <div style={s('font-size:14px;line-height:1.5;color:var(--ink-2);margin-bottom:20px;min-height:42px')}>{p.desc}</div>
-                                    <a href={appHref} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
+                                    {p.contact ? (
+                                        <button className="dp-btn-secondary" onClick={() => go('contact')} style={s('width:100%;justify-content:center')}>{p.cta}</button>
+                                    ) : (
+                                        <a href={appHref} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
+                                    )}
                                 </div>
                             ))}
                         </div>
-                        <div style={s('text-align:center;margin-top:30px')}>
-                            <button className="dp-btn-secondary" onClick={() => go('pricing')} style={s('padding:12px 22px')}>Comparer tous les tarifs →</button>
+                        <div style={s('display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:30px')}>
+                            <button className="dp-btn-secondary" onClick={() => goPricing('usage')} style={s('padding:12px 22px')}>Particulier ? Un dossier à l&apos;unité dès 49 € →</button>
+                            <button className="dp-btn-secondary" onClick={() => goPricing('abo')} style={s('padding:12px 22px')}>Comparer tous les tarifs →</button>
                         </div>
                     </section>
 
@@ -850,10 +937,10 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <div style={s('position:relative;max-width:760px;margin:0 auto;padding:70px 28px 30px;text-align:center')}>
                             <span className="dp-eyebrow">Tarifs</span>
                             <h1 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(36px,4.6vw,54px);line-height:1.04;letter-spacing:-.02em;margin:16px 0 0;color:var(--ink)')}>Un prix clair, <span style={italicAc}>sans surprise</span></h1>
-                            <p style={s('font-size:18px;line-height:1.6;color:var(--ink-2);margin:16px auto 26px;max-width:52ch')}>Gratuit pour créer et vérifier. Vous payez à la génération du dossier, ou vous vous abonnez si vous en déposez souvent.</p>
+                            <p style={s('font-size:18px;line-height:1.6;color:var(--ink-2);margin:16px auto 26px;max-width:54ch')}>Pensé pour les cabinets et agences qui déposent des dossiers chaque semaine — dès 5&nbsp;€ le dossier. Les particuliers paient à l&apos;unité, seulement à la génération.</p>
                             <div style={s('display:inline-flex;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px')}>
-                                <button onClick={() => setPricing('usage')} style={segStyle(pricing === 'usage')}>Paiement à l&apos;usage</button>
-                                <button onClick={() => setPricing('abo')} style={segStyle(pricing === 'abo')}>Abonnement Pro</button>
+                                <button onClick={() => setPricing('abo')} style={segStyle(pricing === 'abo')}>Professionnels</button>
+                                <button onClick={() => setPricing('usage')} style={segStyle(pricing === 'usage')}>Particuliers · à l&apos;unité</button>
                             </div>
                         </div>
                     </section>
@@ -865,13 +952,17 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     {p.tag && <span style={planTagStyle}>{p.tag}</span>}
                                     <div style={s('font-family:var(--hf);font-size:20px;font-weight:600;color:var(--ink)')}>{p.name}</div>
                                     <div style={s('font-size:14px;line-height:1.5;color:var(--ink-2);margin:6px 0 14px;min-height:40px')}>{p.desc}</div>
-                                    <div style={s('display:flex;align-items:baseline;gap:4px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--line-2)')}><span style={s('font-family:var(--hf);font-size:46px;font-weight:600;color:var(--ink);line-height:1')}>{p.price}</span><span style={s('font-size:22px;color:var(--ink)')}>{p.unit}</span><span style={s('font-size:13px;color:var(--muted);margin-left:3px')}>{p.per}</span></div>
+                                    <div style={s('display:flex;align-items:baseline;gap:4px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--line-2)')}><span style={{ fontFamily: 'var(--hf)', fontSize: p.contact ? 32 : 46, fontWeight: 600, color: 'var(--ink)', lineHeight: 1 }}>{p.price}</span><span style={s('font-size:22px;color:var(--ink)')}>{p.unit}</span><span style={s('font-size:13px;color:var(--muted);margin-left:3px')}>{p.per}</span></div>
                                     <ul style={s('margin:0 0 22px;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px;flex:1')}>
                                         {p.features.map((f) => (
                                             <li key={f} style={s('display:flex;gap:10px;font-size:14px;line-height:1.45;color:var(--ink-2)')}><span style={s('flex-shrink:0;margin-top:2px')}><Check size={16} sw={2.4} /></span>{f}</li>
                                         ))}
                                     </ul>
-                                    <a href={appHref} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
+                                    {p.contact ? (
+                                        <button className="dp-btn-secondary" onClick={() => go('contact')} style={s('width:100%;justify-content:center')}>{p.cta}</button>
+                                    ) : (
+                                        <a href={appHref} className={p.kind === 'primary' ? 'dp-btn-primary' : 'dp-btn-secondary'} style={s('text-decoration:none;width:100%;justify-content:center')}>{p.cta}</a>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -902,8 +993,8 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                         <tr style={s('background:var(--surface-2)')}>
                                             <th style={s('text-align:left;padding:16px 22px;font-family:var(--mf);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:500')}>Fonctionnalité</th>
                                             <th style={s('padding:16px 14px;font-family:var(--hf);font-size:15px;font-weight:600;color:var(--ink)')}>Découverte</th>
-                                            <th style={s('padding:16px 14px;font-family:var(--hf);font-size:15px;font-weight:600;color:var(--acd);background:var(--act)')}>Dossier complet</th>
-                                            <th style={s('padding:16px 14px;font-family:var(--hf);font-size:15px;font-weight:600;color:var(--ink)')}>Pro</th>
+                                            <th style={s('padding:16px 14px;font-family:var(--hf);font-size:15px;font-weight:600;color:var(--ink)')}>À l&apos;unité</th>
+                                            <th style={s('padding:16px 14px;font-family:var(--hf);font-size:15px;font-weight:600;color:var(--acd);background:var(--act)')}>Abonnements Pro</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -913,8 +1004,8 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                                 <tr key={r[0]} style={s('border-top:1px solid var(--line-2)')}>
                                                     <td style={s('padding:14px 22px;color:var(--ink);font-weight:500')}>{r[0]}</td>
                                                     <td style={s('padding:14px 14px;text-align:center;color:var(--ink-2)')}><span style={c0.st}>{c0.c}</span></td>
-                                                    <td style={s('padding:14px 14px;text-align:center;background:var(--act);color:var(--ink)')}><span style={c1.st}>{c1.c}</span></td>
-                                                    <td style={s('padding:14px 14px;text-align:center;color:var(--ink-2)')}><span style={c2.st}>{c2.c}</span></td>
+                                                    <td style={s('padding:14px 14px;text-align:center;color:var(--ink-2)')}><span style={c1.st}>{c1.c}</span></td>
+                                                    <td style={s('padding:14px 14px;text-align:center;background:var(--act);color:var(--ink)')}><span style={c2.st}>{c2.c}</span></td>
                                                 </tr>
                                             )
                                         })}
@@ -1020,7 +1111,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 </div>
                                 <div className="dp-card dp-spec" style={s('padding:24px;background:var(--act);border-color:var(--acb)')}>
                                     <div style={s('font-family:var(--hf);font-size:17px;font-weight:600;color:var(--ink);margin-bottom:6px')}>Vous êtes un professionnel ?</div>
-                                    <p style={s('font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0 0 14px')}>Artisans, architectes et agences : découvrez l&apos;offre Pro et ses dossiers illimités.</p>
+                                    <p style={s('font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0 0 14px')}>Architectes, maîtres d&apos;œuvre et artisans : des abonnements dès 79 €/mois, soit ≈ 5 € le dossier avec l&apos;offre Cabinet.</p>
                                     <button className="dp-btn-secondary" onClick={() => go('pricing')} style={s('width:100%;justify-content:center')}>Voir l&apos;offre Pro</button>
                                 </div>
                             </div>
@@ -1092,6 +1183,7 @@ const SITE_CSS = `
 #site.reveal-on [data-reveal]{transform:translateY(20px);transition:transform .7s cubic-bezier(.2,.7,.2,1)}
 #site.reveal-on [data-reveal].in{transform:none}
 #site button{-webkit-appearance:none;appearance:none;font-family:inherit}
+#site input[type=range]{accent-color:var(--ac)}
 #site .dp-btn-primary,#site .dp-btn-secondary{-webkit-appearance:none!important;appearance:none!important;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:12px 24px;border-radius:12px!important;font-family:inherit;font-weight:600;line-height:1.2;cursor:pointer;text-decoration:none;transition:background .2s ease,border-color .2s ease,transform .2s ease}
 #site .dp-btn-primary{background:var(--ac)!important;color:#fff!important;border:1px solid var(--ac)!important;box-shadow:0 12px 30px -14px rgba(45,90,76,.55)}
 #site .dp-btn-primary:hover{background:var(--acd)!important;border-color:var(--acd)!important;transform:translateY(-1px)}
