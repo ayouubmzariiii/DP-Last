@@ -224,10 +224,10 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     const [page, setPage] = useState<Page>('home')
     // Pros (abonnements) are the primary offer; individuals switch to « à l'usage ».
     const [pricing, setPricing] = useState<'usage' | 'abo'>('abo')
-    const [volume, setVolume] = useState(10)
-    // Interactive simulator inputs the visitor can tune (manual baseline).
-    const [manualMin, setManualMin] = useState(ROI.manualMin)   // minutes/dossier by hand
-    const [manualEur, setManualEur] = useState(ROI.manualEur)   // €/dossier by hand
+    // Interactive simulator inputs (free entry, no caps).
+    const [simPrice, setSimPrice] = useState(150)   // € facturés par dossier
+    const [simHours, setSimHours] = useState(2)     // heures par dossier aujourd'hui
+    const [simCount, setSimCount] = useState(10)    // dossiers par mois
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
     const [elig, setElig] = useState('menuiseries')
     const [address, setAddress] = useState<{ adresse: string; code_postal: string; commune: string; coords?: { lat: number; lon: number } } | null>(null)
@@ -337,21 +337,20 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     const ev = ELIG_MAP[elig] || ELIG_MAP.menuiseries
     const plans = pricing === 'usage' ? PLANS_USAGE : PLANS_ABO
 
-    // ROI calculator (home, « Conçu pour les architectes ») — driven by `volume`.
-    // Live simulator maths — driven by the three sliders (volume, manual time, manual cost).
-    // Tool side is fixed (≈ 10 min, ≈ 52 €/dossier on Cabinet). Savings floored at 0 so a
-    // deliberately low manual baseline never shows a negative "gain".
-    const manualHMonth = (volume * manualMin) / 60
-    const toolHMonth = (volume * ROI.toolMin) / 60
-    const manualEurMonth = volume * manualEur
-    const toolEurMonth = volume * ROI.toolEur
-    const savedHoursMonth = Math.max(0, manualHMonth - toolHMonth)
-    const savedEurMonth = Math.max(0, manualEurMonth - toolEurMonth)
-    const savedDaysYear = (savedHoursMonth * 12) / 8
-    // Bar widths (share of the larger of the two, in %).
-    const pct = (v: number, max: number) => max > 0 ? Math.max(4, Math.round((v / max) * 100)) : 0
-    const hMax = Math.max(manualHMonth, toolHMonth)
-    const eMax = Math.max(manualEurMonth, toolEurMonth)
+    // Simulator maths (home, « Conçu pour les architectes »). Three free-entry inputs:
+    // what you charge per dossier, how long one takes you today, how many you do a month.
+    // Tool side is fixed: ≈ 10 min per dossier. The headline gain is the time freed and the
+    // extra revenue you could bill by reinvesting it (capacity valued at your own rate).
+    const TOOL_H = ROI.toolMin / 60
+    const curHMonth = Math.max(0, simCount * simHours)             // heures/mois aujourd'hui
+    const toolHMonth = simCount * TOOL_H                            // heures/mois avec l'outil
+    const freedHMonth = Math.max(0, curHMonth - toolHMonth)        // heures/mois libérées
+    // Smallest subscription covering the monthly volume (Agence estimated at the 50 € floor).
+    const simPlan = simCount <= 5 ? { name: 'Studio', cost: 290 }
+        : simCount <= 12 ? { name: 'Cabinet', cost: 620 }
+        : { name: 'Agence', cost: simCount * 50 }
+    const extraDossiers = simHours > 0 ? freedHMonth / simHours : 0 // dossiers de plus, à effort égal
+    const extraRevenue = extraDossiers * simPrice                  // CA supplémentaire potentiel
     const cmpCell = (v: string) => (v === 'y' ? { c: '✓', st: s('color:var(--acd);font-weight:700;font-size:16px') }
         : v === 'n' ? { c: '—', st: s('color:var(--faint);font-weight:400') }
         : { c: v, st: s('color:inherit;font-weight:600;font-size:13.5px') })
@@ -516,6 +515,79 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 ))}
                             </div>
                             <div style={s('text-align:center;font-family:var(--mf);font-size:10px;color:var(--faint);margin-top:16px')}>Durées moyennes constatées, à titre indicatif · couverture France entière</div>
+                        </div>
+                    </section>
+
+                    {/* MADE FOR ARCHITECTS — SIMULATOR (clean, no bars) */}
+                    <section data-reveal style={s('max-width:1080px;margin:0 auto;padding:74px 28px 20px')}>
+                        <div style={s('max-width:660px;margin:0 auto 40px;text-align:center')}>
+                            <span className="dp-eyebrow">Conçu pour les architectes</span>
+                            <h2 style={sectionHeadH2}>Ce que DP Travaux <span style={italicAc}>vous fait gagner</span>.</h2>
+                            <p style={s('font-size:16.5px;line-height:1.6;color:var(--ink-2);margin:14px auto 0;max-width:56ch')}>Indiquez ce que vous facturez, le temps qu&apos;un dossier vous prend et combien vous en traitez par mois. Nous calculons le temps libéré et le chiffre d&apos;affaires que vous pourriez capter en plus.</p>
+                        </div>
+
+                        <div className="dp-card" style={s('padding:0;overflow:hidden')}>
+                            <div data-sim style={s('display:grid;grid-template-columns:.9fr 1.1fr')}>
+                                {/* ── Inputs (free entry) ── */}
+                                <div style={s('padding:30px 28px;background:var(--surface-2);border-right:1px solid var(--line-2)')}>
+                                    <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:20px')}>Votre activité aujourd&apos;hui</div>
+                                    {[
+                                        { label: 'Prix facturé par dossier', unit: '€', val: simPrice, set: (n: number) => setSimPrice(Math.max(0, Math.round(n))), step: '10', min: '0' },
+                                        { label: 'Temps passé sur un dossier', unit: 'h', val: simHours, set: (n: number) => setSimHours(Math.max(0, n)), step: '0.5', min: '0' },
+                                        { label: 'Dossiers traités par mois', unit: '', val: simCount, set: (n: number) => setSimCount(Math.max(0, Math.round(n))), step: '1', min: '0' },
+                                    ].map((f) => (
+                                        <div key={f.label} style={s('margin-bottom:18px')}>
+                                            <label className="dp-label" style={s('display:block;margin-bottom:7px')}>{f.label}</label>
+                                            <div style={s('position:relative')}>
+                                                <input type="number" inputMode="decimal" min={f.min} step={f.step} value={f.val}
+                                                    onChange={(e) => f.set(Number(e.target.value) || 0)}
+                                                    className="dp-input" style={{ width: '100%', paddingRight: f.unit ? 40 : undefined, fontFamily: 'var(--hf)', fontSize: 20, fontWeight: 600 }} />
+                                                {f.unit && <span style={s('position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none')}>{f.unit}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div style={s('margin-top:22px;padding-top:16px;border-top:1px solid var(--line-2);font-family:var(--mf);font-size:10.5px;line-height:1.6;color:var(--faint)')}>Avec DP&nbsp;Travaux, un dossier vous prend ≈&nbsp;10&nbsp;minutes, pour ≈&nbsp;52&nbsp;€ (offre Cabinet) — conformité PLU vérifiée avant dépôt.</div>
+                                </div>
+
+                                {/* ── Results (clean tiles) ── */}
+                                <div style={s('padding:28px 30px')}>
+                                    <div data-simgrid style={s('display:grid;grid-template-columns:1fr 1fr;gap:14px')}>
+                                        <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:18px')}>
+                                            <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px')}>Temps de production</div>
+                                            <div style={s('font-family:var(--hf);font-size:28px;font-weight:600;color:var(--ink);line-height:1')}>{frDec(toolHMonth)} h<span style={s('font-size:15px;color:var(--muted)')}> /mois</span></div>
+                                            <div style={s('font-size:12px;color:var(--ink-2);margin-top:6px')}>au lieu de <span style={s('font-weight:600')}>{frDec(curHMonth)} h</span> à la main</div>
+                                        </div>
+                                        <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:18px')}>
+                                            <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px')}>Coût avec DP Travaux</div>
+                                            <div style={s('font-family:var(--hf);font-size:28px;font-weight:600;color:var(--ink);line-height:1')}>{frNum(simPlan.cost)} €<span style={s('font-size:15px;color:var(--muted)')}> /mois</span></div>
+                                            <div style={s('font-size:12px;color:var(--ink-2);margin-top:6px')}>offre <span style={s('font-weight:600')}>{simPlan.name}</span>{simPlan.name === 'Agence' ? ' (estimation)' : ''}</div>
+                                        </div>
+                                        <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:18px')}>
+                                            <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px')}>Dossiers par mois</div>
+                                            <div style={s('font-family:var(--hf);font-size:28px;font-weight:600;color:var(--ink);line-height:1')}>{frNum(simCount)}</div>
+                                            <div style={s('font-size:12px;color:var(--ink-2);margin-top:6px')}>traités sans effort de mise en forme</div>
+                                        </div>
+                                        <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:18px')}>
+                                            <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px')}>Temps libéré</div>
+                                            <div style={s('font-family:var(--hf);font-size:28px;font-weight:600;color:var(--acd);line-height:1')}>{frDec(freedHMonth)} h<span style={s('font-size:15px;color:var(--muted)')}> /mois</span></div>
+                                            <div style={s('font-size:12px;color:var(--ink-2);margin-top:6px')}>≈ {frNum((freedHMonth * 12) / 8)} jours ouvrés par an</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Gain headline */}
+                                    <div style={s('margin-top:16px;background:linear-gradient(150deg,var(--ac),var(--acd));border-radius:14px;padding:20px 22px;color:#fff')}>
+                                        <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.75)')}>Chiffre d&apos;affaires possible en plus</div>
+                                        <div style={s('font-family:var(--hf);font-size:clamp(30px,4vw,40px);font-weight:600;line-height:1.05;margin-top:4px')}>≈ {frNum(extraRevenue)} € <span style={s('font-size:18px;font-weight:500;color:rgba(255,255,255,.8)')}>/ mois</span></div>
+                                        <div style={s('font-size:13px;line-height:1.5;color:rgba(255,255,255,.85);margin-top:8px;max-width:52ch')}>En réinvestissant les {frDec(freedHMonth)} h libérées, vous pourriez traiter <strong>≈ {frNum(extraDossiers)} dossiers de plus</strong> chaque mois — soit ≈ {frNum(extraRevenue * 12)} € par an au tarif que vous facturez.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer band */}
+                            <div style={s('display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line-2);background:var(--surface-2);padding:15px 28px')}>
+                                <span style={s('font-family:var(--mf);font-size:10.5px;color:var(--faint);line-height:1.5;max-width:58ch')}>Estimation indicative à partir de vos chiffres. Capacité supplémentaire calculée à votre rythme actuel.</span>
+                                <button className="dp-btn-primary" onClick={() => goPricing('abo')} style={s('flex-shrink:0')}>Voir les offres pro →</button>
+                            </div>
                         </div>
                     </section>
 
@@ -726,105 +798,6 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     <p style={s('font-size:14px;line-height:1.55;color:var(--ink-2);margin:0 0 18px')}>{ev.note}</p>
                                     <a href={appHref} className="dp-btn-primary" style={s('text-decoration:none;width:100%;justify-content:center')}>Déclarer ce projet</a>
                                 </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* MADE FOR ARCHITECTS — INTERACTIVE ROI SIMULATOR */}
-                    <section data-reveal style={s('max-width:1120px;margin:0 auto;padding:78px 28px 20px')}>
-                        <div style={s('max-width:680px;margin:0 auto 40px;text-align:center')}>
-                            <span className="dp-eyebrow">Conçu pour les architectes</span>
-                            <h2 style={sectionHeadH2}>Comparez votre méthode <span style={italicAc}>actuelle</span> à DP&nbsp;Travaux.</h2>
-                            <p style={s('font-size:16.5px;line-height:1.6;color:var(--ink-2);margin:14px auto 0;max-width:58ch')}>Réglez vos paramètres — volume, temps et coût d&apos;un dossier fait à la main — et voyez en direct ce que change le passage à DP&nbsp;Travaux (≈&nbsp;10&nbsp;min et ≈&nbsp;52&nbsp;€ le dossier).</p>
-                        </div>
-
-                        <div className="dp-card" style={s('padding:0;overflow:hidden')}>
-                            <div data-sim style={s('display:grid;grid-template-columns:.82fr 1.18fr')}>
-                                {/* ── Controls ── */}
-                                <div style={s('padding:30px 28px;background:var(--surface-2);border-right:1px solid var(--line-2)')}>
-                                    <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:22px')}>Votre situation actuelle</div>
-
-                                    <div style={s('margin-bottom:26px')}>
-                                        <div style={s('display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px')}><label className="dp-label" style={s('margin:0')}>Dossiers par mois</label><span style={s('font-family:var(--hf);font-size:22px;font-weight:600;color:var(--ink)')}>{volume}</span></div>
-                                        <input type="range" min={1} max={60} step={1} value={volume} onChange={(e) => setVolume(Number(e.target.value))} aria-label="Dossiers par mois" style={s('width:100%;cursor:pointer;margin:8px 0 4px')} />
-                                        <div style={s('display:flex;justify-content:space-between;font-family:var(--mf);font-size:10px;color:var(--faint)')}><span>1</span><span>60</span></div>
-                                    </div>
-
-                                    <div style={s('margin-bottom:26px')}>
-                                        <div style={s('display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px')}><label className="dp-label" style={s('margin:0')}>Temps par dossier, à la main</label><span style={s('font-family:var(--hf);font-size:22px;font-weight:600;color:var(--ink)')}>{frDec(manualMin / 60)} h</span></div>
-                                        <input type="range" min={30} max={240} step={15} value={manualMin} onChange={(e) => setManualMin(Number(e.target.value))} aria-label="Temps par dossier à la main" style={s('width:100%;cursor:pointer;margin:8px 0 4px')} />
-                                        <div style={s('display:flex;justify-content:space-between;font-family:var(--mf);font-size:10px;color:var(--faint)')}><span>30 min</span><span>4 h</span></div>
-                                    </div>
-
-                                    <div>
-                                        <div style={s('display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px')}><label className="dp-label" style={s('margin:0')}>Coût par dossier, à la main</label><span style={s('font-family:var(--hf);font-size:22px;font-weight:600;color:var(--ink)')}>{frNum(manualEur)} €</span></div>
-                                        <input type="range" min={40} max={200} step={5} value={manualEur} onChange={(e) => setManualEur(Number(e.target.value))} aria-label="Coût par dossier à la main" style={s('width:100%;cursor:pointer;margin:8px 0 4px')} />
-                                        <div style={s('display:flex;justify-content:space-between;font-family:var(--mf);font-size:10px;color:var(--faint)')}><span>40 €</span><span>200 €</span></div>
-                                    </div>
-
-                                    <div style={s('margin-top:24px;padding-top:18px;border-top:1px solid var(--line-2);font-family:var(--mf);font-size:10.5px;line-height:1.6;color:var(--faint)')}>Côté DP&nbsp;Travaux : ≈&nbsp;10&nbsp;min et ≈&nbsp;52&nbsp;€ le dossier (offre Cabinet), conformité PLU vérifiée avant dépôt.</div>
-                                </div>
-
-                                {/* ── Live comparison ── */}
-                                <div style={s('padding:30px 30px 26px')}>
-                                    {/* Temps / mois */}
-                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px')}>
-                                        <span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)')}>Temps de travail par mois</span>
-                                        <span style={s('font-size:12.5px;color:var(--acd);font-weight:600')}>− {frDec(savedHoursMonth)} h</span>
-                                    </div>
-                                    {[
-                                        { label: 'À la main', val: manualHMonth, w: pct(manualHMonth, hMax), ac: false },
-                                        { label: 'DP Travaux', val: toolHMonth, w: pct(toolHMonth, hMax), ac: true },
-                                    ].map((b) => (
-                                        <div key={b.label} style={s('display:flex;align-items:center;gap:12px;margin-bottom:10px')}>
-                                            <span style={s('flex:0 0 82px;font-size:12.5px;color:var(--ink-2)')}>{b.label}</span>
-                                            <div style={s('flex:1;height:26px;background:var(--field);border-radius:7px;overflow:hidden')}>
-                                                <div style={{ height: '100%', width: `${b.w}%`, borderRadius: 7, background: b.ac ? 'linear-gradient(90deg,var(--ac),var(--acd))' : 'var(--line-3)', transition: 'width .35s cubic-bezier(.2,.7,.2,1)' }} />
-                                            </div>
-                                            <span style={{ flex: '0 0 74px', textAlign: 'right', fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: b.ac ? 'var(--acd)' : 'var(--ink)' }}>{frDec(b.val)} h</span>
-                                        </div>
-                                    ))}
-
-                                    {/* Coût / mois */}
-                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 14px')}>
-                                        <span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)')}>Coût de production par mois</span>
-                                        <span style={s('font-size:12.5px;color:var(--acd);font-weight:600')}>− {frNum(savedEurMonth)} €</span>
-                                    </div>
-                                    {[
-                                        { label: 'À la main', val: manualEurMonth, w: pct(manualEurMonth, eMax), ac: false },
-                                        { label: 'DP Travaux', val: toolEurMonth, w: pct(toolEurMonth, eMax), ac: true },
-                                    ].map((b) => (
-                                        <div key={b.label} style={s('display:flex;align-items:center;gap:12px;margin-bottom:10px')}>
-                                            <span style={s('flex:0 0 82px;font-size:12.5px;color:var(--ink-2)')}>{b.label}</span>
-                                            <div style={s('flex:1;height:26px;background:var(--field);border-radius:7px;overflow:hidden')}>
-                                                <div style={{ height: '100%', width: `${b.w}%`, borderRadius: 7, background: b.ac ? 'linear-gradient(90deg,var(--ac),var(--acd))' : 'var(--line-3)', transition: 'width .35s cubic-bezier(.2,.7,.2,1)' }} />
-                                            </div>
-                                            <span style={{ flex: '0 0 74px', textAlign: 'right', fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: b.ac ? 'var(--acd)' : 'var(--ink)' }}>{frNum(b.val)} €</span>
-                                        </div>
-                                    ))}
-
-                                    {/* Savings headline */}
-                                    <div data-simstats style={s('display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:24px')}>
-                                        <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:15px 12px;text-align:center')}>
-                                            <div style={s('font-family:var(--hf);font-size:clamp(20px,2.3vw,26px);font-weight:600;color:var(--ink);line-height:1')}>{frDec(savedHoursMonth)} h</div>
-                                            <div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:7px')}>Gagnées / mois</div>
-                                        </div>
-                                        <div style={s('background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:15px 12px;text-align:center')}>
-                                            <div style={s('font-family:var(--hf);font-size:clamp(20px,2.3vw,26px);font-weight:600;color:var(--ink);line-height:1')}>{frNum(savedEurMonth)} €</div>
-                                            <div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:7px')}>Économisés / mois</div>
-                                        </div>
-                                        <div style={s('background:var(--act);border:1px solid var(--acb);border-radius:12px;padding:15px 12px;text-align:center')}>
-                                            <div style={s('font-family:var(--hf);font-size:clamp(20px,2.3vw,26px);font-weight:600;color:var(--acd);line-height:1')}>{frNum(savedEurMonth * 12)} €</div>
-                                            <div style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--acd);margin-top:7px')}>Par an · ≈ {frNum(savedDaysYear)} j ouvrés</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Footer band */}
-                            <div style={s('display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line-2);background:var(--surface-2);padding:16px 28px')}>
-                                <span style={s('font-family:var(--mf);font-size:10.5px;color:var(--faint);line-height:1.5;max-width:60ch')}>Estimation indicative à partir de vos paramètres · côté DP&nbsp;Travaux : ≈&nbsp;10&nbsp;min et ≈&nbsp;52&nbsp;€ le dossier (offre Cabinet).</span>
-                                <button className="dp-btn-primary" onClick={() => goPricing('abo')} style={s('flex-shrink:0')}>Voir les offres pro →</button>
                             </div>
                         </div>
                     </section>
@@ -1256,7 +1229,7 @@ const SITE_CSS = `
 #site [data-anim]{will-change:transform,opacity}
 @media (prefers-reduced-motion:reduce){#site [data-anim]{animation:none!important}#site.reveal-on [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
 @media (max-width:860px){#site [data-hero]{grid-template-columns:1fr!important}#site [data-hero-visual]{display:none!important}#site [data-col2]{grid-template-columns:1fr!important}#site [data-split]{grid-template-columns:1fr!important}#site [data-sim]{grid-template-columns:1fr!important}#site [data-sim] > div:first-child{border-right:none!important;border-bottom:1px solid var(--line-2)!important}}
-@media (max-width:480px){#site [data-simstats]{grid-template-columns:1fr!important}}
+@media (max-width:480px){#site [data-simgrid]{grid-template-columns:1fr!important}}
 @media (max-width:820px){#site [data-wrow]{grid-template-columns:1fr!important;gap:26px!important}#site [data-wrow] > *{grid-column:auto!important;grid-row:auto!important}}
 @media (max-width:760px){#site [data-navlinks]{display:none!important}#site [data-headcta]{margin-left:auto}#site [data-burger]{display:flex!important}#site [data-grid3]{grid-template-columns:1fr!important}#site [data-grid2]{grid-template-columns:repeat(2,1fr)!important}#site [data-elig]{grid-template-columns:1fr!important}#site [data-elig-grid]{grid-template-columns:repeat(2,1fr)!important}#site [data-foot]{grid-template-columns:1fr 1fr!important}}
 @media (max-width:520px){#site header > div{padding-left:16px!important;padding-right:16px!important;gap:12px!important}#site [data-logosub]{display:none!important}#site [data-signin]{display:none!important}#site [data-foot]{grid-template-columns:1fr!important}}
