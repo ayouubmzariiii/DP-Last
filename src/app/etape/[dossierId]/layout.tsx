@@ -44,9 +44,17 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
     }, [lockedMsg])
 
     // Hydrate the active dossier from the DB when the route's id changes (skip in test mode).
+    // While hydrating, the page content is replaced by a spinner (see <main> below) so the
+    // steps never flash empty-field warnings computed on the not-yet-loaded form data.
+    // `loadSettled` fails open: if the fetch errors out, we render the page anyway.
+    const [loadSettled, setLoadSettled] = useState(false)
     useEffect(() => {
-        if (dossierId && !isTestMode && currentDossierId !== dossierId) loadDossier(dossierId)
+        if (!dossierId || isTestMode) return
+        if (currentDossierId === dossierId) { setLoadSettled(true); return }
+        setLoadSettled(false)
+        loadDossier(dossierId).finally(() => setLoadSettled(true))
     }, [dossierId, isTestMode, currentDossierId, loadDossier])
+    const hydrating = !!dossierId && !isTestMode && currentDossierId !== dossierId && !loadSettled
 
     // Track the last step for autosave, so "Ouvrir" resumes where the user left off.
     useEffect(() => { setLastStep(currentStep) }, [currentStep, setLastStep])
@@ -149,7 +157,12 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
             )}
 
             <main style={{ maxWidth: 880, margin: '0 auto', padding: '44px 32px 80px' }}>
-                {children}
+                {hydrating ? (
+                    <div className="animate-fadeIn" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '110px 0' }}>
+                        <span className="dp-spinner dp-spinner-lg" aria-label="Chargement" />
+                        <span style={{ fontFamily: 'var(--mf)', fontSize: 11.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)' }}>Chargement du dossier…</span>
+                    </div>
+                ) : children}
             </main>
         </div>
     )

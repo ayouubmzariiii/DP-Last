@@ -585,20 +585,22 @@ export default function ProfilePage() {
                                 const chip = LIFECYCLE_CHIP[lc]
                                 const isPending = pendingId === d.id
                                 return (
-                                    <div key={d.id} className="dp-card" style={{ padding: '14px 16px', opacity: lc === 'archive' ? .85 : 1 }}>
-                                        {/* En-tête : vignette « avant » · titre + méta (pleine largeur) · actions compactes à droite */}
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                                            <button onClick={() => router.push(`/etape/${d.id}/${openStep(d)}`)} aria-label={`Ouvrir ${d.title}`}
-                                                style={{ width: 80, height: 80, flexShrink: 0, padding: 0, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--surface-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px -2px rgba(37,34,30,.12)' }}>
-                                                {d.summary?.photo ? (
-                                                    // eslint-disable-next-line @next/next/no-img-element
-                                                    <img src={d.summary.photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                                ) : (
-                                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                        <path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" />
-                                                    </svg>
-                                                )}
-                                            </button>
+                                    <div key={d.id} className="dp-card" style={{ padding: 0, display: 'flex', alignItems: 'stretch', opacity: lc === 'archive' ? .85 : 1 }}>
+                                        {/* Vignette « avant » — colonne image pleine hauteur à gauche, façon magazine */}
+                                        <button onClick={() => router.push(`/etape/${d.id}/${openStep(d)}`)} aria-label={`Ouvrir ${d.title}`}
+                                            style={{ width: 110, flexShrink: 0, padding: 0, border: 'none', borderRight: '1px solid var(--line)', borderRadius: '15px 0 0 15px', overflow: 'hidden', background: 'var(--surface-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {d.summary?.photo ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={d.summary.photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                            ) : (
+                                                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                                    <path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                        <div style={{ flex: 1, minWidth: 0, padding: '14px 16px' }}>
+                                        {/* En-tête : titre + méta (pleine largeur) · actions compactes à droite */}
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 {/* Title row — inline rename */}
                                                 {editingId === d.id ? (
@@ -728,6 +730,7 @@ export default function ProfilePage() {
                                                 <button onClick={() => setConfirmDeleteId(null)} className="dp-btn-secondary" style={miniBtn}>Annuler</button>
                                             </div>
                                         )}
+                                        </div>
                                     </div>
                                 )
                             })}
