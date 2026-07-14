@@ -9,8 +9,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useCart } from '@/lib/billing/cart'
 import { type SkuId } from '@/lib/billing/plans'
 
 type CSS = React.CSSProperties
@@ -102,12 +100,9 @@ const fr = (n: number) => Math.round(n).toLocaleString('fr-FR')
 
 export default function MarketingSite({ authed = false }: { authed?: boolean }) {
     const appHref = authed ? '/profil' : '/register'
-    const router = useRouter()
-    const cart = useCart()
-    // To buy you need an account first: authed users go straight to checkout; guests are
-    // sent to /register?next=<dest> (the cart survives the round-trip via localStorage).
+    // Buy directly — the button leads straight to checkout for that item. You need an
+    // account first, so guests are sent to /register?next=<checkout> (destination preserved).
     const buyHref = (dest: string) => authed ? dest : `/register?next=${encodeURIComponent(dest)}`
-    const buySku = (sku: SkuId) => { cart.add(sku); router.push(buyHref('/checkout')) }
     const [pricing, setPricing] = useState<'abo' | 'usage'>('abo')
     const [elig, setElig] = useState('menuiseries')
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
@@ -176,12 +171,6 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <a data-nav href="#contact" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Contact</a>
                     </nav>
                     <div style={s('display:flex;align-items:center;gap:16px;flex-shrink:0')}>
-                        {cart.count > 0 && (
-                            <a href="/checkout" aria-label={`Panier (${cart.count})`} style={s('position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);text-decoration:none')}>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M6 6h15l-1.5 9h-12z" /><path d="M6 6L5 3H2" /><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /></svg>
-                                <span style={s('position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--ac);color:#fff;font-family:var(--mf);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center')}>{cart.count}</span>
-                            </a>
-                        )}
                         {authed ? (
                             <a href="/profil" className="dp-btn-primary" style={s('padding:10px 20px;font-size:14px;text-decoration:none')}>Mon espace</a>
                         ) : (
@@ -495,7 +484,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     }
                                     if (p.key === 'o' || p.key === 'p') {
                                         const sku: SkuId = p.key === 'o' ? 'dossier' : 'pack'
-                                        return <button onClick={() => buySku(sku)} className={cls} style={st}>{p.cta}</button>
+                                        return <a href={buyHref(`/checkout?sku=${sku}`)} className={cls} style={st}>{p.cta}</a>
                                     }
                                     return <a href={appHref} className={cls} style={st}>{p.cta}</a>
                                 })()}
@@ -589,6 +578,7 @@ html{scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){#site [style*="dpFloat"]{animation:none!important}}
 @media (max-width:900px){
   #site [data-hero]{grid-template-columns:1fr!important;gap:40px!important}
+  #site [data-hero-visual]{display:none!important}
   #site [data-pricegrid]{grid-template-columns:1fr!important;max-width:420px;margin-left:auto;margin-right:auto}
 }
 @media (max-width:860px){
@@ -620,7 +610,7 @@ html{scroll-behavior:smooth}
 @media (max-width:400px){
   #site [data-logotext]{display:none!important}
 }
-@media (max-width:360px){
-  #site [data-hero] .dp-btn-primary,#site [data-hero] .dp-btn-secondary{flex:1 1 100%!important}
+@media (max-width:600px){
+  #site [data-hero] .dp-btn-primary,#site [data-hero] .dp-btn-secondary{flex:1 1 100%!important;justify-content:center}
 }
 `

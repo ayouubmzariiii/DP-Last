@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { DPProvider } from '@/lib/context'
-import { CartProvider } from '@/lib/billing/cart'
 
 export const metadata: Metadata = {
     title: 'DP Travaux – Demande Préalable de Travaux',
@@ -19,9 +18,7 @@ export default function RootLayout({
                 Body font-family is set there so the warm-paper theme applies globally. */}
             <body>
                 <DPProvider>
-                    <CartProvider>
-                        {children}
-                    </CartProvider>
+                    {children}
                 </DPProvider>
             </body>
         </html>
