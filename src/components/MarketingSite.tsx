@@ -126,7 +126,13 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     const num = (v: string) => { const n = parseFloat(v); return isNaN(n) || n < 0 ? 0 : n }
     const sp = num(simPrice), sh = num(simHours), sc = num(simCount)
     const freedH = Math.max(0, sc * sh - sc * (10 / 60))
-    const simPlan = sc <= 5 ? { name: 'Studio', cost: 290 } : sc <= 12 ? { name: 'Cabinet', cost: 620 } : { name: 'Agence', cost: sc * 50 }
+    // The plan recommended for this volume — adapts live to the "dossiers/mois" input.
+    // costLabel/per drive the recommendation banner; `plan` matches a pricing card key.
+    const simPlan = sc <= 5
+        ? { name: 'Studio', plan: 's', costLabel: '290 € / mois', per: '58 € le dossier' }
+        : sc <= 12
+            ? { name: 'Cabinet', plan: 'c', costLabel: '620 € / mois', per: '≈ 52 € le dossier' }
+            : { name: 'Agence', plan: 'e', costLabel: 'Sur devis', per: 'dès 50 € le dossier' }
     const extraRev = (sh > 0 ? freedH / sh : 0) * sp
 
     const ev = ELIG[elig] || ELIG.menuiseries
@@ -384,7 +390,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <h2 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-.01em;margin:12px 0 0;color:var(--ink)')}>Combien DP Travaux <span style={s('font-style:italic;color:var(--ac)')}>vous fait gagner</span>.</h2>
                         <p style={s('font-size:16px;line-height:1.6;color:var(--ink-2);margin:14px 0 0')}>Renseignez vos chiffres — chaque dossier passe de plusieurs heures à ≈ 10 minutes.</p>
                     </div>
-                    <div className="dp-card dp-spec" style={s('margin-top:40px;padding:clamp(28px,4vw,40px) clamp(24px,4vw,36px)')}>
+                    <div data-sim className="dp-card dp-spec" style={s('margin-top:40px;padding:clamp(28px,4vw,40px) clamp(24px,4vw,36px)')}>
                         <div data-simform style={s('display:grid;grid-template-columns:repeat(3,1fr);gap:22px')}>
                             <div>
                                 <label className="dp-label">Ce que vous facturez / dossier</label>
@@ -406,12 +412,25 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                             </div>
                         </div>
                         <div style={s('height:1px;background:var(--line-2);margin:28px 0')}></div>
-                        <div data-simmetrics style={s('display:grid;grid-template-columns:repeat(4,1fr);gap:16px')}>
+                        <div data-simmetrics style={s('display:grid;grid-template-columns:repeat(3,1fr);gap:16px')}>
                             <div className="dp-metric"><div className="val">{fr(sc)}</div><span className="key">Dossiers / mois</span></div>
-                            <div className="dp-metric"><div className="val">{simPlan.name}</div><span className="key">{fr(simPlan.cost)} € / mois</span></div>
                             <div className="dp-metric"><div className="val">{fr(freedH)} h</div><span className="key">Temps libéré / mois</span></div>
                             <div className="dp-metric is-accent"><div className="val">+ {fr(extraRev)} €</div><span className="key">CA possible en plus</span></div>
                         </div>
+
+                        {/* Adaptive recommendation — the plan follows the "dossiers / mois" input. */}
+                        <a href="#pricing" onClick={() => setPricing('abo')} data-simreco style={s('margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;background:linear-gradient(135deg,var(--ac),var(--acd));border-radius:14px;padding:18px 22px;text-decoration:none')}>
+                            <div style={s('display:flex;align-items:center;gap:16px;flex-wrap:wrap')}>
+                                <span style={s('display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:var(--mf);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border-radius:100px;white-space:nowrap')}>
+                                    <Check size={12} color="#fff" sw={3} /> Recommandé pour vous
+                                </span>
+                                <div>
+                                    <div style={s('font-family:var(--hf);font-size:21px;font-weight:600;color:#fff;line-height:1.1')}>Offre {simPlan.name}</div>
+                                    <div style={s('font-size:13.5px;color:rgba(255,255,255,.82);margin-top:2px')}>{simPlan.costLabel} · {simPlan.per} — pour {fr(sc)} dossier{sc > 1 ? 's' : ''}/mois</div>
+                                </div>
+                            </div>
+                            <span style={s('display:inline-flex;align-items:center;gap:7px;background:#fff;color:var(--acd);font-weight:600;font-size:14px;padding:11px 18px;border-radius:10px;white-space:nowrap')}>Voir l&apos;offre →</span>
+                        </a>
                     </div>
                     <p style={s('text-align:center;font-family:var(--mf);font-size:11px;color:var(--faint);margin:24px 0 0')}>Le temps libéré est valorisé à votre tarif horaire. Estimations à titre indicatif.</p>
                 </div>
@@ -531,6 +550,12 @@ const SITE_CSS = `
 html{scroll-behavior:smooth}
 @keyframes dpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 #site [data-nav]:hover{color:var(--ac)!important}
+/* Simulator: readable, characterful captions (Spectral italic) instead of tiny mono caps */
+#site [data-sim] .dp-label{font-family:var(--hf);font-style:italic;font-weight:500;font-size:14.5px;letter-spacing:0;text-transform:none;color:var(--ink-2)}
+#site [data-sim] .dp-metric .key{font-family:var(--hf);font-style:italic;font-weight:500;font-size:13.5px;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:6px}
+#site [data-sim] .dp-metric .val{font-size:24px}
+#site [data-simreco]{transition:transform .16s ease,box-shadow .16s ease}
+#site [data-simreco]:hover{transform:translateY(-2px);box-shadow:0 20px 40px -22px rgba(45,90,76,.7)}
 @media (prefers-reduced-motion:reduce){#site [style*="dpFloat"]{animation:none!important}}
 @media (max-width:900px){
   #site [data-hero]{grid-template-columns:1fr!important;gap:40px!important}
@@ -550,7 +575,8 @@ html{scroll-behavior:smooth}
   #site [data-statgrid]{grid-template-columns:repeat(2,1fr)!important;gap:20px 12px!important}
   #site [data-statgrid] > div{border-left:none!important}
   #site [data-simform]{grid-template-columns:1fr!important}
-  #site [data-simmetrics]{grid-template-columns:repeat(2,1fr)!important}
+  #site [data-simmetrics]{grid-template-columns:1fr!important}
+  #site [data-simreco]{flex-direction:column;align-items:flex-start!important}
   #site [data-howgrid]{grid-template-columns:1fr!important}
   #site [data-foot]{justify-content:flex-start!important}
 }
