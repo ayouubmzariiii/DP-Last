@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { acquirePluContent, targetZoneChapter } from '@/lib/pluExtractor'
 import { resolvePluDocUrl } from '@/lib/pluDoc'
 import { DPFormData } from '@/lib/models'
 import { getTravauxDef } from '@/lib/travauxRegistry'
+import { norm, evaluateProject } from '@/lib/pluEvaluate'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
@@ -74,53 +75,10 @@ const RNU_RULES = {
     zone_code: 'RNU',
     facade: { allowed: true, allowed_materials: ['bois', 'aluminium', 'pvc', 'pierre'], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], color_restrictions: 'Harmonie paysagère locale requise.', excerpts: ["Article R. 111-27 du Code de l'Urbanisme"] },
     extension: { max_area_m2: 20, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: ["Article L. 111-3 du Code de l'Urbanisme"] },
-    roof: { max_height_m: 9, allowed_materials: ['tuile', 'ardoise'], forbidden_materials: [], allowed_slopes: 'Respect des pentes locales', excerpts: ['Article R. 111-27'] },
+    roof: { max_height_m: 9, allowed_materials: ['tuile', 'ardoise'], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], allowed_slopes: 'Respect des pentes locales', excerpts: ['Article R. 111-27'] },
+    fence: { max_height_m: 2, allowed_materials: [], forbidden_materials: [], excerpts: ['Usage local constant (RNU)'] },
     window_openings: { allowed: true, conditions: "Respect de l'aspect général des baies existantes", excerpts: [] },
     heritage_override: { ABF_review: false, excerpts: [] },
-}
-
-// Accent- and case-insensitive normalisation for robust keyword matching.
-const norm = (s: any): string => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
-const normList = (arr: any): string[] => (Array.isArray(arr) ? arr : []).map(norm).filter(Boolean)
-
-// What the project actually proposes, per work type — so the rules apply to EVERY type, not just
-// menuiseries/isolation. Returns raw strings (for messages) + normalised strings (for matching).
-function proposedAspects(travaux: any) {
-    const t = travaux.type
-    let facadeRaw = '', colorRaw = '', roofRaw = ''
-    let isPV = false, pvVisible = false, fenceHeight = 0, openingVisible = false
-    if (t === 'menuiseries' && travaux.menuiseries) {
-        const m = travaux.menuiseries
-        facadeRaw = m.materiau || ''
-        colorRaw = `${m.couleur || ''}${m.couleur_ral ? ` (RAL ${m.couleur_ral})` : ''}`.trim()
-    } else if (t === 'isolation' && travaux.isolation) {
-        const iso = travaux.isolation
-        facadeRaw = `${(iso.type_finition || '').replace(/_/g, ' ')} ${iso.materiau_isolant || ''}`.trim()
-        colorRaw = iso.couleur || ''
-    } else if (t === 'photovoltaique' && travaux.photovoltaique) {
-        const pv = travaux.photovoltaique
-        isPV = true
-        pvVisible = norm(pv.integration) === 'surimposition' || /rue|visible|voie|public/.test(norm(pv.description))
-    } else if (t === 'cloture' && travaux.cloture) {
-        const c = travaux.cloture
-        facadeRaw = `${c.materiau || ''} ${(c.type_cloture || '').replace(/_/g, ' ')}`.trim()
-        colorRaw = c.couleur || ''
-        fenceHeight = parseFloat((c.hauteur || '0').toString().replace(',', '.')) || 0
-    } else if (t === 'ravalement' && travaux.ravalement) {
-        const r = travaux.ravalement
-        facadeRaw = `${r.finition || ''} ${r.materiau || ''}`.trim()
-        colorRaw = r.couleur || ''
-    } else if (t === 'toiture' && travaux.toiture) {
-        roofRaw = travaux.toiture.materiau_couverture || ''
-        colorRaw = travaux.toiture.couleur || ''
-    } else if (t === 'ouverture' && travaux.ouverture) {
-        openingVisible = /rue|voie|visible|facade|toit/.test(norm(travaux.ouverture.facade))
-    }
-    return {
-        facadeRaw, colorRaw, roofRaw,
-        facade: norm(facadeRaw), color: norm(colorRaw), roof: norm(roofRaw),
-        isPV, pvVisible, fenceHeight, openingVisible,
-    }
 }
 
 // Editable fields (and their allowed values) per work type. Given to the AI so its proposed patch
@@ -180,6 +138,7 @@ function fieldsForViolations(type: string, categories: string[]): string[] {
     if (has('roof')) keys.add('materiau_couverture')
     if (has('pv')) keys.add('integration')
     if (has('opening')) keys.add('facade')
+    if (has('fence_height')) keys.add('hauteur')
     return Array.from(keys).filter(k => FIELD_SPEC[type]?.fields[k])
 }
 
@@ -201,6 +160,10 @@ function defaultFieldValue(type: string, key: string, def: { enum?: string[] }, 
     if (key === 'materiau') return type === 'ravalement' ? 'Enduit à la chaux' : 'Bois'
     if (key === 'materiau_couverture') return 'Tuile (identique à l’existant)'
     if (key === 'facade') return 'Façade arrière (non visible depuis la rue)'
+    if (key === 'hauteur') {
+        const maxH = Number(rules?.fence?.max_height_m)
+        return maxH > 0 ? String(maxH) : '1.80'
+    }
     return ''
 }
 
@@ -229,90 +192,6 @@ function buildEditableProposal(type: string, categories: string[], aiPatch: any,
         why: Array.isArray(aiFields) ? aiFields.map((x) => String(x)).slice(0, 5) : [],
         description: (aiDescription || '').trim(),
     }
-}
-
-function evaluateProject(travaux: any, rules: any, overlays: any) {
-    // Dedupe violations by category so the règlement-based and heritage checks never double-count.
-    const V = new Map<string, string>()
-    const warnings: string[] = []
-    const violate = (cat: string, msg: string) => { if (!V.has(cat)) V.set(cat, msg) }
-    let decision = 'DECLARATION_PREALABLE_OK'
-
-    const heritage = !!(overlays?.hasSPR || (overlays?.monumentsWithin500m && overlays.monumentsWithin500m.length > 0))
-    const a = proposedAspects(travaux)
-
-    // ── 1. Surfaces (extension) ──────────────────────────────────────────────
-    const creeeSurface = parseFloat(travaux.surfaces?.creee || '0')
-    const maxArea = rules?.extension?.max_area_m2 || 20
-    if (creeeSurface > 0) {
-        if (creeeSurface > 150) {
-            decision = 'PERMIS_CONSTRUIRE'
-            violate('surface', `La surface de plancher créée porte le total au-delà de 150 m² : un Permis de Construire avec recours à un architecte est requis (au-delà de la Déclaration Préalable).`)
-        } else if (creeeSurface > maxArea) {
-            decision = 'PERMIS_CONSTRUIRE'
-            violate('surface', `La surface créée (${creeeSurface} m²) dépasse le seuil de la Déclaration Préalable pour cette zone (${maxArea} m²) : un Permis de Construire est requis.`)
-        }
-    }
-
-    // ── 2. Façade / menuiserie material — heritage proscriptions are RELIABLE (overlays), so they
-    //       yield HARD violations even when the règlement PDF couldn't be read. ──────────────────
-    const heritageProscribedMat = ['pvc', 'tole', 'bac acier', 'bardage metal', 'aluminium brut', 'fibrociment', 'beton brut', 'plastique']
-    if (a.facade) {
-        if (heritage && heritageProscribedMat.some(x => a.facade.includes(x))) {
-            violate('facade_mat', `Matériau « ${a.facadeRaw} » proscrit en secteur protégé (SPR / PSMV / abords de Monument Historique) : l'ABF impose des matériaux traditionnels (bois, pierre, enduit à la chaux). Refus très probable en l'état.`)
-        } else if (normList(rules?.facade?.forbidden_materials).some(x => a.facade.includes(x))) {
-            violate('facade_mat', `Matériau « ${a.facadeRaw} » interdit par le règlement de la zone.`)
-        }
-    }
-
-    // ── 3. Colour — bright/vivid teintes are proscribed in protected sectors ──────────────────────
-    if (a.color) {
-        const bright = ['rouge', 'bleu', 'vert', 'jaune', 'orange', 'rose', 'violet', 'turquoise', 'fuchsia', 'fluo', 'flashy', 'vif']
-        const neutral = ['fonce', 'sombre', 'pastel', 'sable', 'naturel', 'anthracite', 'ardoise', 'taupe', 'gris', 'beige', 'blanc', 'creme', 'ecru', 'pierre', 'bois']
-        const isBright = a.color.includes('vif') || (bright.some(b => a.color.includes(b)) && !neutral.some(n => a.color.includes(n)))
-        if (heritage && isBright) {
-            violate('color', `Teinte « ${a.colorRaw} » proscrite en secteur protégé : seules les teintes sobres de la palette locale, validées par l'ABF, sont admises.`)
-        } else if (normList(rules?.facade?.forbidden_colors).some(x => a.color.includes(x))) {
-            violate('color', `Teinte « ${a.colorRaw} » interdite par le règlement de la zone.`)
-        }
-    }
-
-    // ── 4. Roof covering ─────────────────────────────────────────────────────
-    if (a.roof) {
-        const badRoof = ['bac acier', 'tole', 'zinc', 'fibrociment', 'bardeau', 'shingle', 'plastique']
-        if (heritage && badRoof.some(x => a.roof.includes(x))) {
-            violate('roof', `Couverture « ${a.roofRaw} » proscrite en secteur protégé : les toitures doivent être en tuile ou lauze traditionnelle. Refus très probable de l'ABF.`)
-        } else if (normList(rules?.roof?.forbidden_materials).some(x => a.roof.includes(x))) {
-            violate('roof', `Matériau de couverture « ${a.roofRaw} » interdit par le règlement de la zone.`)
-        }
-    }
-
-    // ── 5. Photovoltaïque visible / ouverture visible / hauteur de clôture ───────────────────────
-    if (a.isPV && heritage && a.pvVisible) {
-        violate('pv', `Panneaux photovoltaïques en surimposition visibles depuis l'espace public : généralement refusés en secteur protégé (SPR / abords de Monument Historique). Une pose non visible depuis la rue, ou intégrée, est requise.`)
-    }
-    if (a.openingVisible && heritage) {
-        violate('opening', `Création / modification d'ouverture sur une façade ou un versant de toiture visible depuis la rue, en secteur protégé : soumise à l'avis conforme de l'ABF et généralement refusée lorsqu'elle altère la composition d'origine (ex. fenêtre de toit sur le versant donnant sur rue).`)
-    }
-    if (a.fenceHeight > 2) {
-        warnings.push(`Hauteur de clôture (${a.fenceHeight} m) supérieure au plafond usuel (≈ 2 m) en centre ancien : à confirmer avec le règlement communal.`)
-    }
-
-    // ── 6. Overlays (heritage / flood / seismic) ─────────────────────────────
-    if (heritage) {
-        if (decision !== 'PERMIS_CONSTRUIRE') decision = 'DECLARATION_PREALABLE_ABF'
-        warnings.push(`Projet en secteur sauvegardé (SPR / PSMV) ou aux abords d'un Monument Historique : l'avis conforme de l'Architecte des Bâtiments de France (ABF) est obligatoire (délai d'instruction porté à 2 mois).`)
-    }
-    if (overlays?.hasFloodRisk || overlays?.hasPPRN) {
-        warnings.push(`Le terrain est concerné par un risque d'inondation / un Plan de Prévention des Risques Naturels (PPRN) : les prescriptions de sécurité correspondantes devront être respectées.`)
-    }
-    if (overlays?.seismicZone && parseInt(overlays.seismicZone) >= 3) {
-        warnings.push(`Commune en zone de sismicité ${overlays.seismicClass} : les normes de construction parasismiques s'appliquent.`)
-    }
-
-    const violations = Array.from(V.values())
-    const status = violations.length ? 'NON CONFORME' : 'PROBABLEMENT CONFORME'
-    return { status, decision, violations, warnings, categories: Array.from(V.keys()) }
 }
 
 export async function POST(req: NextRequest) {
@@ -344,7 +223,9 @@ export async function POST(req: NextRequest) {
         const cacheKeyEarly = `${docUrl || 'rnu'}|${zoneLibelle || ''}`
         const hit = !plu?.isRnu && extractionCache.get(cacheKeyEarly)
         if (hit && (Date.now() - hit.at) < CACHE_TTL_MS) {
-            const evaluationResult = evaluateProject(travaux, hit.extractedRules, plu?.overlays)
+            // strict = the rules come from the actual règlement text (not an estimation), so
+            // whitelist misses (materials/colours outside the allowed lists) are hard violations.
+            const evaluationResult = evaluateProject(travaux, hit.extractedRules, plu?.overlays, hit.source === 'reglement')
             // Rebuild the editable counter-proposal on cache hits too — otherwise re-analysing a
             // still-non-conforming project would silently drop the proposal + Apply button.
             if (evaluationResult.violations.length > 0) {
@@ -530,7 +411,15 @@ Le JSON doit respecter exactement ce schéma :
        "max_height_m": number,
        "allowed_materials": string[],
        "forbidden_materials": string[],
+       "allowed_colors": string[], // Teintes de couverture autorisées si mentionnées explicitement, sinon []
+       "forbidden_colors": string[], // Teintes de couverture interdites si mentionnées explicitement, sinon []
        "allowed_slopes": string | null,
+       "excerpts": string[]
+    },
+    "fence": {
+       "max_height_m": number | null, // Hauteur maximale de clôture si le règlement en fixe une (ex: 1.6), sinon null
+       "allowed_materials": string[], // Matériaux de clôture autorisés si mentionnés explicitement, sinon []
+       "forbidden_materials": string[], // Matériaux de clôture interdits si mentionnés explicitement, sinon []
        "excerpts": string[]
     },
     "window_openings": {
@@ -612,7 +501,8 @@ ${fieldSpecText}
                 zone_code: zoneLibelle || 'Inconnue', _unverified: true,
                 facade: { allowed: true, allowed_materials: [], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], color_restrictions: null, excerpts: [] },
                 extension: { max_area_m2: 20, max_height_m: 9, allowed: true, permit_required_if_exceed: true, excerpts: [] },
-                roof: { max_height_m: 9, allowed_materials: [], forbidden_materials: [], allowed_slopes: null, excerpts: [] },
+                roof: { max_height_m: 9, allowed_materials: [], forbidden_materials: [], allowed_colors: [], forbidden_colors: [], allowed_slopes: null, excerpts: [] },
+                fence: { max_height_m: null, allowed_materials: [], forbidden_materials: [], excerpts: [] },
                 window_openings: { allowed: true, conditions: null, excerpts: [] },
                 heritage_override: { ABF_review: false, excerpts: [] },
             }
@@ -630,10 +520,12 @@ ${fieldSpecText}
             if (!extractedRules.facade.color_restrictions) extractedRules.facade.color_restrictions = "Teintes sobres de la palette locale, validées par l'ABF (secteur protégé)."
             extractedRules.roof = extractedRules.roof || { max_height_m: 9, allowed_materials: [], forbidden_materials: [], allowed_slopes: null, excerpts: [] }
             extractedRules.roof.forbidden_materials = uniq([...(extractedRules.roof.forbidden_materials || []), 'bac acier', 'tôle', 'zinc', 'fibrociment'])
+            extractedRules.fence = extractedRules.fence || { max_height_m: null, allowed_materials: [], forbidden_materials: [], excerpts: [] }
+            extractedRules.fence.forbidden_materials = uniq([...(extractedRules.fence.forbidden_materials || []), 'PVC', 'plaque de béton'])
             extractedRules.heritage_override = { ...(extractedRules.heritage_override || {}), ABF_review: true }
         }
 
-        const evaluationResult = evaluateProject(travaux, extractedRules, plu?.overlays)
+        const evaluationResult = evaluateProject(travaux, extractedRules, plu?.overlays, source === 'reglement')
         if (!verified) {
             // An ESTIMATION is uncertain — but hard violations (esp. heritage ones, derived from the
             // reliable SPR/MH overlays) must stand. Only soften a verdict that found no violation.

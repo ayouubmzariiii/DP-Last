@@ -339,6 +339,43 @@ export default function Etape4() {
                             </div>
                         </div>
 
+                        {/* ── CONFORMITÉ DÉTAIL PAR DÉTAIL — every characteristic of the works,
+                            checked one by one against the règlement. Same rows the server used to
+                            build the verdict, so this list and the verdict can never disagree. ── */}
+                        {Array.isArray(plu?.evaluationResult?.detailChecks) && plu.evaluationResult.detailChecks.length > 0 && (
+                            <div className="dp-card">
+                                <h3 className="dp-section-title flex items-center gap-2"><span>🔎</span> Conformité détail par détail</h3>
+                                <p className="text-xs t-ink2 mb-2">Chaque caractéristique de vos travaux, confrontée au règlement de la zone{reliable ? '' : ' (analyse estimative — à confirmer avec le règlement officiel)'}. Relancer l&apos;analyse re-vérifie <strong>tous</strong> les détails.</p>
+                                <div>
+                                    {plu.evaluationResult.detailChecks.map((c: any) => {
+                                        const chip = c.verdict === 'ok'
+                                            ? { label: '✓ Conforme', cls: 'dp-chip is-ok', style: undefined as React.CSSProperties | undefined }
+                                            : c.verdict === 'violation'
+                                                ? { label: '✗ Non conforme', cls: 'dp-chip', style: { background: '#FBEAE6', color: '#8F2E22', borderColor: '#EBC3BB' } as React.CSSProperties }
+                                                : c.verdict === 'warning'
+                                                    ? { label: '⚠ À confirmer', cls: 'dp-chip', style: { background: '#FBF1DC', color: '#7A5C1E', borderColor: '#E5D5AC' } as React.CSSProperties }
+                                                    : c.verdict === 'missing'
+                                                        ? { label: 'Non renseigné', cls: 'dp-chip', style: { background: '#FBF1DC', color: '#7A5C1E', borderColor: '#E5D5AC' } as React.CSSProperties }
+                                                        : { label: 'Sans incidence', cls: 'dp-chip', style: { opacity: .7 } as React.CSSProperties }
+                                        return (
+                                            <div key={`${c.key}-${c.label}`} className="flex items-start gap-3 py-2.5" style={{ borderTop: '1px solid var(--line-2)' }}>
+                                                <div className="dp-meta pt-0.5" style={{ flex: '0 0 160px' }}>{c.label}</div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium t-ink" style={{ overflowWrap: 'anywhere' }}>
+                                                        {c.value
+                                                            ? (c.kind === 'material' ? <MaterialInline text={c.value} /> : c.kind === 'color' ? <RalInline text={c.value} /> : c.value)
+                                                            : <span style={{ color: 'var(--muted)' }}>—</span>}
+                                                    </div>
+                                                    <div className="text-[11.5px] t-ink2 mt-0.5 leading-relaxed">{c.note}</div>
+                                                </div>
+                                                <span className={chip.cls} style={{ fontSize: 11, flexShrink: 0, whiteSpace: 'nowrap', ...(chip.style || {}) }}>{chip.label}</span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {/* ── INTERDIT — deterministic aspect conflict (material/teinte on the
                             règlement's forbidden list). Red, explicit, with a compliant alternative. */}
                         {(aspectConflict.material || aspectConflict.color) && (
