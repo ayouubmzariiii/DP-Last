@@ -147,23 +147,23 @@ const ELIG_KEYS = ['menuiseries', 'ite', 'solaire', 'cloture', 'abri', 'piscine'
 // ── ROI « Conçu pour les architectes » ──────────────────────────────────────
 // Baseline observed in agencies: a DP produced by hand takes ≈ 2 h of drawing
 // and layout and costs up to 100 € (internal time or outsourcing). With DP
-// Travaux the same dossier takes ≈ 10 min, at ≈ 5 € on the Cabinet plan (199 € / 40).
-const ROI = { manualMin: 120, manualEur: 100, toolMin: 10, toolEur: 5 }
+// Travaux the same dossier takes ≈ 10 min, at ≈ 10 € on the Cabinet plan (399 € / 40).
+const ROI = { manualMin: 120, manualEur: 100, toolMin: 10, toolEur: 10 }
 const frNum = (n: number) => Math.round(n).toLocaleString('fr-FR')
 
 interface Plan { key: string; name: string; price: string; unit: string; per: string; tag: string; highlight: boolean; kind: 'primary' | 'secondary'; cta: string; desc: string; features: string[]; contact?: boolean }
 // Individual, pay-per-dossier offers. Priced against the alternative: up to
-// 100 € and 2 h when a pro does it by hand — 49 € for ≈ 10 min stays a bargain.
+// 100 € and 2 h when a pro does it by hand — 69 € for ≈ 10 min stays a bargain.
 const PLANS_USAGE: Plan[] = [
     { key: 'd', name: 'Découverte', price: '0', unit: '€', per: 'pour toujours', tag: '', highlight: false, kind: 'secondary', cta: 'Commencer', desc: 'Pour créer et vérifier votre dossier, sans payer.', features: ['Parcours guidé complet', 'Analyse PLU de votre parcelle', 'Aperçu du CERFA et des pièces', 'Mode test avec filigrane', 'Sauvegarde de vos projets'] },
-    { key: 'o', name: 'Dossier complet', price: '49', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer, en ≈ 10 minutes.', features: ['Tout de Découverte, plus :', 'CERFA 16702*03 pré-rempli', 'Pièces DP1 à DP8 assemblées', 'Vues « après » générées par IA', 'Notice descriptive rédigée', 'Export PDF & ZIP sans filigrane', '1 série de modifications incluse'] },
-    { key: 'p', name: 'Pack Rénovation', price: '119', unit: '€', per: '3 dossiers', tag: '', highlight: false, kind: 'secondary', cta: 'Choisir le pack', desc: 'Plusieurs chantiers ? 39,70 € le dossier.', features: ['Tout de Dossier complet', '3 dossiers, quand vous voulez', 'Modifications illimitées 6 mois', 'Assistance par email prioritaire'] },
+    { key: 'o', name: 'Dossier complet', price: '69', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer, en ≈ 10 minutes.', features: ['Tout de Découverte, plus :', 'CERFA 16702*03 pré-rempli', 'Pièces DP1 à DP8 assemblées', 'Vues « après » générées par IA', 'Notice descriptive rédigée', 'Export PDF & ZIP sans filigrane', '1 série de modifications incluse'] },
+    { key: 'p', name: 'Pack Rénovation', price: '179', unit: '€', per: '3 dossiers', tag: '', highlight: false, kind: 'secondary', cta: 'Choisir le pack', desc: 'Plusieurs chantiers ? 59,70 € le dossier.', features: ['Tout de Dossier complet', '3 dossiers, quand vous voulez', 'Modifications illimitées 6 mois', 'Assistance par email prioritaire'] },
 ]
 // Professional subscriptions — the main offer. Sized in dossiers per month so
-// the per-dossier price collapses with volume (7,90 € → ≈ 5 € → sur mesure).
+// the per-dossier price decays from the 69 € unit anchor (14,90 € → ≈ 10 € → sur mesure).
 const PLANS_ABO: Plan[] = [
-    { key: 's', name: 'Studio', price: '79', unit: '€', per: 'par mois', tag: '', highlight: false, kind: 'secondary', cta: 'Essayer 14 jours', desc: 'Indépendants, artisans et petits cabinets.', features: ['10 dossiers par mois — 7,90 € l\'unité', 'Multi-projets et multi-clients', 'Exports à votre marque', 'Modèles de notices réutilisables', 'Modifications illimitées', 'Sans engagement, résiliable en un clic'] },
-    { key: 'c', name: 'Cabinet', price: '199', unit: '€', per: 'par mois', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Essayer 14 jours', desc: 'Cabinets d\'architecture et maîtres d\'œuvre.', features: ['Tout de Studio, plus :', '40 dossiers par mois — ≈ 5 € l\'unité', '5 utilisateurs inclus', 'Suivi par client et par chantier', 'Support prioritaire sous 4 h', 'Facturation annuelle : −15 %'] },
+    { key: 's', name: 'Studio', price: '149', unit: '€', per: 'par mois', tag: '', highlight: false, kind: 'secondary', cta: 'Essayer 14 jours', desc: 'Indépendants, artisans et petits cabinets.', features: ['10 dossiers par mois — 14,90 € l\'unité', 'Multi-projets et multi-clients', 'Exports à votre marque', 'Modèles de notices réutilisables', 'Modifications illimitées', 'Sans engagement, résiliable en un clic'] },
+    { key: 'c', name: 'Cabinet', price: '399', unit: '€', per: 'par mois', tag: 'Le plus choisi', highlight: true, kind: 'primary', cta: 'Essayer 14 jours', desc: 'Cabinets d\'architecture et maîtres d\'œuvre.', features: ['Tout de Studio, plus :', '40 dossiers par mois — ≈ 10 € l\'unité', '5 utilisateurs inclus', 'Suivi par client et par chantier', 'Support prioritaire sous 4 h', 'Facturation annuelle : −15 %'] },
     { key: 'e', name: 'Agence', price: 'Sur devis', unit: '', per: 'volume sur mesure', tag: '', highlight: false, kind: 'secondary', cta: 'Parler à l\'équipe', contact: true, desc: 'Groupes, réseaux et grands comptes.', features: ['Dossiers et utilisateurs illimités', 'Déploiement multi-agences', 'API et intégrations sur mesure', 'SSO et gestion des accès', 'Interlocuteur dédié et formation', 'Tarif dégressif au volume'] },
 ]
 
@@ -208,7 +208,7 @@ const FAQ_DATA: { title: string; items: FaqItem[] }[] = [
         { id: 'd2', q: 'Puis-je modifier mon dossier après génération ?', a: 'Oui. L\'offre Dossier complet inclut une série de modifications. Les offres Pro permettent des modifications illimitées.' },
         { id: 'd3', q: 'Le paiement est-il sécurisé ?', a: 'Oui, les paiements sont traités par un prestataire certifié. Nous ne stockons aucune donnée bancaire.' },
         { id: 'd4', q: 'Suis-je engagé sur la durée ?', a: 'Aucun engagement pour le paiement à l\'usage. Les abonnements Studio et Cabinet sont résiliables à tout moment.' },
-        { id: 'd5', q: 'Comment sont facturés les abonnements professionnels ?', a: 'Chaque formule inclut un volume mensuel de dossiers : 10 avec Studio (79 €), 40 avec Cabinet (199 €, soit ≈ 5 € le dossier), sur mesure avec Agence. La facturation annuelle de Cabinet est remisée de 15 %.' },
+        { id: 'd5', q: 'Comment sont facturés les abonnements professionnels ?', a: 'Chaque formule inclut un volume mensuel de dossiers : 10 avec Studio (149 €, soit 14,90 € le dossier), 40 avec Cabinet (399 €, soit ≈ 10 € le dossier), sur mesure avec Agence. La facturation annuelle de Cabinet est remisée de 15 %.' },
     ] },
 ]
 const HOME_FAQ_IDS: Record<string, boolean> = { a1: true, a3: true, b1: true, c1: true, d1: true }
@@ -735,7 +735,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--acd);margin-bottom:18px')}>Avec DP Travaux</div>
                                 <div style={s('display:flex;flex-direction:column;gap:14px')}>
                                     <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--acb);padding-bottom:13px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Temps de production</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--acd)')}>≈ 10 min</span></div>
-                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--acb);padding-bottom:13px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Coût par dossier</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--acd)')}>dès 5 €</span></div>
+                                    <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--acb);padding-bottom:13px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Coût par dossier</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--acd)')}>dès 10 €</span></div>
                                     <div style={s('display:flex;align-items:baseline;justify-content:space-between;gap:12px')}><span style={s('font-size:14.5px;color:var(--ink-2)')}>Conformité PLU</span><span style={s('font-family:var(--hf);font-size:24px;font-weight:600;color:var(--acd)')}>Vérifiée avant dépôt</span></div>
                                 </div>
                             </div>
@@ -766,7 +766,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 </div>
                             </div>
                             <div style={s('display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line-2);margin-top:24px;padding-top:20px')}>
-                                <span style={s('font-family:var(--mf);font-size:10.5px;color:var(--faint);line-height:1.5;max-width:64ch')}>Base : 2 h et 100 € de coût de production par dossier fait à la main, contre ≈ 10 min et ≈ 5 € le dossier avec l&apos;offre Cabinet.</span>
+                                <span style={s('font-family:var(--mf);font-size:10.5px;color:var(--faint);line-height:1.5;max-width:64ch')}>Base : 2 h et 100 € de coût de production par dossier fait à la main, contre ≈ 10 min et ≈ 10 € le dossier avec l&apos;offre Cabinet.</span>
                                 <button className="dp-btn-primary" onClick={() => goPricing('abo')} style={s('flex-shrink:0')}>Voir les offres pro →</button>
                             </div>
                         </div>
@@ -776,7 +776,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                     <section data-reveal style={s('max-width:1120px;margin:0 auto;padding:78px 28px 20px')}>
                         <div style={s('max-width:660px;margin:0 auto 46px;text-align:center')}>
                             <span className="dp-eyebrow">Tarifs</span>
-                            <h2 style={sectionHeadH2}>Dès 5 € le dossier, <span style={italicAc}>selon votre volume</span>.</h2>
+                            <h2 style={sectionHeadH2}>Dès 10 € le dossier, <span style={italicAc}>selon votre volume</span>.</h2>
                             <p style={s('font-size:16.5px;line-height:1.6;color:var(--ink-2);margin:14px auto 0;max-width:54ch')}>Des abonnements pensés pour les cabinets qui déposent chaque semaine — et un tarif à l&apos;unité pour les particuliers.</p>
                         </div>
                         <div data-grid3 style={s('display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch')}>
@@ -795,7 +795,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                             ))}
                         </div>
                         <div style={s('display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:30px')}>
-                            <button className="dp-btn-secondary" onClick={() => goPricing('usage')} style={s('padding:12px 22px')}>Particulier ? Un dossier à l&apos;unité dès 49 € →</button>
+                            <button className="dp-btn-secondary" onClick={() => goPricing('usage')} style={s('padding:12px 22px')}>Particulier ? Un dossier à l&apos;unité à 69 € →</button>
                             <button className="dp-btn-secondary" onClick={() => goPricing('abo')} style={s('padding:12px 22px')}>Comparer tous les tarifs →</button>
                         </div>
                     </section>
@@ -937,7 +937,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <div style={s('position:relative;max-width:760px;margin:0 auto;padding:70px 28px 30px;text-align:center')}>
                             <span className="dp-eyebrow">Tarifs</span>
                             <h1 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(36px,4.6vw,54px);line-height:1.04;letter-spacing:-.02em;margin:16px 0 0;color:var(--ink)')}>Un prix clair, <span style={italicAc}>sans surprise</span></h1>
-                            <p style={s('font-size:18px;line-height:1.6;color:var(--ink-2);margin:16px auto 26px;max-width:54ch')}>Pensé pour les cabinets et agences qui déposent des dossiers chaque semaine — dès 5&nbsp;€ le dossier. Les particuliers paient à l&apos;unité, seulement à la génération.</p>
+                            <p style={s('font-size:18px;line-height:1.6;color:var(--ink-2);margin:16px auto 26px;max-width:54ch')}>Pensé pour les cabinets et agences qui déposent des dossiers chaque semaine — dès 10&nbsp;€ le dossier. Les particuliers paient à l&apos;unité, seulement à la génération.</p>
                             <div style={s('display:inline-flex;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px')}>
                                 <button onClick={() => setPricing('abo')} style={segStyle(pricing === 'abo')}>Professionnels</button>
                                 <button onClick={() => setPricing('usage')} style={segStyle(pricing === 'usage')}>Particuliers · à l&apos;unité</button>
@@ -1111,7 +1111,7 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 </div>
                                 <div className="dp-card dp-spec" style={s('padding:24px;background:var(--act);border-color:var(--acb)')}>
                                     <div style={s('font-family:var(--hf);font-size:17px;font-weight:600;color:var(--ink);margin-bottom:6px')}>Vous êtes un professionnel ?</div>
-                                    <p style={s('font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0 0 14px')}>Architectes, maîtres d&apos;œuvre et artisans : des abonnements dès 79 €/mois, soit ≈ 5 € le dossier avec l&apos;offre Cabinet.</p>
+                                    <p style={s('font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0 0 14px')}>Architectes, maîtres d&apos;œuvre et artisans : des abonnements dès 149 €/mois, soit ≈ 10 € le dossier avec l&apos;offre Cabinet.</p>
                                     <button className="dp-btn-secondary" onClick={() => go('pricing')} style={s('width:100%;justify-content:center')}>Voir l&apos;offre Pro</button>
                                 </div>
                             </div>
