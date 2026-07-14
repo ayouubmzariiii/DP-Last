@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { validateDPForm, piecesChecklist, fatalIssues, forbiddenIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
 import { getTravauxDef } from '@/lib/travauxRegistry'
+import { RalInline } from '@/components/RalPicker'
 
 function RecapSection({ title, icon, items }: {
     title: string; icon: string;
@@ -19,7 +20,7 @@ function RecapSection({ title, icon, items }: {
                 {items.filter(i => i.value).map((item) => (
                     <div key={item.label}>
                         <dt className="dp-meta">{item.label}</dt>
-                        <dd className="text-sm font-medium t-ink mt-1">{item.value}</dd>
+                        <dd className="text-sm font-medium t-ink mt-1"><RalInline text={item.value} /></dd>
                     </div>
                 ))}
             </dl>
@@ -175,6 +176,7 @@ export default function Etape7() {
                 { label: 'Type', value: m.type },
                 { label: 'Matériau', value: m.materiau },
                 { label: 'Couleur', value: m.couleur },
+                { label: 'Teinte RAL', value: m.couleur_ral },
                 { label: 'Nombre', value: m.nombre },
                 { label: 'Dimensions', value: m.largeur && m.hauteur ? `${m.largeur}cm × ${m.hauteur}cm` : undefined },
                 { label: 'Mode', value: m.remplacement ? 'Remplacement' : 'Création' },

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { isProtectedSector, pluAspectConflicts, pluAspectAlternatives } from '@/lib/validation'
 import { travauxAspect } from '@/lib/travauxRegistry'
+import { RalHint, RalInline } from '@/components/RalPicker'
 
 export default function Etape4() {
     const router = useRouter()
@@ -314,7 +315,8 @@ export default function Etape4() {
                                                         ) : (
                                                             <input className="dp-input text-sm" placeholder={f.hint || 'Valeur conforme'} value={edits[f.key] ?? f.value} onChange={e => setEdits(s => ({ ...s, [f.key]: e.target.value }))} />
                                                         )}
-                                                        {f.hint && !f.options && <span className="text-[10px] t-ink2" style={{ opacity: .7 }}>Suggestion : {f.hint}</span>}
+                                                        <RalHint text={edits[f.key] ?? f.value} />
+                                                        {f.hint && !f.options && <span className="text-[10px] t-ink2" style={{ opacity: .7 }}>Suggestion : <RalInline text={f.hint} /></span>}
                                                     </div>
                                                 ))}
                                             </div>
@@ -349,13 +351,13 @@ export default function Etape4() {
                                             {aspectConflict.material && (
                                                 <li className="text-sm">
                                                     <div className="t-error font-semibold">✗ Matériau « {aspectConflict.material.chosen} » — interdit (proscrit : « {aspectConflict.material.rule} »)</div>
-                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : {aspectAlt.material || 'choisissez un matériau de la palette autorisée par le règlement.'}</div>
+                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : <RalInline text={aspectAlt.material || 'choisissez un matériau de la palette autorisée par le règlement.'} /></div>
                                                 </li>
                                             )}
                                             {aspectConflict.color && (
                                                 <li className="text-sm">
-                                                    <div className="t-error font-semibold">✗ Teinte « {aspectConflict.color.chosen} » — interdite (proscrite : « {aspectConflict.color.rule} »)</div>
-                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : {aspectAlt.color || 'choisissez une teinte sobre de la palette autorisée.'}</div>
+                                                    <div className="t-error font-semibold">✗ Teinte « <RalInline text={aspectConflict.color.chosen} /> » — interdite (proscrite : « {aspectConflict.color.rule} »)</div>
+                                                    <div className="text-[12px] t-accent mt-0.5">→ Alternative conforme : <RalInline text={aspectAlt.color || 'choisissez une teinte sobre de la palette autorisée.'} /></div>
                                                 </li>
                                             )}
                                         </ul>

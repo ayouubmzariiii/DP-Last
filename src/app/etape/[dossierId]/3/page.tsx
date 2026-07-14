@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { TypeTravaux } from '@/lib/models'
 import { TRAVAUX_LIST, getTravauxDef, travauxDescription } from '@/lib/travauxRegistry'
+import RalPicker, { RalHint } from '@/components/RalPicker'
 
 // Selection cards are derived from the travaux registry — adding a work type there makes its
 // card appear here automatically (its detail sub-form is still rendered per-type below).
@@ -127,10 +128,11 @@ export default function Etape3() {
                                 <div className="dp-form-group">
                                     <label className="dp-label">Couleur</label>
                                     <input className="dp-input" placeholder="ex: Blanc RAL 9016" value={t.menuiseries?.couleur || ''} onChange={e => updateMen({ couleur: e.target.value })} />
+                                    <RalHint text={t.menuiseries?.couleur} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Code RAL (optionnel)</label>
-                                    <input className="dp-input" placeholder="ex: RAL 7016" value={t.menuiseries?.couleur_ral || ''} onChange={e => updateMen({ couleur_ral: e.target.value })} />
+                                    <RalPicker placeholder="ex : RAL 7016 ou « anthracite »" value={t.menuiseries?.couleur_ral || ''} onChange={v => updateMen({ couleur_ral: v })} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Nombre d'éléments</label>
@@ -179,6 +181,7 @@ export default function Etape3() {
                                 <div className="dp-form-group">
                                     <label className="dp-label">Couleur de finition</label>
                                     <input className="dp-input" placeholder="ex: Beige sablé, Gris anthracite" value={t.isolation?.couleur || ''} onChange={e => updateIso({ couleur: e.target.value })} />
+                                    <RalHint text={t.isolation?.couleur} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Matériau isolant</label>
@@ -288,6 +291,7 @@ export default function Etape3() {
                                 <div className="dp-form-group">
                                     <label className="dp-label">Couleur</label>
                                     <input className="dp-input" placeholder="ex: Gris anthracite RAL 7016" value={t.cloture?.couleur || ''} onChange={e => updateClo({ couleur: e.target.value })} />
+                                    <RalHint text={t.cloture?.couleur} />
                                 </div>
                                 <div className="dp-form-group">
                                     <label className="dp-label">Hauteur (m) *</label>
@@ -327,6 +331,7 @@ export default function Etape3() {
                                 <div className="dp-form-group">
                                     <label className="dp-label">Teinte / couleur *</label>
                                     <input className="dp-input" placeholder="ex: Ton pierre, RAL 1015" value={t.ravalement?.couleur || ''} onChange={e => updateRav({ couleur: e.target.value })} />
+                                    <RalHint text={t.ravalement?.couleur} />
                                 </div>
                                 <div className="dp-form-group md:col-span-2">
                                     <label className="dp-label">Façades concernées</label>
@@ -362,6 +367,7 @@ export default function Etape3() {
                                 <div className="dp-form-group">
                                     <label className="dp-label">Teinte / couleur</label>
                                     <input className="dp-input" placeholder="ex: Rouge nuancé, ardoise" value={t.toiture?.couleur || ''} onChange={e => updateToit({ couleur: e.target.value })} />
+                                    <RalHint text={t.toiture?.couleur} />
                                 </div>
                             </div>
                         </div>

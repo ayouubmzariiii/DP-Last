@@ -6,6 +6,7 @@
  */
 import { DPFormData } from './models'
 import { getTravauxDef } from './travauxRegistry'
+import { detectRal } from './ralColors'
 
 // Common teinte / RAL codes → a plain-language visual colour. Image models don't reliably know RAL
 // codes or French nuancier terms, so we spell out the actual colour — otherwise "RAL 1015 (ton
@@ -31,6 +32,10 @@ const COLOUR_HINTS: Record<string, string> = {
 function colourGuidance(text: string): string {
     const s = text.toLowerCase()
     for (const [k, v] of Object.entries(COLOUR_HINTS)) if (s.includes(k)) return v
+    // Any other RAL code: pin the sRGB value from the nuancier so the model
+    // paints the actual colour instead of guessing what the code means.
+    const ral = detectRal(text)
+    if (ral) return `the exact colour ${ral.hex} (RAL ${ral.code}, "${ral.name}")`
     return ''
 }
 // The colour the user actually asked for, per work type (couleur field + RAL where relevant).
