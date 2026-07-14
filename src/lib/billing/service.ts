@@ -13,6 +13,12 @@ import { and, eq, desc, isNull } from 'drizzle-orm'
 import { db, users, subscriptions, dossiers, payments } from '@/lib/db'
 import { SUB_PLANS, SKUS, type PlanId, type SkuId } from '@/lib/billing/plans'
 
+// Master switch. OFF by default → the app is entirely FREE and the billing layer
+// is dormant: dossier generation never consumes quota/credits and is never gated.
+// Everything else (checkout, subscriptions, the profil tab) still works if used, so
+// the layer is ready — flip BILLING_ENFORCED=1 (Vercel env) to make it live.
+export const BILLING_ENFORCED = process.env.BILLING_ENFORCED === '1'
+
 export interface Entitlements {
     plan: PlanId | null
     planName: string | null
@@ -129,6 +135,8 @@ export async function cancelSubscription(userId: string): Promise<Entitlements> 
 // re-downloading never double-charges. Never throws / never blocks: returns what
 // was charged so the caller can surface it, but generation proceeds regardless.
 export async function consumeDossier(userId: string, dossierId?: string): Promise<{ charged: 'quota' | 'credit' | 'none' }> {
+    // Dormant unless billing is switched on — the app stays free for everyone.
+    if (!BILLING_ENFORCED) return { charged: 'none' }
     try {
         // Idempotency: only bill a dossier that hasn't been billed yet.
         if (dossierId) {
