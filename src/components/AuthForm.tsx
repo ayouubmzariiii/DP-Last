@@ -13,13 +13,21 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     const params = useSearchParams()
     const next = params.get('next') || '/profil'
 
-    const [fullName, setFullName] = useState('')
+    const [firstName, setFirstName] = useState('')
+    const [lastName, setLastName] = useState('')
     const [email, setEmail] = useState('')
+    const [phone, setPhone] = useState('')
+    const [address, setAddress] = useState('')
+    const [postalCode, setPostalCode] = useState('')
+    const [city, setCity] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
     const isRegister = mode === 'register'
+    // Carry the post-auth destination across the login ↔ register switch (e.g. a
+    // pending /checkout after a "buy" click, so account creation lands on payment).
+    const switchQ = next && next !== '/profil' ? `?next=${encodeURIComponent(next)}` : ''
 
     // Landing-page handoff: the address the visitor validated in the hero is stashed in
     // sessionStorage. Right after auth we create their dossier with the terrain pre-seeded
@@ -50,7 +58,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             const res = await fetch(`/api/auth/${mode}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(isRegister && fullName.trim() ? { email, password, fullName: fullName.trim() } : { email, password }),
+                body: JSON.stringify(isRegister
+                    ? { firstName, lastName, email, phone, address, postalCode, city, password }
+                    : { email, password }),
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok) {
@@ -85,18 +95,52 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 <div className="dp-card">
                     <form onSubmit={submit}>
                         {isRegister && (
-                            <div className="dp-form-group" style={{ marginBottom: 20 }}>
-                                <label className="dp-label" htmlFor="fullName">Prénom et nom</label>
-                                <input id="fullName" type="text" autoComplete="name" className="dp-input"
-                                    placeholder="Ex : Sophie Durand" value={fullName} onChange={e => setFullName(e.target.value)} />
-                                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 0' }}>Facultatif — pré-remplit vos dossiers.</p>
-                            </div>
+                            <>
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                                    <div className="dp-form-group" style={{ flex: 1 }}>
+                                        <label className="dp-label" htmlFor="firstName">Prénom *</label>
+                                        <input id="firstName" type="text" autoComplete="given-name" required className="dp-input"
+                                            placeholder="Sophie" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                                    </div>
+                                    <div className="dp-form-group" style={{ flex: 1 }}>
+                                        <label className="dp-label" htmlFor="lastName">Nom *</label>
+                                        <input id="lastName" type="text" autoComplete="family-name" required className="dp-input"
+                                            placeholder="Durand" value={lastName} onChange={e => setLastName(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="dp-form-group" style={{ marginBottom: 20 }}>
+                                    <label className="dp-label" htmlFor="phone">Téléphone *</label>
+                                    <input id="phone" type="tel" autoComplete="tel" required className="dp-input"
+                                        placeholder="06 12 34 56 78" value={phone} onChange={e => setPhone(e.target.value)} />
+                                </div>
+                            </>
                         )}
                         <div className="dp-form-group" style={{ marginBottom: 20 }}>
                             <label className="dp-label" htmlFor="email">Email *</label>
                             <input id="email" type="email" autoComplete="email" required className="dp-input"
                                 placeholder="vous@exemple.fr" value={email} onChange={e => setEmail(e.target.value)} />
                         </div>
+                        {isRegister && (
+                            <>
+                                <div className="dp-form-group" style={{ marginBottom: 20 }}>
+                                    <label className="dp-label" htmlFor="address">Adresse *</label>
+                                    <input id="address" type="text" autoComplete="street-address" required className="dp-input"
+                                        placeholder="12 rue des Lilas" value={address} onChange={e => setAddress(e.target.value)} />
+                                </div>
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                                    <div className="dp-form-group" style={{ flex: '0 0 40%' }}>
+                                        <label className="dp-label" htmlFor="postalCode">Code postal *</label>
+                                        <input id="postalCode" type="text" inputMode="numeric" autoComplete="postal-code" required className="dp-input"
+                                            placeholder="69003" value={postalCode} onChange={e => setPostalCode(e.target.value)} />
+                                    </div>
+                                    <div className="dp-form-group" style={{ flex: 1 }}>
+                                        <label className="dp-label" htmlFor="city">Ville *</label>
+                                        <input id="city" type="text" autoComplete="address-level2" required className="dp-input"
+                                            placeholder="Lyon" value={city} onChange={e => setCity(e.target.value)} />
+                                    </div>
+                                </div>
+                            </>
+                        )}
                         <div className="dp-form-group" style={{ marginBottom: 24 }}>
                             <label className="dp-label" htmlFor="password">Mot de passe *</label>
                             <input id="password" type="password" required
@@ -123,9 +167,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
 
                 <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-2)', marginTop: 24 }}>
                     {isRegister ? (
-                        <>Déjà un compte ? <Link href="/login" style={{ color: 'var(--ac)', fontWeight: 600 }}>Se connecter</Link></>
+                        <>Déjà un compte ? <Link href={`/login${switchQ}`} style={{ color: 'var(--ac)', fontWeight: 600 }}>Se connecter</Link></>
                     ) : (
-                        <>Pas encore de compte ? <Link href="/register" style={{ color: 'var(--ac)', fontWeight: 600 }}>Créer un compte</Link></>
+                        <>Pas encore de compte ? <Link href={`/register${switchQ}`} style={{ color: 'var(--ac)', fontWeight: 600 }}>Créer un compte</Link></>
                     )}
                 </p>
             </div>

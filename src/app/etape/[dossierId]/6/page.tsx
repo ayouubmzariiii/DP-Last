@@ -963,7 +963,7 @@ export default function Etape6() {
                     const res = await fetch('/api/generate-after-facade', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, imageBase64 })
+                        body: JSON.stringify({ prompt, imageBase64, dossierId, facadeId: f.id })
                     })
                     if (!res.ok) {
                         const errData = await res.json()
@@ -1023,7 +1023,7 @@ export default function Etape6() {
                     const res = await fetch('/api/generate-after-facade', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, imageBase64 })
+                        body: JSON.stringify({ prompt, imageBase64, dossierId, facadeId: facade.id })
                     })
                     if (!res.ok) {
                         const errData = await res.json()

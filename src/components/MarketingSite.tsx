@@ -104,9 +104,10 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
     const appHref = authed ? '/profil' : '/register'
     const router = useRouter()
     const cart = useCart()
-    // Buy a one-off SKU: drop it in the cart and head to checkout (guests get bounced
-    // to /login?next=/checkout by middleware, and the cart survives the round-trip).
-    const buySku = (sku: SkuId) => { cart.add(sku); router.push('/checkout') }
+    // To buy you need an account first: authed users go straight to checkout; guests are
+    // sent to /register?next=<dest> (the cart survives the round-trip via localStorage).
+    const buyHref = (dest: string) => authed ? dest : `/register?next=${encodeURIComponent(dest)}`
+    const buySku = (sku: SkuId) => { cart.add(sku); router.push(buyHref('/checkout')) }
     const [pricing, setPricing] = useState<'abo' | 'usage'>('abo')
     const [elig, setElig] = useState('menuiseries')
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
@@ -488,8 +489,9 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                     // Subscriptions → checkout with the plan; Agence → contact.
                                     // One-off (Dossier 69 / Pack 179) → add to cart; Découverte → free sign-up.
                                     if (pricing === 'abo') {
-                                        const to = p.key === 's' ? '/checkout?plan=studio' : p.key === 'c' ? '/checkout?plan=cabinet' : '#contact'
-                                        return <a href={to} className={cls} style={st}>{p.cta}</a>
+                                        if (p.key === 'e') return <a href="#contact" className={cls} style={st}>{p.cta}</a>
+                                        const dest = p.key === 's' ? '/checkout?plan=studio' : '/checkout?plan=cabinet'
+                                        return <a href={buyHref(dest)} className={cls} style={st}>{p.cta}</a>
                                     }
                                     if (p.key === 'o' || p.key === 'p') {
                                         const sku: SkuId = p.key === 'o' ? 'dossier' : 'pack'

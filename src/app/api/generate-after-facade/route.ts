@@ -3,6 +3,7 @@ import OpenAI, { toFile } from 'openai'
 import sharp from 'sharp'
 import { Readable } from 'stream'
 import { getSession } from '@/lib/auth'
+import { MAX_IMAGE_ATTEMPTS, ownsDossier, imageAttemptCount, bumpImageAttempt } from '@/lib/imageAttempts'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    if (!(await getSession())) {
+    const session = await getSession()
+    if (!session) {
         return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
     }
 
@@ -80,12 +82,37 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json() as { prompt: string; imageBase64?: string }
-        const { prompt } = body
+        const body = await req.json() as { prompt: string; imageBase64?: string; dossierId?: string; facadeId?: string }
+        const { prompt, dossierId, facadeId } = body
         let { imageBase64 } = body
 
         if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
         if (prompt.length > 4000) return NextResponse.json({ error: 'Prompt too long' }, { status: 400 })
+
+        // Per-image generation cap (4 per façade). Enforced when the client identifies the
+        // image (dossierId + facadeId) — which étape 6 always does. Check BEFORE the AI call
+        // so we never pay for a refused attempt; count only on success (see finish()).
+        const tracked = !!(dossierId && facadeId)
+        if (tracked) {
+            if (!(await ownsDossier(session.userId, dossierId!))) {
+                return NextResponse.json({ error: 'Dossier introuvable.' }, { status: 403 })
+            }
+            const used = await imageAttemptCount(dossierId!, facadeId!)
+            if (used >= MAX_IMAGE_ATTEMPTS) {
+                return NextResponse.json({ error: `Limite atteinte : ${MAX_IMAGE_ATTEMPTS} générations maximum pour cette image. Vous pouvez importer votre propre photo « après ».`, limitReached: true, attemptsRemaining: 0 }, { status: 429 })
+            }
+        }
+
+        // On a successful generation, count the attempt (idempotent per call) and echo how
+        // many tries remain, so the UI can warn / disable the regenerate button.
+        const finish = async (payload: Record<string, unknown>) => {
+            let attemptsRemaining: number | undefined
+            if (tracked) {
+                const n = await bumpImageAttempt(session.userId, dossierId!, facadeId!)
+                attemptsRemaining = Math.max(0, MAX_IMAGE_ATTEMPTS - n)
+            }
+            return NextResponse.json({ ...payload, attemptsRemaining })
+        }
 
         // Resolve a relative public asset (e.g. test photos at /test/...) to a data URL so it can
         // be sent to the model and processed like an uploaded photo.
@@ -164,8 +191,8 @@ export async function POST(req: NextRequest) {
                 const img: string | undefined = msg?.images?.[0]?.image_url?.url
                 if (img) {
                     return img.startsWith('data:')
-                        ? NextResponse.json({ imageBase64: img })
-                        : NextResponse.json({ imageUrl: img })
+                        ? await finish({ imageBase64: img })
+                        : await finish({ imageUrl: img })
                 }
                 lastTextSnippet = (typeof msg?.content === 'string' ? msg.content : '').slice(0, 200)
                 console.warn(`[facade] attempt ${attempt}/${MAX_ATTEMPTS} returned no image${lastTextSnippet ? ' — text: ' + lastTextSnippet : ''}`)
@@ -194,10 +221,10 @@ export async function POST(req: NextRequest) {
             })
 
             const b64 = response.data?.[0]?.b64_json
-            if (b64) return NextResponse.json({ imageBase64: `data:image/png;base64,${b64}` })
+            if (b64) return await finish({ imageBase64: `data:image/png;base64,${b64}` })
 
             const url = (response.data?.[0] as { url?: string } | undefined)?.url
-            if (url) return NextResponse.json({ imageUrl: url })
+            if (url) return await finish({ imageUrl: url })
 
             return NextResponse.json({ error: 'No image returned from edit' }, { status: 502 })
         }
@@ -210,10 +237,10 @@ export async function POST(req: NextRequest) {
         })
 
         const b64 = response.data?.[0]?.b64_json
-        if (b64) return NextResponse.json({ imageBase64: `data:image/png;base64,${b64}` })
+        if (b64) return await finish({ imageBase64: `data:image/png;base64,${b64}` })
 
         const url = (response.data?.[0] as { url?: string } | undefined)?.url
-        if (url) return NextResponse.json({ imageUrl: url })
+        if (url) return await finish({ imageUrl: url })
 
         return NextResponse.json({ error: 'No image in response' }, { status: 502 })
 

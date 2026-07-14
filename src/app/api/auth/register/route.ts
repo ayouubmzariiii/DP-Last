@@ -6,11 +6,18 @@ import { hashPassword, createSessionToken, COOKIE_NAME, sessionCookieOptions } f
 
 export const runtime = 'nodejs'
 
+// A real identity is required at signup — it feeds the Étape 1 pre-fill AND billing/
+// invoicing. French phone: 10 digits (spaces/dots/+33 tolerated); postal code: 5 digits.
+const phoneRe = /^(?:\+33\s?|0)[1-9](?:[\s.-]?\d{2}){4}$/
 const schema = z.object({
-    email: z.string().email('Adresse email invalide.'),
+    firstName: z.string().trim().min(1, 'Le prénom est requis.').max(80),
+    lastName: z.string().trim().min(1, 'Le nom est requis.').max(80),
+    email: z.string().trim().email('Adresse email invalide.'),
+    phone: z.string().trim().regex(phoneRe, 'Numéro de téléphone invalide (ex : 06 12 34 56 78).'),
+    address: z.string().trim().min(4, 'L’adresse est requise.').max(200),
+    postalCode: z.string().trim().regex(/^\d{5}$/, 'Code postal invalide (5 chiffres).'),
+    city: z.string().trim().min(1, 'La ville est requise.').max(120),
     password: z.string().min(8, 'Le mot de passe doit comporter au moins 8 caractères.'),
-    // Optional at signup — feeds the Étape 1 identity pre-fill of every new dossier.
-    fullName: z.string().trim().max(120).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -28,14 +35,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Données invalides.', issues: parsed.error.issues.map(i => i.message) }, { status: 422 })
     }
 
-    const email = parsed.data.email.toLowerCase().trim()
+    const d = parsed.data
+    const email = d.email.toLowerCase().trim()
     try {
         const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
         if (existing.length) return NextResponse.json({ error: 'Cet email est déjà utilisé.' }, { status: 409 })
 
-        const passwordHash = await hashPassword(parsed.data.password)
-        const fullName = parsed.data.fullName || null
-        const [user] = await db.insert(users).values({ email, passwordHash, fullName }).returning({ id: users.id, email: users.email })
+        const passwordHash = await hashPassword(d.password)
+        const fullName = `${d.firstName} ${d.lastName}`.trim()
+        const [user] = await db.insert(users).values({
+            email, passwordHash, fullName,
+            firstName: d.firstName, lastName: d.lastName,
+            phone: d.phone, address: d.address, postalCode: d.postalCode, city: d.city,
+        }).returning({ id: users.id, email: users.email })
 
         const token = await createSessionToken({ userId: user.id, email: user.email })
         const res = NextResponse.json({ user }, { status: 201 })

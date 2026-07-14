@@ -5,7 +5,7 @@
 // with every image field replaced by a Vercel Blob https URL (never base64) so
 // rows stay small and PUT payloads stay well under Vercel's 4.5 MB request cap.
 // ─────────────────────────────────────────────────────────────────────────────
-import { pgTable, pgEnum, uuid, text, integer, jsonb, timestamp, index, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, text, integer, jsonb, timestamp, index, uniqueIndex, boolean } from 'drizzle-orm/pg-core'
 import type { DPFormData } from '@/lib/models'
 import type { DossierSummary } from '@/lib/dossierSummary'
 
@@ -20,8 +20,15 @@ export const users = pgTable('users', {
     email: text('email').notNull().unique(),          // always stored lowercased
     passwordHash: text('password_hash').notNull(),
     // Account settings (editable from the profil "Paramètres" tab).
+    // `fullName` is kept (= "Prénom Nom") for existing consumers (CERFA prefill),
+    // alongside the discrete identity/contact fields collected at registration.
     fullName: text('full_name'),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
     phone: text('phone'),
+    address: text('address'),
+    postalCode: text('postal_code'),
+    city: text('city'),
     language: text('language').notNull().default('fr'),
     emailNotifications: boolean('email_notifications').notNull().default(true),
     // Réinitialisation de mot de passe : hash SHA-256 du token envoyé par email + expiration.
@@ -102,6 +109,19 @@ export const dossiers = pgTable('dossiers', {
 }, (t) => ({
     userIdx: index('dossiers_user_id_idx').on(t.userId),
     userUpdatedIdx: index('dossiers_user_updated_idx').on(t.userId, t.updatedAt),
+}))
+
+// Per-image AI generation counter — one row per (dossier, façade), server-authoritative,
+// so "regenerate the après/insertion view" can be capped (see generate-after-facade).
+export const imageAttempts = pgTable('image_attempts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    dossierId: uuid('dossier_id').notNull().references(() => dossiers.id, { onDelete: 'cascade' }),
+    facadeId: text('facade_id').notNull(),
+    count: integer('count').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+    uniq: uniqueIndex('image_attempts_dossier_facade_idx').on(t.dossierId, t.facadeId),
 }))
 
 export type UserRow = typeof users.$inferSelect
