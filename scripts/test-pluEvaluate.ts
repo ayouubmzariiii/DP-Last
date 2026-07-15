@@ -179,5 +179,29 @@ section('Menuiserie bois : PAS flaguée par les règles de bardage (« bardage b
     check('bardage métal (ITE) bien flagué via son alias', row(iso.detailChecks, 'type_finition')?.verdict === 'violation', row(iso.detailChecks, 'type_finition'))
 }
 
+section('ESTIMATION : une interdiction ESTIMÉE (règlement non lu) → avertissement, jamais NON CONFORME')
+{
+    // Rules NOT read from the real règlement — AI-guessed forbidden list. Must not hard-fail.
+    const rules = { ...RULES_EMPTY, facade: { ...RULES_EMPTY.facade, forbidden_materials: ['pvc'] } }
+    const travaux = { type: 'menuiseries', menuiseries: { type: 'fenetre', materiau: 'pvc', couleur: 'Blanc' } }
+    const est = evaluateProject(travaux, rules, NO_OVERLAYS, false, true)   // estimated = true
+    check('estimation : matériau interdit → warning (pas violation)', row(est.detailChecks, 'materiau')?.verdict === 'warning', row(est.detailChecks, 'materiau'))
+    check('estimation : aucune violation dure', est.violations.length === 0, est.violations)
+    check('estimation : statut reste PROBABLEMENT CONFORME (pas NON CONFORME)', est.status === 'PROBABLEMENT CONFORME', est.status)
+    // Same rules, but READ from the real règlement (source=reglement) → hard violation stands.
+    const real = evaluateProject(travaux, rules, NO_OVERLAYS, true, false)
+    check('règlement lu : même interdiction → violation dure', row(real.detailChecks, 'materiau')?.verdict === 'violation')
+    check('règlement lu : statut NON CONFORME', real.status === 'NON CONFORME')
+}
+
+section('ESTIMATION en secteur protégé : la proscription patrimoniale (fiable) reste une violation dure')
+{
+    // Even when the règlement was only estimated, the heritage proscription is overlay-grounded and must stand.
+    const travaux = { type: 'menuiseries', menuiseries: { type: 'fenetre', materiau: 'pvc', couleur: 'Blanc' } }
+    const est = evaluateProject(travaux, RULES_EMPTY, HERITAGE, false, true)
+    check('estimation + SPR : PVC toujours en violation (proscription ABF fiable)', row(est.detailChecks, 'materiau')?.verdict === 'violation', row(est.detailChecks, 'materiau'))
+    check('estimation + SPR : statut NON CONFORME', est.status === 'NON CONFORME', est.status)
+}
+
 console.log(failures === 0 ? '\nAll PLU engine tests passed.' : `\n${failures} test(s) FAILED.`)
 process.exit(failures === 0 ? 0 : 1)

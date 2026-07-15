@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+// Paris/Lyon/Marseille reverse-geocode to an ARRONDISSEMENT INSEE code, which several national
+// datasets (e.g. Géorisques zonage_sismique) don't recognise — they key on the whole-commune code.
+// Seismic zoning is uniform across a commune, so falling back to the parent code is always correct.
+function plmParentInsee(insee: string): string | null {
+    const n = parseInt(insee, 10)
+    if (n >= 75101 && n <= 75120) return '75056' // Paris
+    if (n >= 69381 && n <= 69389) return '69123' // Lyon
+    if (n >= 13201 && n <= 13216) return '13055' // Marseille
+    return null
+}
+
 async function resolveUrlFromPartition(insee: string): Promise<string> {
     if (!insee) return ''
     try {
@@ -449,6 +460,24 @@ export async function GET(req: NextRequest) {
                         overlays.seismicClass = data.data[0].zone_sismicite || 'inconnue'
                     }
                 }
+                // Retry with the parent commune code for Paris/Lyon/Marseille arrondissements, whose
+                // arrondissement INSEE the seismic dataset doesn't index (see plmParentInsee).
+                if (overlays.seismicClass === 'inconnue') {
+                    const parent = plmParentInsee(inseeCode)
+                    if (parent) {
+                        try {
+                            const res = await fetchWithTimeout(`https://georisques.gouv.fr/api/v1/zonage_sismique?code_insee=${parent}`)
+                            if (res.ok) {
+                                const data = await res.json()
+                                if (data.data && data.data.length > 0) {
+                                    overlays.seismicZone = data.data[0].code_zone || 'inconnue'
+                                    overlays.seismicClass = data.data[0].zone_sismicite || 'inconnue'
+                                    console.log(`Seismic resolved via parent commune ${parent} for arrondissement ${inseeCode}`)
+                                }
+                            }
+                        } catch (e) { console.error('Seismic parent-commune retry failed:', e) }
+                    }
+                }
 
                 // Parse PPRN
                 if (pprnRes.status === 'fulfilled' && pprnRes.value.ok) {
@@ -533,11 +562,18 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        // Provenance of the zoning, so downstream can be HONEST about coverage instead of silently
+        // estimating: 'gpu' = zone found in the IGN GPU; 'rnu' = commune under national rules;
+        // 'gpu-absent' = not RNU yet nothing in GPU (typically a PLUi/métropole plan not published
+        // there — e.g. Bordeaux, Montpellier). The last case is a data gap, not a transient failure.
+        const zoneSource: 'gpu' | 'rnu' | 'gpu-absent' = isRnu ? 'rnu' : (zoneData ? 'gpu' : 'gpu-absent')
+
         return NextResponse.json({
             zone: zoneData,
             prescriptions: uniquePrescriptions,
             fetchedAt: new Date().toISOString(),
             isRnu,
+            zoneSource,
             overlays
         })
 

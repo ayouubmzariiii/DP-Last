@@ -73,7 +73,11 @@ const HERITAGE_ROOF = ['bac acier', 'tole', 'zinc', 'fibrociment', 'bardeau', 's
 const BRIGHT_COLORS = ['rouge', 'bleu', 'vert', 'jaune', 'orange', 'rose', 'violet', 'turquoise', 'fuchsia', 'fluo', 'flashy', 'vif']
 const NEUTRAL_COLORS = ['fonce', 'sombre', 'pastel', 'sable', 'naturel', 'anthracite', 'ardoise', 'taupe', 'gris', 'beige', 'blanc', 'creme', 'ecru', 'pierre', 'bois', 'vieux']
 
-type CheckCtx = { rules: any; heritage: boolean; strict: boolean }
+// estimated = the rules were NOT read from the commune's actual règlement (they are a type-of-zone
+// estimation, possibly AI-guessed). In that mode a forbidden-list match is only a *warning*, never a
+// hard violation — an unverified guess must not produce a definitive « NON CONFORME ». Heritage/ABF,
+// flood, seismic and surface-threshold verdicts are overlay/law-grounded and stay hard regardless.
+type CheckCtx = { rules: any; heritage: boolean; strict: boolean; estimated: boolean }
 
 // A material-ish field vs the règlement lists + heritage proscriptions.
 // bucket picks which rules section applies; fence falls back to facade rules.
@@ -101,7 +105,9 @@ function checkMaterial(key: string, label: string, raw: string, ctx: CheckCtx, b
     }
     const forbiddenHit = listHit(forbiddenList, cand)
     if (forbiddenHit) {
-        return { ...base, verdict: 'violation', rule: forbiddenHit, note: `Figure parmi les matériaux interdits par le règlement de la zone (« ${forbiddenHit} »).`, message: `${label} « ${raw} » interdit par le règlement de la zone (matériaux proscrits : « ${forbiddenHit} »).` }
+        return ctx.estimated
+            ? { ...base, verdict: 'warning', note: `Potentiellement interdit selon l'estimation par type de zone (« ${forbiddenHit} ») — à confirmer avec le règlement officiel.`, message: `${label} « ${raw} » potentiellement interdit (estimation par type de zone, non vérifiée sur le règlement communal) : à confirmer avec le document officiel.` }
+            : { ...base, verdict: 'violation', rule: forbiddenHit, note: `Figure parmi les matériaux interdits par le règlement de la zone (« ${forbiddenHit} »).`, message: `${label} « ${raw} » interdit par le règlement de la zone (matériaux proscrits : « ${forbiddenHit} »).` }
     }
     if (allowedRaw.length) {
         if (listHit(allowedRaw, cand)) return { ...base, verdict: 'ok', note: 'Dans la liste des matériaux autorisés par le règlement.' }
@@ -132,7 +138,9 @@ function checkColor(key: string, label: string, raw: string, ctx: CheckCtx, buck
     }
     const forbiddenHit = listHit(forbiddenRaw, cand)
     if (forbiddenHit) {
-        return { ...base, verdict: 'violation', rule: forbiddenHit, note: `Figure parmi les teintes interdites par le règlement de la zone (« ${forbiddenHit} »).`, message: `Teinte « ${raw} » interdite par le règlement de la zone (teintes proscrites : « ${forbiddenHit} »).` }
+        return ctx.estimated
+            ? { ...base, verdict: 'warning', note: `Teinte potentiellement interdite selon l'estimation par type de zone (« ${forbiddenHit} ») — à confirmer avec le règlement officiel.`, message: `Teinte « ${raw} » potentiellement interdite (estimation par type de zone, non vérifiée sur le règlement communal) : à confirmer avec le document officiel.` }
+            : { ...base, verdict: 'violation', rule: forbiddenHit, note: `Figure parmi les teintes interdites par le règlement de la zone (« ${forbiddenHit} »).`, message: `Teinte « ${raw} » interdite par le règlement de la zone (teintes proscrites : « ${forbiddenHit} »).` }
     }
     if (allowedRaw.length) {
         if (listHit(allowedRaw, cand)) return { ...base, verdict: 'ok', note: 'Dans la palette de teintes autorisée par le règlement.' }
@@ -151,9 +159,9 @@ const naCheck = (key: string, label: string, value: any, note = 'Sans incidence 
 }
 
 // The full field-by-field checklist for the current work type.
-export function buildDetailChecks(travaux: any, rules: any, overlays: any, strict: boolean): DetailCheck[] {
+export function buildDetailChecks(travaux: any, rules: any, overlays: any, strict: boolean, estimated = false): DetailCheck[] {
     const heritage = !!(overlays?.hasSPR || (overlays?.monumentsWithin500m && overlays.monumentsWithin500m.length > 0))
-    const ctx: CheckCtx = { rules, heritage, strict }
+    const ctx: CheckCtx = { rules, heritage, strict, estimated }
     const t = travaux.type
     const out: (DetailCheck | null)[] = []
 
@@ -257,7 +265,7 @@ export function buildDetailChecks(travaux: any, rules: any, overlays: any, stric
     return out.filter((c): c is DetailCheck => !!c)
 }
 
-export function evaluateProject(travaux: any, rules: any, overlays: any, strict = false) {
+export function evaluateProject(travaux: any, rules: any, overlays: any, strict = false, estimated = false) {
     // Dedupe violations by category so the règlement-based and heritage checks never double-count.
     const V = new Map<string, string>()
     const warnings: string[] = []
@@ -281,7 +289,7 @@ export function evaluateProject(travaux: any, rules: any, overlays: any, strict 
 
     // ── 2. EVERY détail of the work type, checked one by one (single source of truth:
     //       the same rows are shown to the user as the field-by-field checklist). ──
-    const detailChecks = buildDetailChecks(travaux, rules, overlays, strict)
+    const detailChecks = buildDetailChecks(travaux, rules, overlays, strict, estimated)
     for (const c of detailChecks) {
         if (c.verdict === 'violation') violate(c.category || c.key, c.message || `${c.label} « ${c.value} » non conforme au règlement de la zone.`)
         else if (c.verdict === 'warning' && c.message) warnings.push(c.message)

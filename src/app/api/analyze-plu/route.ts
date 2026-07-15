@@ -49,7 +49,12 @@ async function callOpenRouter(apiKey: string, model: string, content: any, maxTo
             body: JSON.stringify({
                 model,
                 messages: [{ role: 'user', content }],
-                temperature: 0.15,
+                // temperature 0 → deterministic extraction: the same règlement text yields the same
+                // rules on every cold call (a cold-call flip was observed at 0.15, e.g. Boulogne's
+                // verdict oscillating CONFORME↔NON CONFORME between runs). NOTE: `openrouter/free`
+                // auto-routes to a different model per call, which is the remaining drift source —
+                // pin OPENROUTER_PLU_MODEL to a fixed model for full determinism.
+                temperature: 0,
                 max_tokens: maxTokens,
             }),
             signal: controller.signal,
@@ -225,7 +230,7 @@ export async function POST(req: NextRequest) {
         if (hit && (Date.now() - hit.at) < CACHE_TTL_MS) {
             // strict = the rules come from the actual règlement text (not an estimation), so
             // whitelist misses (materials/colours outside the allowed lists) are hard violations.
-            const evaluationResult = evaluateProject(travaux, hit.extractedRules, plu?.overlays, hit.source === 'reglement')
+            const evaluationResult = evaluateProject(travaux, hit.extractedRules, plu?.overlays, hit.source === 'reglement', hit.source !== 'reglement')
             // Rebuild the editable counter-proposal on cache hits too — otherwise re-analysing a
             // still-non-conforming project would silently drop the proposal + Apply button.
             if (evaluationResult.violations.length > 0) {
@@ -525,12 +530,17 @@ ${fieldSpecText}
             extractedRules.heritage_override = { ...(extractedRules.heritage_override || {}), ABF_review: true }
         }
 
-        const evaluationResult = evaluateProject(travaux, extractedRules, plu?.overlays, source === 'reglement')
+        const evaluationResult = evaluateProject(travaux, extractedRules, plu?.overlays, source === 'reglement', source !== 'reglement')
         if (!verified) {
             // An ESTIMATION is uncertain — but hard violations (esp. heritage ones, derived from the
             // reliable SPR/MH overlays) must stand. Only soften a verdict that found no violation.
             if (evaluationResult.violations.length === 0 && !/NON.?CONFORME/i.test(evaluationResult.status)) {
                 evaluationResult.status = 'CONFORMITÉ INCERTAINE'
+            }
+            // Distinguish "zoning not in the national GPU at all" (PLUi/métropole gap) from "PDF
+            // just unreadable" — the user deserves to know WHICH, not a generic estimation note.
+            if (plu?.zoneSource === 'gpu-absent') {
+                evaluationResult.warnings.push('Zonage indisponible dans la base nationale (Géoportail de l’Urbanisme) pour cette commune — elle relève très probablement d’un PLU intercommunal (métropole) non publié sur le GPU. L’analyse ci-dessous est INDICATIVE : consultez le règlement de l’intercommunalité pour la zone exacte et ses règles.')
             }
             evaluationResult.warnings.push(
                 unreadable

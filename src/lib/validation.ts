@@ -213,7 +213,7 @@ export function pluAspectConflicts(data: DPFormData): { material: AspectConflict
     const plu = data.terrain?.plu
     const tr = data.travaux
     if (!plu?.extractedRules || !tr?.type) return { material: null, color: null }
-    const checks = buildDetailChecks(tr, plu.extractedRules, plu.overlays, plu.source === 'reglement')
+    const checks = buildDetailChecks(tr, plu.extractedRules, plu.overlays, plu.source === 'reglement', plu.source !== 'reglement')
     const pick = (kind: 'material' | 'color'): AspectConflict | null => {
         const hit = checks.find(c => c.kind === kind && c.verdict === 'violation' && c.rule)
         return hit ? { chosen: hit.value, rule: hit.rule! } : null
