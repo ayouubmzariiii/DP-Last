@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Configuration serveur incomplète : AUTH_SECRET manquant. Contactez l’administrateur.' }, { status: 503 })
     }
 
+    // Interrupteur back-office : inscriptions suspendues (les comptes existants restent OK).
+    const open = await import('@/lib/appSettings').then(m => m.getSetting<boolean>('registration_open')).catch(() => true)
+    if (!open) {
+        return NextResponse.json({ error: 'Les inscriptions sont temporairement suspendues. Réessayez plus tard.' }, { status: 403 })
+    }
+
     let body: unknown
     try { body = await req.json() } catch { return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 }) }
 

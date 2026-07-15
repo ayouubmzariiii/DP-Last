@@ -32,8 +32,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Identifiants invalides.' }, { status: 401 })
         }
 
-        const token = await createSessionToken({ userId: row.id, email: row.email })
-        const res = NextResponse.json({ user: { id: row.id, email: row.email } }, { status: 200 })
+        const role = row.role === 'admin' ? 'admin' : 'user'
+        const token = await createSessionToken({ userId: row.id, email: row.email, role })
+        const res = NextResponse.json({ user: { id: row.id, email: row.email, role } }, { status: 200 })
         res.cookies.set(COOKIE_NAME, token, sessionCookieOptions())
         return res
     } catch (err) {

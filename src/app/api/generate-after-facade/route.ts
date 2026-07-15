@@ -4,6 +4,7 @@ import sharp from 'sharp'
 import { Readable } from 'stream'
 import { getSession } from '@/lib/auth'
 import { MAX_IMAGE_ATTEMPTS, ownsDossier, imageAttemptCount, bumpImageAttempt } from '@/lib/imageAttempts'
+import { getSetting } from '@/lib/appSettings'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
@@ -92,14 +93,17 @@ export async function POST(req: NextRequest) {
         // Per-image generation cap (4 per façade). Enforced when the client identifies the
         // image (dossierId + facadeId) — which étape 6 always does. Check BEFORE the AI call
         // so we never pay for a refused attempt; count only on success (see finish()).
+        // Plafond par façade piloté depuis /admin (défaut : MAX_IMAGE_ATTEMPTS).
+        const maxAttempts = await getSetting<number>('image_attempts_per_facade').catch(() => MAX_IMAGE_ATTEMPTS)
+
         const tracked = !!(dossierId && facadeId)
         if (tracked) {
             if (!(await ownsDossier(session.userId, dossierId!))) {
                 return NextResponse.json({ error: 'Dossier introuvable.' }, { status: 403 })
             }
             const used = await imageAttemptCount(dossierId!, facadeId!)
-            if (used >= MAX_IMAGE_ATTEMPTS) {
-                return NextResponse.json({ error: `Limite atteinte : ${MAX_IMAGE_ATTEMPTS} générations maximum pour cette image. Vous pouvez importer votre propre photo « après ».`, limitReached: true, attemptsRemaining: 0 }, { status: 429 })
+            if (used >= maxAttempts) {
+                return NextResponse.json({ error: `Limite atteinte : ${maxAttempts} générations maximum pour cette image. Vous pouvez importer votre propre photo « après ».`, limitReached: true, attemptsRemaining: 0 }, { status: 429 })
             }
         }
 
@@ -109,7 +113,7 @@ export async function POST(req: NextRequest) {
             let attemptsRemaining: number | undefined
             if (tracked) {
                 const n = await bumpImageAttempt(session.userId, dossierId!, facadeId!)
-                attemptsRemaining = Math.max(0, MAX_IMAGE_ATTEMPTS - n)
+                attemptsRemaining = Math.max(0, maxAttempts - n)
             }
             return NextResponse.json({ ...payload, attemptsRemaining })
         }
@@ -166,10 +170,10 @@ export async function POST(req: NextRequest) {
                         'X-Title': 'DP Travaux Facade Generator'
                     },
                     body: JSON.stringify({
-                        // Image generation is the ONE paid step — use an OpenRouter image model
-                        // (override via OPENROUTER_IMAGE_MODEL). seedream-4.5 supports both image
-                        // input (editing the "before" photo) and image output.
-                        model: process.env.OPENROUTER_IMAGE_MODEL || 'bytedance-seed/seedream-4.5',
+                        // Image generation is the ONE paid step — the model is admin-configurable
+                        // (/admin → Règles, repli env OPENROUTER_IMAGE_MODEL). seedream-4.5 supports
+                        // both image input (editing the "before" photo) and image output.
+                        model: await getSetting<string>('image_model').catch(() => process.env.OPENROUTER_IMAGE_MODEL || 'bytedance-seed/seedream-4.5'),
                         messages: [{ role: 'user', content }],
                         modalities: ['image']
                     })

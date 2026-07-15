@@ -30,6 +30,20 @@ export async function middleware(req: NextRequest) {
     if (isPublic(pathname)) return NextResponse.next()
 
     const session = await verifySessionToken(req.cookies.get(COOKIE_NAME)?.value)
+
+    // Back-office : réservé au rôle admin. Le claim JWT suffit pour le ROUTAGE (UX) ;
+    // chaque route /api/admin re-vérifie le rôle en base (source de vérité).
+    if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/admin/')) {
+        if (session?.role === 'admin') return NextResponse.next()
+        if (pathname.startsWith('/api/')) {
+            return NextResponse.json({ error: session ? 'Accès réservé aux administrateurs.' : 'Non authentifié.' }, { status: session ? 403 : 401 })
+        }
+        const url = req.nextUrl.clone()
+        if (session) { url.pathname = '/profil'; url.search = '' }           // connecté mais pas admin
+        else { url.pathname = '/login'; url.search = ''; url.searchParams.set('next', pathname) }
+        return NextResponse.redirect(url)
+    }
+
     if (session) return NextResponse.next()
 
     // Unauthenticated: JSON 401 for APIs, redirect to /login for pages.

@@ -9,6 +9,7 @@ export const runtime = 'nodejs'
 const PROFILE_COLS = {
     id: users.id,
     email: users.email,
+    role: users.role,
     fullName: users.fullName,
     phone: users.phone,
     language: users.language,
@@ -76,7 +77,7 @@ export async function PATCH(req: NextRequest) {
         const res = NextResponse.json({ user: row })
         // Keep the session token in sync with the (possibly) new email.
         if (nextEmail && nextEmail !== session.email) {
-            const token = await createSessionToken({ userId: session.userId, email: nextEmail })
+            const token = await createSessionToken({ userId: session.userId, email: nextEmail, role: session.role })
             res.cookies.set(COOKIE_NAME, token, sessionCookieOptions())
         }
         return res

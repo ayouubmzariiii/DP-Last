@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const email = parsed.data.email.toLowerCase().trim()
     const tokenHash = createHash('sha256').update(parsed.data.token).digest('hex')
 
-    const [user] = await db.select({ id: users.id, resetTokenExpires: users.resetTokenExpires })
+    const [user] = await db.select({ id: users.id, role: users.role, resetTokenExpires: users.resetTokenExpires })
         .from(users)
         .where(and(eq(users.email, email), eq(users.resetTokenHash, tokenHash)))
         .limit(1)
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         updatedAt: new Date(),
     }).where(eq(users.id, user.id))
 
-    const token = await createSessionToken({ userId: user.id, email })
+    const token = await createSessionToken({ userId: user.id, email, role: user.role === 'admin' ? 'admin' : 'user' })
     const res = NextResponse.json({ ok: true })
     res.cookies.set(COOKIE_NAME, token, sessionCookieOptions())
     return res

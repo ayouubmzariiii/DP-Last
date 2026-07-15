@@ -34,6 +34,7 @@ interface DossierMeta {
 }
 interface Account {
     email: string
+    role?: string
     createdAt?: string
     fullName?: string | null
     phone?: string | null
@@ -456,7 +457,12 @@ export default function ProfilePage() {
                         <h1 className="dp-page-title">Mon <span className="accent">profil</span></h1>
                     </div>
                 </div>
-                <button onClick={logout} className="dp-btn-secondary" style={{ flexShrink: 0 }}>Se déconnecter</button>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    {account?.role === 'admin' && (
+                        <Link href="/admin" className="dp-btn-secondary" style={{ textDecoration: 'none' }}>Back-office</Link>
+                    )}
+                    <button onClick={logout} className="dp-btn-secondary">Se déconnecter</button>
+                </div>
             </div>
 
             {/* Tab switcher */}

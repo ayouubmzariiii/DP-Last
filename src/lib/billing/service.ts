@@ -135,8 +135,10 @@ export async function cancelSubscription(userId: string): Promise<Entitlements> 
 // re-downloading never double-charges. Never throws / never blocks: returns what
 // was charged so the caller can surface it, but generation proceeds regardless.
 export async function consumeDossier(userId: string, dossierId?: string): Promise<{ charged: 'quota' | 'credit' | 'none' }> {
-    // Dormant unless billing is switched on — the app stays free for everyone.
-    if (!BILLING_ENFORCED) return { charged: 'none' }
+    // Dormant unless billing is switched on (back-office /admin → Règles, repli env BILLING_ENFORCED)
+    // — the app stays free for everyone.
+    const enforced = await import('@/lib/appSettings').then(m => m.getSetting<boolean>('billing_enforced')).catch(() => BILLING_ENFORCED)
+    if (!enforced) return { charged: 'none' }
     try {
         // Idempotency: only bill a dossier that hasn't been billed yet.
         if (dossierId) {

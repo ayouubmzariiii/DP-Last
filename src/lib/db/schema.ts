@@ -19,6 +19,10 @@ export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
     email: text('email').notNull().unique(),          // always stored lowercased
     passwordHash: text('password_hash').notNull(),
+    // Rôle du compte : 'user' (défaut) ou 'admin'. Les admins accèdent au back-office /admin
+    // (gestion des comptes, abonnements, dossiers, réglages de l'app). Le rôle est embarqué
+    // dans le JWT de session ET re-vérifié en base par les routes /api/admin (anti-staleness).
+    role: text('role').notNull().default('user'),
     // Account settings (editable from the profil "Paramètres" tab).
     // `fullName` is kept (= "Prénom Nom") for existing consumers (CERFA prefill),
     // alongside the discrete identity/contact fields collected at registration.
@@ -123,6 +127,17 @@ export const imageAttempts = pgTable('image_attempts', {
 }, (t) => ({
     uniq: uniqueIndex('image_attempts_dossier_facade_idx').on(t.dossierId, t.facadeId),
 }))
+
+// Réglages d'application pilotés depuis le back-office /admin (modèles IA, plafonds, interrupteurs).
+// Clé → valeur jsonb : la valeur garde son type naturel (string | number | boolean). Les routes
+// runtime lisent via lib/appSettings (cache court) avec repli sur les variables d'environnement,
+// donc une base vide = comportement actuel inchangé.
+export const appSettings = pgTable('app_settings', {
+    key: text('key').primaryKey(),
+    value: jsonb('value').notNull(),
+    updatedBy: text('updated_by'),                     // email de l'admin auteur du changement
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
 export type UserRow = typeof users.$inferSelect
 export type DossierRow = typeof dossiers.$inferSelect

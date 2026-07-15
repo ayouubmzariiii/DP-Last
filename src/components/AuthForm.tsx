@@ -68,7 +68,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 return
             }
             const pendingDest = await resumePendingAddress()
-            router.push(pendingDest || next)
+            // Un admin qui se connecte sans destination explicite atterrit sur le back-office.
+            const adminDest = !isRegister && data?.user?.role === 'admin' && next === '/profil' ? '/admin' : null
+            router.push(pendingDest || adminDest || next)
             router.refresh()
         } catch {
             setError('Erreur réseau. Réessayez.')

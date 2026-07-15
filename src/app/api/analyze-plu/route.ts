@@ -4,25 +4,19 @@ import { resolvePluDocUrl } from '@/lib/pluDoc'
 import { DPFormData } from '@/lib/models'
 import { getTravauxDef } from '@/lib/travauxRegistry'
 import { norm, evaluateProject } from '@/lib/pluEvaluate'
+import { getSetting } from '@/lib/appSettings'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-// tencent/hy3 is a reasoning model — accurate but slow (a real règlement takes ~1–2 min). Cap the
-// règlement text fed to it so the reasoning stays bounded, and time-box each call so a slow/hung
-// model can never exhaust the route (the deterministic verdict is returned regardless).
-const PLU_TEXT_CAP = 18000
+// Cap the règlement text fed to the model so the reasoning stays bounded, and time-box each call
+// so a slow/hung model can never exhaust the route (the deterministic verdict returns regardless).
 const PLU_CALL_TIMEOUT_MS = 100_000
 
-// Models (override via env). Default to OpenRouter's free auto-router, which is vision-capable
-// and works with any OpenRouter key (no credits required). For higher accuracy on legal text /
-// scanned règlements, set OPENROUTER_PLU_MODEL (and optionally OPENROUTER_VISION_MODEL) to a
-// stronger model your key can access, e.g. 'google/gemini-3.5-flash'.
-// openrouter/free auto-routes to an appropriate free model based on need (fast, vision-capable).
-// We don't force json_object (some routed models reject it) — the JSON is parsed from the reply.
-// Override with OPENROUTER_PLU_MODEL / OPENROUTER_VISION_MODEL for higher accuracy.
-const PLU_MODEL = process.env.OPENROUTER_PLU_MODEL || 'openrouter/free'
-const PLU_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || 'openrouter/free'
+// Models & text cap are ADMIN-CONFIGURABLE (back-office /admin → Règles de l'app), read per-request
+// from app_settings with env fallback (OPENROUTER_PLU_MODEL / OPENROUTER_VISION_MODEL) then the
+// coded default ('openrouter/free': works with any key, but auto-routes to a different model per
+// call — pin a model in the back-office for deterministic extractions).
 
 // In-memory extraction cache keyed by document URL + zone (règlements change rarely → big
 // reliability/latency/cost win for repeat addresses in the same zone).
@@ -214,6 +208,13 @@ export async function POST(req: NextRequest) {
         if (!apiKey) {
             return NextResponse.json({ error: 'AI API key not configured' }, { status: 503 })
         }
+
+        // Règles de l'app (pilotées depuis /admin, repli env → défaut).
+        const [PLU_MODEL, PLU_VISION_MODEL, PLU_TEXT_CAP] = await Promise.all([
+            getSetting<string>('plu_model'),
+            getSetting<string>('vision_model'),
+            getSetting<number>('plu_text_cap'),
+        ])
 
         let docUrl: string | undefined = plu?.zone?.url_doc
         const zoneLibelle: string | undefined = plu?.zone?.libelle

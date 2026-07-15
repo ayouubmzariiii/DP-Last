@@ -50,6 +50,13 @@
       "when": 1784043441635,
       "tag": "0006_gigantic_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784137871823,
+      "tag": "0007_pretty_clint_barton",
+      "breakpoints": true
     }
   ]
 }
