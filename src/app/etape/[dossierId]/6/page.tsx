@@ -318,11 +318,27 @@ function Dp3CoupeCard({ formData, savedImage, onCapture }: { formData: any; save
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key])
 
+    // Rasterize the pure-SVG string directly (Image → canvas). More reliable than html2canvas,
+    // which mis-handles the coupe's <clipPath>/earth-hatch and produced a blank capture.
     const handleCapture = async () => {
-        if (!boxRef.current) return
+        if (!svg) return
         setCapturing(true)
-        try { const canvas = await html2canvas(boxRef.current, { useCORS: true, scale: 2, backgroundColor: '#fbfaf7' }); onCapture?.(canvas.toDataURL('image/png')) }
-        catch (e) { console.error('DP3 capture error:', e) }
+        try {
+            const sized = svg.replace('<svg ', '<svg width="1280" height="720" ')
+            const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sized)
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                const img = new Image()
+                img.onload = () => {
+                    const c = document.createElement('canvas'); c.width = 1280; c.height = 720
+                    const ctx = c.getContext('2d'); if (!ctx) return reject(new Error('no 2d context'))
+                    ctx.fillStyle = '#fbfaf7'; ctx.fillRect(0, 0, 1280, 720); ctx.drawImage(img, 0, 0, 1280, 720)
+                    resolve(c.toDataURL('image/png'))
+                }
+                img.onerror = () => reject(new Error('SVG rasterisation failed'))
+                img.src = url
+            })
+            onCapture?.(dataUrl)
+        } catch (e) { console.error('DP3 capture error:', e) }
         finally { setCapturing(false) }
     }
     useEffect(() => {
