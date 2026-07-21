@@ -54,6 +54,46 @@ const euro = (cents: number) => (cents / 100).toLocaleString('fr-FR', { minimumF
 const mono: React.CSSProperties = { fontFamily: 'var(--mf)' }
 const miniBtn: React.CSSProperties = { padding: '7px 12px', fontSize: 12.5 }
 
+// ── Dossier summary helpers (mirrors the client-facing list in /profil) ────────
+interface DossierFilesSummary { situation: boolean; masse: boolean; notice: boolean; photos: number; simulations: number; croquis: number }
+interface DossierInnerSummary { applicant?: string; address?: string; worksType?: string; files?: DossierFilesSummary; abf?: boolean; photo?: string | null }
+
+// The admin API returns the raw `summary` jsonb column, shaped `{ empty, summary: {…} }`.
+// Older/flattened rows may already be the inner object — accept both.
+const innerSummary = (raw: any): DossierInnerSummary | null => {
+    if (!raw || typeof raw !== 'object') return null
+    return (raw.summary && typeof raw.summary === 'object') ? raw.summary : raw
+}
+
+const fileChips = (f?: DossierFilesSummary): string[] => {
+    if (!f) return []
+    const c: string[] = []
+    if (f.situation) c.push('Plan de situation')
+    if (f.masse) c.push('Plan de masse')
+    if (f.photos) c.push(`${f.photos} photo${f.photos > 1 ? 's' : ''}`)
+    if (f.simulations) c.push(`${f.simulations} simulation${f.simulations > 1 ? 's' : ''} IA`)
+    if (f.croquis) c.push(`${f.croquis} croquis`)
+    if (f.notice) c.push('Notice descriptive')
+    return c
+}
+
+type Lifecycle = 'brouillon' | 'complet' | 'depose' | 'accepte' | 'refuse' | 'archive'
+const lifecycleOf = (dd: AdminDossier): Lifecycle =>
+    dd.archivedAt ? 'archive'
+        : dd.decision === 'accepted' ? 'accepte'
+            : dd.decision === 'rejected' ? 'refuse'
+                : dd.submittedAt ? 'depose'
+                    : dd.status === 'complete' ? 'complet'
+                        : 'brouillon'
+const LIFECYCLE_CHIP: Record<Lifecycle, { label: string; cls: string; style?: React.CSSProperties }> = {
+    brouillon: { label: 'Brouillon', cls: 'dp-chip' },
+    complet: { label: 'Complet', cls: 'dp-chip is-ok' },
+    depose: { label: 'En instruction', cls: 'dp-chip', style: { background: '#F7EFDC', color: '#7A5C1E', borderColor: '#E5D5AC' } },
+    accepte: { label: 'Accepté ✓', cls: 'dp-chip is-ok' },
+    refuse: { label: 'Refusé', cls: 'dp-chip', style: { background: '#FDF4F1', color: '#8F2E22', borderColor: '#EBC3BB' } },
+    archive: { label: 'Archivé', cls: 'dp-chip', style: { opacity: .75 } },
+}
+
 export default function AdminPage() {
     const router = useRouter()
     const [tab, setTab] = useState<Tab>('apercu')
@@ -459,38 +499,70 @@ function DossiersTab({ onError }: { onError: (m: string | null) => void }) {
                 {FILTERS.map(f => <button key={f.key} onClick={() => setStatus(f.key)} style={chip(status === f.key)}>{f.label}</button>)}
             </div>
 
-            {loading ? <div style={{ textAlign: 'center', padding: 40 }}><span className="dp-spinner" /></div> : rows.map(dd => (
-                <div key={dd.id} className="dp-card" style={{ padding: '13px 18px', marginBottom: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: 220 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{dd.title}</span>
-                                <span className="dp-chip" style={{ fontSize: 10.5 }}>
-                                    {dd.decision === 'accepted' ? '✓ acceptée' : dd.decision === 'rejected' ? '✗ refusée' : dd.submittedAt ? 'déposé' : dd.status === 'complete' ? 'complet' : `étape ${dd.lastStep}/7`}
-                                </span>
-                                {dd.archivedAt && <span className="dp-chip" style={{ fontSize: 10.5, opacity: .7 }}>archivé</span>}
-                                {dd.billedAt && <span className="dp-chip is-ok" style={{ fontSize: 10.5 }}>facturé</span>}
+            {loading ? <div style={{ textAlign: 'center', padding: 40 }}><span className="dp-spinner" /></div> : rows.map(dd => {
+                const s = innerSummary(dd.summary)
+                const chips = fileChips(s?.files)
+                const details = [s?.worksType, s?.address].filter(Boolean).join(' · ')
+                const lc = lifecycleOf(dd)
+                const chip = LIFECYCLE_CHIP[lc]
+                return (
+                    <div key={dd.id} className="dp-card" style={{ padding: '14px 16px', marginBottom: 10, opacity: lc === 'archive' ? .85 : 1 }}>
+                        {/* En-tête : vignette « avant » · titre + méta · Inspecter */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                            <div style={{ width: 96, height: 96, flexShrink: 0, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px -2px rgba(37,34,30,.12)' }}>
+                                {s?.photo ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={s.photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                ) : (
+                                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                        <path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" />
+                                    </svg>
+                                )}
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, ...mono }}>
-                                {dd.email}{dd.clientName ? ` · client : ${dd.clientName}` : ''} · modifié le {fmtDate(dd.updatedAt)}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                                    <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflowWrap: 'anywhere' }}>{dd.title}</span>
+                                    <span className={chip.cls} style={chip.style}>{chip.label}</span>
+                                    {lc === 'brouillon' && <span className="dp-chip" style={{ fontSize: 10.5 }}>étape {dd.lastStep}/7</span>}
+                                    {dd.clientName && <span className="dp-chip" style={{ fontSize: 11 }}>👤 {dd.clientName}</span>}
+                                    {dd.billedAt && <span className="dp-chip is-ok" style={{ fontSize: 10.5 }}>facturé</span>}
+                                </div>
+                                {details && (
+                                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', marginBottom: 4, overflowWrap: 'anywhere' }}>{details}</div>
+                                )}
+                                <div className="dp-meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12.5, lineHeight: 1.5 }}>
+                                    {s?.applicant ? `${s.applicant} · ` : ''}modifié le {fmtDate(dd.updatedAt)}
+                                </div>
+                                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2, ...mono }}>{dd.email}</div>
                             </div>
+                            <button onClick={() => setOpenId(openId === dd.id ? null : dd.id)} className="dp-btn-secondary" style={{ ...miniBtn, flexShrink: 0 }} aria-expanded={openId === dd.id}>
+                                {openId === dd.id ? 'Fermer' : 'Inspecter'}
+                            </button>
                         </div>
-                        <button onClick={() => setOpenId(openId === dd.id ? null : dd.id)} className="dp-btn-secondary" style={miniBtn} aria-expanded={openId === dd.id}>
-                            {openId === dd.id ? 'Fermer' : 'Inspecter'}
-                        </button>
-                    </div>
 
-                    {openId === dd.id && (
-                        <div className="animate-fadeIn" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line-2)', fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.8 }}>
-                            {dd.summary?.applicant && <div><b>Demandeur :</b> {dd.summary.applicant}</div>}
-                            {dd.summary?.address && <div><b>Terrain :</b> {dd.summary.address}</div>}
-                            {dd.summary?.worksType && <div><b>Travaux :</b> {dd.summary.worksType}</div>}
-                            <div><b>Créé :</b> {fmtDate(dd.createdAt || null)} · <b>Déposé :</b> {fmtDate(dd.submittedAt)} · <b>Facturé :</b> {dd.billedAt ? fmtDate(dd.billedAt) : 'non'}</div>
-                            <div style={{ ...mono, fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>id {dd.id}</div>
-                        </div>
-                    )}
-                </div>
-            ))}
+                        {chips.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                {chips.map(c => (
+                                    <span key={c} className="dp-chip is-ok" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center' }}>
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                                        {c}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {openId === dd.id && (
+                            <div className="animate-fadeIn" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line-2)', fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.8 }}>
+                                {s?.applicant && <div><b>Demandeur :</b> {s.applicant}</div>}
+                                {s?.address && <div><b>Terrain :</b> {s.address}</div>}
+                                {s?.worksType && <div><b>Travaux :</b> {s.worksType}{s.abf ? ' · secteur protégé (ABF)' : ''}</div>}
+                                <div><b>Créé :</b> {fmtDate(dd.createdAt || null)} · <b>Déposé :</b> {fmtDate(dd.submittedAt)} · <b>Facturé :</b> {dd.billedAt ? fmtDate(dd.billedAt) : 'non'}{dd.archivedAt ? ` · Archivé : ${fmtDate(dd.archivedAt)}` : ''}</div>
+                                <div style={{ ...mono, fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>id {dd.id}</div>
+                            </div>
+                        )}
+                    </div>
+                )
+            })}
 
             {pages > 1 && (
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 18, alignItems: 'center' }}>
