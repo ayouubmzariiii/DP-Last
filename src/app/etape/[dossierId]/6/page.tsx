@@ -643,8 +643,14 @@ export default function Etape6() {
     // DP4 AI Text Generation
     const [isGeneratingDP4, setIsGeneratingDP4] = useState(false)
 
-    // Sub-step management
-    const [subStep, setSubStep] = useState(1) // 1: DP1, 2: DP2, 3: DP4, 4: Selection, 5: DP6, 6: DP5
+    // Sub-step management. Ids: 1 DP1 · 2 DP2 · 7 DP3 (only if the works modify the terrain
+    // profile) · 3 DP4 · 4 Sélection · 5 DP6 · 6 DP5. The visible ORDER is driven by `flow`
+    // so DP3 slots in right after DP2 without renumbering the other blocks.
+    const [subStep, setSubStep] = useState(1)
+    const dp3Required = !!getTravauxDef(formData.travaux.type)?.requiresDP3
+    const flow = dp3Required ? [1, 2, 7, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6]
+    const goNext = () => { const i = flow.indexOf(subStep); if (i >= 0 && i < flow.length - 1) setSubStep(flow[i + 1]) }
+    const goPrev = () => { const i = flow.indexOf(subStep); if (i > 0) setSubStep(flow[i - 1]) }
     const [selectedFacades, setSelectedFacades] = useState<string[]>([])
     const [dp1Zoom, setDp1Zoom] = useState(500)
     const [croquisInstructions, setCroquisInstructions] = useState<Record<string, string>>({})
@@ -951,14 +957,17 @@ export default function Etape6() {
     }
 
     const renderSubStepNavigation = () => {
-        const steps = [
-            { id: 1, label: 'DP1 : Situation', icon: '🗺️' },
-            { id: 2, label: 'DP2 : Masse', icon: '📐' },
-            { id: 3, label: 'DP4 : Notice', icon: '📝' },
-            { id: 4, label: 'Photos / Sélection', icon: '🖼️' },
-            { id: 5, label: 'DP6 : Insertion', icon: '✨' },
-            { id: 6, label: 'DP5 : Façades', icon: '🎨' }
-        ]
+        const LABELS: Record<number, { label: string; icon: string }> = {
+            1: { label: 'DP1 : Situation', icon: '🗺️' },
+            2: { label: 'DP2 : Masse', icon: '📐' },
+            7: { label: 'DP3 : Coupe', icon: '📏' },
+            3: { label: 'DP4 : Notice', icon: '📝' },
+            4: { label: 'Photos / Sélection', icon: '🖼️' },
+            5: { label: 'DP6 : Insertion', icon: '✨' },
+            6: { label: 'DP5 : Façades', icon: '🎨' },
+        }
+        const steps = flow.map((id, i) => ({ id, num: i + 1, ...LABELS[id] }))
+        const curIdx = flow.indexOf(subStep)
 
         return (
             <div className="mb-12 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
@@ -966,27 +975,31 @@ export default function Etape6() {
                     {/* Background Line */}
                     <div className="absolute top-5 left-0 w-full h-[1px] bg-[var(--line)] -translate-y-1/2 z-0" />
 
-                    {steps.map((s, idx) => (
-                        <div key={s.id} className="relative z-10 flex flex-col items-center gap-2 group cursor-pointer px-1" onClick={() => (s.id < subStep || aiGenerated) && setSubStep(s.id)}>
+                    {steps.map((s, idx) => {
+                        const done = idx < curIdx
+                        const current = s.id === subStep
+                        return (
+                        <div key={s.id} className="relative z-10 flex flex-col items-center gap-2 group cursor-pointer px-1" onClick={() => (done || aiGenerated) && setSubStep(s.id)}>
                             <div className={`dp-substep ${
-                                subStep === s.id ? 'is-current scale-110 shadow-[0_0_20px_rgba(45,90,76,0.4)]' :
-                                subStep > s.id ? 'is-done' : ''
+                                current ? 'is-current scale-110 shadow-[0_0_20px_rgba(45,90,76,0.4)]' :
+                                done ? 'is-done' : ''
                             }`}>
-                                {subStep > s.id ? (
+                                {done ? (
                                     <svg className="w-5 h-5 t-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                     </svg>
                                 ) : (
-                                    <span className={`text-xs font-bold ${subStep === s.id ? 'text-white' : 't-muted'}`}>{s.id}</span>
+                                    <span className={`text-xs font-bold ${current ? 'text-white' : 't-muted'}`}>{s.num}</span>
                                 )}
                             </div>
                             <span className={`text-[9px] font-bold uppercase tracking-widest text-center max-w-[80px] leading-tight transition-colors ${
-                                subStep === s.id ? 't-accent' : 't-ink2'
+                                current ? 't-accent' : 't-ink2'
                             }`}>
                                 {s.label}
                             </span>
                         </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </div>
         )
@@ -1066,30 +1079,41 @@ export default function Etape6() {
                                 }}
                                 savedImage={formData.plans.dp2_plan_masse}
                             />
-                            {getTravauxDef(formData.travaux.type)?.requiresDP3 && (
-                                <>
-                                    <div className="bg-[#FBF1EC] border border-[#E4C3B4] rounded-2xl p-6 mb-2">
-                                        <h3 className="text-lg font-bold t-ink mb-2">Plan de coupe (DP3)</h3>
-                                        <p className="text-sm t-ink2 leading-relaxed">
-                                            Votre projet modifie le profil du terrain : le plan de coupe est requis. Le terrain naturel est tracé depuis l&apos;altimétrie IGN ; le projet et ses cotes sont ajoutés automatiquement.
-                                        </p>
-                                    </div>
-                                    <Dp3CoupeCard
-                                        formData={formData}
-                                        onCapture={async (img) => {
-                                            try {
-                                                const url = await uploadImage(dossierId, 'dp3', img, { previousUrl: formData.plans.dp3_coupe })
-                                                updatePlans({ dp3_coupe: url })
-                                            } catch { alert('Téléversement du plan DP3 échoué. Réessayez.') }
-                                        }}
-                                        savedImage={formData.plans.dp3_coupe}
-                                    />
-                                </>
-                            )}
                             <div className="flex justify-between pt-4">
                                 <button onClick={() => setSubStep(1)} className="dp-btn-secondary">Retour</button>
-                                <button onClick={() => setSubStep(3)} className="dp-btn-primary px-8">
+                                <button onClick={goNext} className="dp-btn-primary px-8">
                                     Confirmer le DP2
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SUB-STEP 7: DP3 — plan de coupe (only when the works modify the terrain profile) */}
+                    {subStep === 7 && (
+                        <div className="space-y-8 animate-slideUp">
+                            <div className="bg-[#FBF1EC] border border-[#E4C3B4] rounded-2xl p-6 mb-2">
+                                <h3 className="text-lg font-bold t-ink mb-2">Plan de coupe (DP3)</h3>
+                                <p className="text-sm t-ink2 leading-relaxed">
+                                    Votre projet modifie le profil du terrain : le plan de coupe est requis. Le terrain naturel est tracé depuis l&apos;altimétrie IGN (RGE ALTI, NGF), le projet et ses cotes sont ajoutés automatiquement.
+                                </p>
+                            </div>
+                            <Dp3CoupeCard
+                                formData={formData}
+                                onCapture={async (img) => {
+                                    try {
+                                        const url = await uploadImage(dossierId, 'dp3', img, { previousUrl: formData.plans.dp3_coupe })
+                                        updatePlans({ dp3_coupe: url })
+                                    } catch { alert('Téléversement du plan DP3 échoué. Réessayez.') }
+                                }}
+                                savedImage={formData.plans.dp3_coupe}
+                            />
+                            <div className="flex justify-between pt-4">
+                                <button onClick={goPrev} className="dp-btn-secondary">Retour</button>
+                                <button onClick={goNext} className="dp-btn-primary px-8">
+                                    Confirmer le DP3
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                     </svg>
@@ -1130,7 +1154,7 @@ export default function Etape6() {
                                 />
                             </div>
                             <div className="flex justify-between pt-4">
-                                <button onClick={() => setSubStep(2)} className="dp-btn-secondary">Retour</button>
+                                <button onClick={goPrev} className="dp-btn-secondary">Retour</button>
                                 <button onClick={() => setSubStep(4)} className="dp-btn-primary px-8">
                                     Valider la notice
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
