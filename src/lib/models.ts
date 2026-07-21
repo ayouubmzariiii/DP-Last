@@ -3,7 +3,7 @@ import { TEST_DP4_NOTICE } from './testCache'
 
 export type Civilite = 'M' | 'Mme' | 'Société' | ''
 
-export type TypeTravaux = 'menuiseries' | 'isolation' | 'photovoltaique' | 'cloture' | 'ravalement' | 'toiture' | 'ouverture' | ''
+export type TypeTravaux = 'menuiseries' | 'isolation' | 'photovoltaique' | 'cloture' | 'ravalement' | 'toiture' | 'ouverture' | 'piscine' | 'extension' | 'abri' | 'terrassement' | ''
 
 export type TypeMenuiserie = 'fenetre' | 'porte' | 'volet' | 'baie_vitree' | ''
 export type MateriauMenuiserie = 'pvc' | 'aluminium' | 'bois' | 'mixte' | ''
@@ -193,6 +193,46 @@ export interface TravauxOuverture {
     description: string
 }
 
+// ── Tier 2 work types (requiresDP3: modify the terrain profile / built volume) ────────────────────
+export interface TravauxPiscine {
+    longueur: string            // m
+    largeur: string             // m
+    profondeur: string          // m (sous le TN)
+    hauteur_margelle: string    // m au-dessus du TN (souvent ~0,05)
+    recul_maison: string        // m — distance bassin ↔ maison existante (prospect)
+    local_technique: boolean
+    description: string
+}
+export interface TravauxExtension {
+    largeur: string             // m (dimension le long de la coupe)
+    profondeur: string          // m (autre dimension au sol)
+    hauteur_egout: string       // m / TN
+    hauteur_faitage: string     // m / TN
+    type_toit: 'mono' | 'double' | 'flat' | ''
+    cote_adossement: 'gauche' | 'droite' | 'independante' | ''  // côté de la maison existante
+    materiau: string
+    couleur: string
+    description: string
+}
+export interface TravauxAbri {
+    largeur: string             // m
+    profondeur: string          // m
+    hauteur_egout: string       // m / TN
+    hauteur_faitage: string     // m / TN
+    type_toit: 'mono' | 'double' | 'flat' | ''
+    materiau: string
+    couleur: string
+    description: string
+}
+export interface TravauxTerrassement {
+    longueur: string            // m le long de la coupe
+    type_mouvement: 'deblai' | 'remblai' | 'mixte' | ''
+    hauteur: string             // m (déblai − / remblai +) — dénivelé max
+    mur_soutenement: boolean
+    hauteur_mur: string         // m
+    description: string
+}
+
 export interface Travaux {
     type: TypeTravaux
     menuiseries?: TravauxMenuiseries
@@ -202,6 +242,10 @@ export interface Travaux {
     ravalement?: TravauxRavalement
     toiture?: TravauxToiture
     ouverture?: TravauxOuverture
+    piscine?: TravauxPiscine
+    extension?: TravauxExtension
+    abri?: TravauxAbri
+    terrassement?: TravauxTerrassement
     description_projet?: string
     surfaces?: {
         existante: string
@@ -242,6 +286,7 @@ export interface PlansSauvegardes {
     dp1_span_m?: number                   // ground span (m) of the captured DP1 map, for scale bar
     dp2_plan_masse: string | null         // URL carte statique zoom+
     dp2_span_m?: number                   // ground span (m) of the captured DP2 map, for scale bar
+    dp3_coupe?: string | null             // plan de coupe (DP3) — captured PNG, only when requiresDP3
     dp4_notice: string | null            // texte généré
 }
 
@@ -507,6 +552,25 @@ export const defaultTravaux: Travaux = {
         couleur: 'Gris anthracite',
         description: 'Remplacement de la couverture existante par du bac acier gris anthracite.',
     },
+    piscine: {
+        longueur: '8', largeur: '4', profondeur: '1.5', hauteur_margelle: '0.05', recul_maison: '3',
+        local_technique: true,
+        description: 'Création d’une piscine enterrée de 8 × 4 m (32 m²), profondeur 1,50 m, margelle au niveau du terrain.',
+    },
+    extension: {
+        largeur: '4', profondeur: '5', hauteur_egout: '2.6', hauteur_faitage: '4.1', type_toit: 'mono', cote_adossement: 'gauche',
+        materiau: 'Enduit ton pierre', couleur: 'Ton pierre',
+        description: 'Extension de 20 m² adossée au pignon, toiture mono-pente, enduit ton pierre.',
+    },
+    abri: {
+        largeur: '3', profondeur: '4', hauteur_egout: '2', hauteur_faitage: '2.5', type_toit: 'double',
+        materiau: 'Bois', couleur: 'Bois naturel',
+        description: 'Abri de jardin en bois de 12 m², toiture à deux pans.',
+    },
+    terrassement: {
+        longueur: '10', type_mouvement: 'deblai', hauteur: '1.2', mur_soutenement: true, hauteur_mur: '1.2',
+        description: 'Décaissement du terrain sur 10 m avec mur de soutènement de 1,20 m.',
+    },
     ouverture: {
         type_ouverture: 'fenetre_toit',
         operation: 'creation',
@@ -662,6 +726,10 @@ export const emptyTravaux: Travaux = {
     ravalement: { finition: 'enduit', couleur: '', materiau: '', facades_concernees: [], description: '' },
     toiture: { operation: 'refection_identique', materiau_couverture: '', couleur: '', description: '' },
     ouverture: { type_ouverture: 'fenetre', operation: 'creation', nombre: '', largeur: '', hauteur: '', facade: '', description: '' },
+    piscine: { longueur: '', largeur: '', profondeur: '', hauteur_margelle: '0.05', recul_maison: '', local_technique: false, description: '' },
+    extension: { largeur: '', profondeur: '', hauteur_egout: '', hauteur_faitage: '', type_toit: '', cote_adossement: '', materiau: '', couleur: '', description: '' },
+    abri: { largeur: '', profondeur: '', hauteur_egout: '', hauteur_faitage: '', type_toit: '', materiau: '', couleur: '', description: '' },
+    terrassement: { longueur: '', type_mouvement: '', hauteur: '', mur_soutenement: false, hauteur_mur: '', description: '' },
     description_projet: '', surfaces: { existante: '', creee: '', supprimee: '' }
 }
 

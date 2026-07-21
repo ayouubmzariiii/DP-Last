@@ -2,7 +2,7 @@
 // via /api/blob/upload and return its https URL to store in the dossier — so the
 // dossier JSON never carries base64. Used by étape 5 (photos) and étape 6 (AI + maps).
 
-export type ImageKind = 'before' | 'after' | 'croquis' | 'dp7' | 'dp8' | 'dp1' | 'dp2'
+export type ImageKind = 'before' | 'after' | 'croquis' | 'dp7' | 'dp8' | 'dp1' | 'dp2' | 'dp3'
 
 interface UploadOpts {
     facadeId?: string

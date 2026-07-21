@@ -59,6 +59,10 @@ export default function Etape3() {
     const updateRav = (data: Partial<typeof t.ravalement>) => updateTravaux({ ravalement: { ...t.ravalement!, ...data } })
     const updateToit = (data: Partial<typeof t.toiture>) => updateTravaux({ toiture: { ...t.toiture!, ...data } })
     const updateOuv = (data: Partial<typeof t.ouverture>) => updateTravaux({ ouverture: { ...t.ouverture!, ...data } })
+    const updatePis = (data: Partial<typeof t.piscine>) => updateTravaux({ piscine: { ...t.piscine!, ...data } })
+    const updateExt = (data: Partial<typeof t.extension>) => updateTravaux({ extension: { ...t.extension!, ...data } })
+    const updateAbri = (data: Partial<typeof t.abri>) => updateTravaux({ abri: { ...t.abri!, ...data } })
+    const updateTer = (data: Partial<typeof t.terrassement>) => updateTravaux({ terrassement: { ...t.terrassement!, ...data } })
 
     return (
         <>
@@ -445,6 +449,76 @@ export default function Etape3() {
                                         <input className="dp-input" type="number" placeholder="Hauteur (cm)" value={t.ouverture?.hauteur || ''} onChange={e => updateOuv({ hauteur: e.target.value })} />
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sous-formulaire Piscine (DP3) */}
+                    {t.type === 'piscine' && (
+                        <div className="dp-card animate-fadeIn">
+                            <h3 className="dp-section-title">🏊 Détails de la piscine</h3>
+                            <p className="text-xs t-ink2 mb-4">Le creusement modifie le profil du terrain : ces cotes alimentent le <b>plan de coupe (DP3)</b>.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="dp-form-group"><label className="dp-label">Longueur du bassin (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 8" value={t.piscine?.longueur || ''} onChange={e => updatePis({ longueur: e.target.value })} /></div>
+                                <div className="dp-form-group"><label className="dp-label">Largeur du bassin (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 4" value={t.piscine?.largeur || ''} onChange={e => updatePis({ largeur: e.target.value })} /></div>
+                                <div className="dp-form-group"><label className="dp-label">Profondeur (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 1.5" value={t.piscine?.profondeur || ''} onChange={e => updatePis({ profondeur: e.target.value })} /></div>
+                                <div className="dp-form-group"><label className="dp-label">Hauteur margelle / TN (m)</label><input className="dp-input" type="number" step="0.01" placeholder="ex: 0.05" value={t.piscine?.hauteur_margelle || ''} onChange={e => updatePis({ hauteur_margelle: e.target.value })} /></div>
+                                <div className="dp-form-group"><label className="dp-label">Recul / maison (m)</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 3" value={t.piscine?.recul_maison || ''} onChange={e => updatePis({ recul_maison: e.target.value })} /></div>
+                                <div className="dp-form-group flex items-end"><label className="dp-check-card !py-2"><input type="checkbox" checked={!!t.piscine?.local_technique} onChange={e => updatePis({ local_technique: e.target.checked })} /><span className="text-sm">Local technique</span></label></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sous-formulaire Extension / Abri (DP3) */}
+                    {(t.type === 'extension' || t.type === 'abri') && (() => {
+                        const isExt = t.type === 'extension'
+                        const v = (isExt ? t.extension : t.abri) as any
+                        const up = isExt ? updateExt : updateAbri
+                        return (
+                            <div className="dp-card animate-fadeIn">
+                                <h3 className="dp-section-title">{isExt ? '🏗️ Détails de l’extension' : '🏚️ Détails de l’annexe'}</h3>
+                                <p className="text-xs t-ink2 mb-4">Le volume créé alimente le <b>plan de coupe (DP3)</b> (hauteurs mesurées depuis le terrain naturel).</p>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="dp-form-group"><label className="dp-label">Largeur / coupe (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 4" value={v?.largeur || ''} onChange={e => up({ largeur: e.target.value } as never)} /></div>
+                                    <div className="dp-form-group"><label className="dp-label">Profondeur (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 5" value={v?.profondeur || ''} onChange={e => up({ profondeur: e.target.value } as never)} /></div>
+                                    <div className="dp-form-group"><label className="dp-label">Type de toit</label>
+                                        <select className="dp-select" value={v?.type_toit || ''} onChange={e => up({ type_toit: e.target.value } as never)}>
+                                            <option value="">—</option><option value="mono">Mono-pente</option><option value="double">Deux pans</option><option value="flat">Toit plat</option>
+                                        </select>
+                                    </div>
+                                    <div className="dp-form-group"><label className="dp-label">Hauteur à l’égout (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 2.6" value={v?.hauteur_egout || ''} onChange={e => up({ hauteur_egout: e.target.value } as never)} /></div>
+                                    <div className="dp-form-group"><label className="dp-label">Hauteur au faîtage (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 4.1" value={v?.hauteur_faitage || ''} onChange={e => up({ hauteur_faitage: e.target.value } as never)} /></div>
+                                    {isExt && (
+                                        <div className="dp-form-group"><label className="dp-label">Adossement</label>
+                                            <select className="dp-select" value={t.extension?.cote_adossement || ''} onChange={e => updateExt({ cote_adossement: e.target.value as never })}>
+                                                <option value="">—</option><option value="gauche">À gauche de la maison</option><option value="droite">À droite de la maison</option><option value="independante">Indépendante</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div className="dp-form-group"><label className="dp-label">Matériau / finition</label><input className="dp-input" placeholder="ex: Enduit ton pierre, bardage bois" value={v?.materiau || ''} onChange={e => up({ materiau: e.target.value } as never)} /></div>
+                                    <div className="dp-form-group"><label className="dp-label">Teinte</label><RalPicker format="label" placeholder="ex : Ton pierre" value={v?.couleur || ''} onChange={val => up({ couleur: val } as never)} /></div>
+                                </div>
+                            </div>
+                        )
+                    })()}
+
+                    {/* Sous-formulaire Terrassement (DP3) */}
+                    {t.type === 'terrassement' && (
+                        <div className="dp-card animate-fadeIn">
+                            <h3 className="dp-section-title">⛰️ Détails du terrassement</h3>
+                            <p className="text-xs t-ink2 mb-4">Le mouvement de terre modifie le profil du terrain : <b>plan de coupe (DP3)</b> avec TN et terrain fini.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="dp-form-group"><label className="dp-label">Type de mouvement *</label>
+                                    <select className="dp-select" value={t.terrassement?.type_mouvement || ''} onChange={e => updateTer({ type_mouvement: e.target.value as never })}>
+                                        <option value="">—</option><option value="deblai">Déblai (décaissement)</option><option value="remblai">Remblai (exhaussement)</option><option value="mixte">Déblai / remblai</option>
+                                    </select>
+                                </div>
+                                <div className="dp-form-group"><label className="dp-label">Hauteur / dénivelé (m) *</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 1.2" value={t.terrassement?.hauteur || ''} onChange={e => updateTer({ hauteur: e.target.value })} /></div>
+                                <div className="dp-form-group"><label className="dp-label">Longueur / coupe (m)</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 10" value={t.terrassement?.longueur || ''} onChange={e => updateTer({ longueur: e.target.value })} /></div>
+                                <div className="dp-form-group flex items-end"><label className="dp-check-card !py-2"><input type="checkbox" checked={!!t.terrassement?.mur_soutenement} onChange={e => updateTer({ mur_soutenement: e.target.checked })} /><span className="text-sm">Mur de soutènement</span></label></div>
+                                {t.terrassement?.mur_soutenement && (
+                                    <div className="dp-form-group"><label className="dp-label">Hauteur du mur (m)</label><input className="dp-input" type="number" step="0.1" placeholder="ex: 1.2" value={t.terrassement?.hauteur_mur || ''} onChange={e => updateTer({ hauteur_mur: e.target.value })} /></div>
+                                )}
                             </div>
                         </div>
                     )}

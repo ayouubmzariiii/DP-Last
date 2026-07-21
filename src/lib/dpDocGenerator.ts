@@ -978,21 +978,37 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         y -= 10
 
         const dp3 = dp3Status(data)
-        const panelH = 240
-        const panelY = y - panelH
-        box(page, M, panelY, cW, panelH, C.offWhite, C.black, 1.2)
+        const dp3Img = plans.dp3_coupe && (plans.dp3_coupe.startsWith('data:image') || plans.dp3_coupe.startsWith('http')) ? plans.dp3_coupe : null
 
-        const padX = 26
-        const head = dp3.required ? 'PLAN DE COUPE À JOINDRE' : 'PIÈCE NON REQUISE POUR CE PROJET'
-        let py = panelY + panelH - 34
-        tx(page, head, M + padX, py, 13, bold, C.black)
-        ln(page, M + padX, py - 8, M + padX + bold.widthOfTextAtSize(san(head), 13), py - 8, 1, C.black)
-        py -= 30
-        py = textBlock(page, dp3.reason, M + padX, py, 12, font, 116, 17, C.nearBlack, panelY + 18)
-        if (dp3.required) {
-            const boxTop = py - 16
-            const boxH = Math.max(46, boxTop - (panelY + 18))
-            placeholder(page, font, M + padX, boxTop, cW - padX * 2, boxH, 'Plan de coupe à joindre au dossier')
+        let dp3Rendered = false
+        if (dp3.required && dp3Img) {
+            // Captured plan de coupe (terrain naturel from IGN + project section) — embedded full width.
+            const img = await embed(doc, dp3Img)
+            if (img) {
+                const maxH = Math.min(y - FOOT_H - 40, 470)
+                const newY = drawImage(page, img, M, y, cW, maxH)
+                y = newY - 12
+                tx(page, san('Terrain naturel : altimetrie IGN RGE ALTI (NGF-IGN69), a titre indicatif. Echelle 1/100, X = Y (sans exageration).'), M, y, 8, fontOblique, C.mid)
+                dp3Rendered = true
+            }
+        }
+        if (!dp3Rendered) {
+            const panelH = 240
+            const panelY = y - panelH
+            box(page, M, panelY, cW, panelH, C.offWhite, C.black, 1.2)
+
+            const padX = 26
+            const head = dp3.required ? 'PLAN DE COUPE À JOINDRE' : 'PIÈCE NON REQUISE POUR CE PROJET'
+            let py = panelY + panelH - 34
+            tx(page, head, M + padX, py, 13, bold, C.black)
+            ln(page, M + padX, py - 8, M + padX + bold.widthOfTextAtSize(san(head), 13), py - 8, 1, C.black)
+            py -= 30
+            py = textBlock(page, dp3.reason, M + padX, py, 12, font, 116, 17, C.nearBlack, panelY + 18)
+            if (dp3.required) {
+                const boxTop = py - 16
+                const boxH = Math.max(46, boxTop - (panelY + 18))
+                placeholder(page, font, M + padX, boxTop, cW - padX * 2, boxH, 'Plan de coupe à joindre au dossier')
+            }
         }
 
         drawDesignFooter(page, font, bold, data, 'DP 3', 'Plan de coupe du terrain', 'Sans')

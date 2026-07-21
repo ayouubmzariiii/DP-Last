@@ -310,6 +310,147 @@ export const TRAVAUX_REGISTRY: Record<TravauxId, TravauxTypeDef> = {
             return out
         },
     },
+
+    // ── Tier 2 : projets modifiant le profil du terrain / le volume → plan de coupe (DP3) ──────────
+    piscine: {
+        id: 'piscine',
+        icon: '🏊',
+        title: 'Piscine',
+        subtitle: 'Bassin enterré 10–100 m²',
+        desc: 'Création d’une piscine enterrée ou semi-enterrée : le creusement modifie le profil du terrain (plan de coupe requis)',
+        color: 'blue',
+        descLabel: 'Détails du bassin (dimensions, profondeur, implantation) :',
+        descPlaceholder: 'Ex : Piscine enterrée 8 × 4 m, profondeur 1,50 m, à 3 m de la maison et 4 m de la limite.',
+        cerfaNature: 'nouvelle',
+        createsSurface: false,
+        requiresDP3: true,
+        natureLabel: 'Création d’une piscine enterrée',
+        worksLabel: (data) => {
+            const p = data.travaux.piscine
+            if (!p) return TRAVAUX_REGISTRY.piscine.natureLabel
+            const dim = p.longueur && p.largeur ? ` ${p.longueur} × ${p.largeur} m` : ''
+            return `Piscine enterrée${dim}`.trim()
+        },
+        aiDescription: (data) => {
+            const p = data.travaux.piscine
+            if (!p) return ''
+            return p.description || `Création d’une piscine enterrée de ${p.longueur || '8'} × ${p.largeur || '4'} m, profondeur ${p.profondeur || '1,5'} m.`
+        },
+        validate: (data) => {
+            const p = data.travaux.piscine
+            const out: TravauxWarning[] = []
+            if (!p) return out
+            if (blank(p.longueur) || blank(p.largeur)) out.push({ id: 'pis_dim', message: 'Dimensions du bassin non précisées.', field: 'longueur' })
+            if (blank(p.profondeur)) out.push({ id: 'pis_prof', message: 'Profondeur du bassin non précisée (indispensable au plan de coupe).', field: 'profondeur' })
+            const area = parseFloat(p.longueur) * parseFloat(p.largeur)
+            if (Number.isFinite(area) && area > 100) out.push({ id: 'pis_pc', message: 'Bassin > 100 m² : un permis de construire est requis (hors périmètre DP).', field: 'longueur' })
+            return out
+        },
+    },
+
+    extension: {
+        id: 'extension',
+        icon: '🏗️',
+        title: 'Extension',
+        subtitle: 'Agrandissement ≤ 40 m²',
+        desc: 'Extension de la construction (véranda, pièce en plus) créant de la surface — profil du terrain et volume modifiés',
+        color: 'terracotta',
+        descLabel: 'Détails de l’extension (emprise, hauteurs, adossement) :',
+        descPlaceholder: 'Ex : Extension 4 × 5 m adossée au pignon Est, toit mono-pente, égout 2,60 m, faîtage 4,10 m.',
+        cerfaNature: 'nouvelle',
+        createsSurface: true,
+        requiresDP3: true,
+        natureLabel: 'Extension de la construction existante',
+        worksLabel: (data) => {
+            const e = data.travaux.extension
+            if (!e) return TRAVAUX_REGISTRY.extension.natureLabel
+            const surf = e.largeur && e.profondeur ? ` (${(parseFloat(e.largeur) * parseFloat(e.profondeur)).toFixed(0)} m²)` : ''
+            return `Extension${surf}`.trim()
+        },
+        aiDescription: (data) => {
+            const e = data.travaux.extension
+            if (!e) return ''
+            return e.description || `Extension de ${e.largeur || '4'} × ${e.profondeur || '5'} m, finition ${e.materiau || 'enduit'}.`
+        },
+        validate: (data) => {
+            const e = data.travaux.extension
+            const out: TravauxWarning[] = []
+            if (!e) return out
+            if (blank(e.largeur) || blank(e.profondeur)) out.push({ id: 'ext_dim', message: 'Dimensions de l’extension non précisées.', field: 'largeur' })
+            if (blank(e.hauteur_faitage)) out.push({ id: 'ext_h', message: 'Hauteur au faîtage non précisée (plan de coupe).', field: 'hauteur_faitage' })
+            const area = parseFloat(e.largeur) * parseFloat(e.profondeur)
+            if (Number.isFinite(area) && area > 40) out.push({ id: 'ext_pc', message: 'Surface créée > 40 m² : permis de construire requis (architecte ≥ 150 m² au total).', field: 'largeur' })
+            return out
+        },
+    },
+
+    abri: {
+        id: 'abri',
+        icon: '🏚️',
+        title: 'Abri / garage',
+        subtitle: 'Annexe 5–20 m²',
+        desc: 'Abri de jardin, garage ou carport créant une emprise au sol — nouvelle construction avec volume',
+        color: 'stone',
+        descLabel: 'Détails de l’annexe (emprise, hauteurs, matériau) :',
+        descPlaceholder: 'Ex : Abri de jardin bois 3 × 4 m, toit deux pans, faîtage 2,50 m.',
+        cerfaNature: 'nouvelle',
+        createsSurface: true,
+        requiresDP3: true,
+        natureLabel: 'Construction d’une annexe (abri / garage)',
+        worksLabel: (data) => {
+            const a = data.travaux.abri
+            if (!a) return TRAVAUX_REGISTRY.abri.natureLabel
+            const surf = a.largeur && a.profondeur ? ` (${(parseFloat(a.largeur) * parseFloat(a.profondeur)).toFixed(0)} m²)` : ''
+            return `Annexe${surf}`.trim()
+        },
+        aiDescription: (data) => {
+            const a = data.travaux.abri
+            if (!a) return ''
+            return a.description || `Construction d’un abri de ${a.largeur || '3'} × ${a.profondeur || '4'} m en ${a.materiau || 'bois'}.`
+        },
+        validate: (data) => {
+            const a = data.travaux.abri
+            const out: TravauxWarning[] = []
+            if (!a) return out
+            if (blank(a.largeur) || blank(a.profondeur)) out.push({ id: 'abri_dim', message: 'Dimensions de l’annexe non précisées.', field: 'largeur' })
+            const area = parseFloat(a.largeur) * parseFloat(a.profondeur)
+            if (Number.isFinite(area) && area > 20) out.push({ id: 'abri_pc', message: 'Emprise > 20 m² : permis de construire requis.', field: 'largeur' })
+            return out
+        },
+    },
+
+    terrassement: {
+        id: 'terrassement',
+        icon: '⛰️',
+        title: 'Terrassement',
+        subtitle: 'Déblai / remblai, soutènement',
+        desc: 'Mouvement de terre (déblai / remblai) ou mur de soutènement modifiant le profil du terrain',
+        color: 'clay',
+        descLabel: 'Détails du terrassement (type, hauteur, soutènement) :',
+        descPlaceholder: 'Ex : Décaissement de 1,20 m sur 10 m avec mur de soutènement.',
+        cerfaNature: 'nouvelle',
+        createsSurface: false,
+        requiresDP3: true,
+        natureLabel: 'Terrassement / modification du profil du terrain',
+        worksLabel: (data) => {
+            const tr = data.travaux.terrassement
+            if (!tr) return TRAVAUX_REGISTRY.terrassement.natureLabel
+            const m = tr.type_mouvement === 'remblai' ? 'Remblai' : tr.type_mouvement === 'mixte' ? 'Déblai / remblai' : 'Déblai'
+            return `${m}${tr.hauteur ? ` ${tr.hauteur} m` : ''}`.trim()
+        },
+        aiDescription: (data) => {
+            const tr = data.travaux.terrassement
+            if (!tr) return ''
+            return tr.description || `Modification du profil du terrain (${tr.type_mouvement || 'déblai'}) sur une hauteur de ${tr.hauteur || '1'} m.`
+        },
+        validate: (data) => {
+            const tr = data.travaux.terrassement
+            const out: TravauxWarning[] = []
+            if (!tr) return out
+            if (blank(tr.hauteur)) out.push({ id: 'ter_h', message: 'Hauteur de déblai / remblai non précisée (plan de coupe).', field: 'hauteur' })
+            return out
+        },
+    },
 }
 
 /** Ordered list of definitions (Étape 3 card grid order). */

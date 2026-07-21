@@ -10,6 +10,7 @@ import { uploadImage } from '@/lib/uploadImage'
 import html2canvas from 'html2canvas'
 import { geocodeAddress } from '@/lib/ignMaps'
 import { buildPlanMasseSvg } from '@/lib/planMasse'
+import { generateCoupeSvg } from '@/lib/coupeData'
 
 const MAX_IMG_SIZE = 1.5 * 1024 * 1024 // 1.5MB to save bandwidth for Nemotron
 
@@ -290,6 +291,61 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
             </div>
             <div ref={mapRef} className="relative aspect-video bg-[#e0e0e0] flex items-center justify-center overflow-hidden">
                 {loading ? (<div className="text-center"><div className="dp-spinner dp-spinner-lg mx-auto mb-2" /><p className="text-xs" style={{ color: '#666' }}>Chargement BD TOPO...</p></div>) : geoData ? renderMap() : (<div className="text-center p-6 grayscale opacity-40"><div className="text-4xl mb-2">🗺️</div><p className="text-xs t-ink2 max-w-[200px] leading-relaxed">{error ? 'Erreur de chargement BD TOPO' : "Renseignez l'adresse pour générer le plan"}</p></div>)}
+            </div>
+        </div>
+    )
+}
+
+/** DP3 plan de coupe — builds the section from real IGN altimetry + cadastre and captures it. */
+function Dp3CoupeCard({ formData, savedImage, onCapture }: { formData: any; savedImage?: string | null; onCapture?: (img: string) => void }) {
+    const [svg, setSvg] = useState<string | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const [capturing, setCapturing] = useState(false)
+    const boxRef = useRef<HTMLDivElement>(null)
+    const autoRef = useRef(false)
+
+    const tr = formData.travaux
+    const key = JSON.stringify({ t: tr.type, p: tr.piscine, e: tr.extension, a: tr.abri, r: tr.terrassement, c: formData.terrain.coords, dc: formData.demandeur?.coords, ma: formData.terrain.meme_adresse, s: formData.terrain.section_cadastrale, n: formData.terrain.numero_parcelle })
+    useEffect(() => {
+        let cancelled = false
+        setLoading(true); setError(null); autoRef.current = false
+        generateCoupeSvg(formData, { date: new Date().toLocaleDateString('fr-FR') })
+            .then(res => { if (cancelled) return; if (!res) { setError('Coupe indisponible — vérifiez l’adresse du terrain.'); setSvg(null) } else { setSvg(res.svg) } })
+            .catch(() => { if (!cancelled) { setError('Chargement de l’altimétrie IGN impossible. Réessayez.'); setSvg(null) } })
+            .finally(() => { if (!cancelled) setLoading(false) })
+        return () => { cancelled = true }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key])
+
+    const handleCapture = async () => {
+        if (!boxRef.current) return
+        setCapturing(true)
+        try { const canvas = await html2canvas(boxRef.current, { useCORS: true, scale: 2, backgroundColor: '#fbfaf7' }); onCapture?.(canvas.toDataURL('image/png')) }
+        catch (e) { console.error('DP3 capture error:', e) }
+        finally { setCapturing(false) }
+    }
+    useEffect(() => {
+        if (svg && !savedImage && !autoRef.current) { autoRef.current = true; const tmt = setTimeout(handleCapture, 800); return () => clearTimeout(tmt) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [svg, savedImage])
+
+    return (
+        <div className="dp-card overflow-hidden">
+            <div className="flex items-center gap-3 mb-4 px-4 pt-4">
+                <span className="w-10 h-10 font-bold text-sm rounded-xl flex items-center justify-center" style={{ background: 'rgba(176,85,47,0.15)', color: '#B0552F' }}>DP3</span>
+                <div className="flex flex-col">
+                    <h3 className="font-semibold t-ink leading-tight">Plan de coupe du terrain et de la construction</h3>
+                    {savedImage ? <span className="text-[10px] t-ok font-medium">✓ Coupe capturée pour le PDF</span> : <span className="text-[10px] t-ink2">Profil du terrain naturel depuis l’altimétrie IGN</span>}
+                </div>
+                <button onClick={handleCapture} disabled={loading || !svg || capturing} className={`ml-auto px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 ${savedImage ? 'bg-[var(--act)] t-ok border border-[color:var(--acb)]' : 'text-white'}`} style={savedImage ? {} : { background: '#B0552F' }}>
+                    {capturing ? (<><div className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" /> Capture…</>) : (savedImage ? 'Actualiser' : 'Capturer pour le PDF')}
+                </button>
+            </div>
+            <div ref={boxRef} className="relative aspect-video bg-[#fbfaf7] flex items-center justify-center overflow-hidden">
+                {loading ? (<div className="text-center"><div className="dp-spinner dp-spinner-lg mx-auto mb-2" /><p className="text-xs t-ink2">Calcul du profil du terrain (IGN RGE ALTI)…</p></div>)
+                    : svg ? (<div className="w-full h-full" dangerouslySetInnerHTML={{ __html: svg }} />)
+                        : (<div className="text-center p-6"><div className="text-4xl mb-2 grayscale opacity-40">📐</div><p className="text-xs t-ink2 max-w-[240px] leading-relaxed">{error || 'Coupe indisponible.'}</p></div>)}
             </div>
         </div>
     )
@@ -1010,6 +1066,26 @@ export default function Etape6() {
                                 }}
                                 savedImage={formData.plans.dp2_plan_masse}
                             />
+                            {getTravauxDef(formData.travaux.type)?.requiresDP3 && (
+                                <>
+                                    <div className="bg-[#FBF1EC] border border-[#E4C3B4] rounded-2xl p-6 mb-2">
+                                        <h3 className="text-lg font-bold t-ink mb-2">Plan de coupe (DP3)</h3>
+                                        <p className="text-sm t-ink2 leading-relaxed">
+                                            Votre projet modifie le profil du terrain : le plan de coupe est requis. Le terrain naturel est tracé depuis l&apos;altimétrie IGN ; le projet et ses cotes sont ajoutés automatiquement.
+                                        </p>
+                                    </div>
+                                    <Dp3CoupeCard
+                                        formData={formData}
+                                        onCapture={async (img) => {
+                                            try {
+                                                const url = await uploadImage(dossierId, 'dp3', img, { previousUrl: formData.plans.dp3_coupe })
+                                                updatePlans({ dp3_coupe: url })
+                                            } catch { alert('Téléversement du plan DP3 échoué. Réessayez.') }
+                                        }}
+                                        savedImage={formData.plans.dp3_coupe}
+                                    />
+                                </>
+                            )}
                             <div className="flex justify-between pt-4">
                                 <button onClick={() => setSubStep(1)} className="dp-btn-secondary">Retour</button>
                                 <button onClick={() => setSubStep(3)} className="dp-btn-primary px-8">
