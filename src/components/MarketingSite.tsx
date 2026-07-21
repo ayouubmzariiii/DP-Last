@@ -73,11 +73,14 @@ const ELIG: Record<string, { label: string; emoji: string; img: string; verdict:
 }
 const ELIG_KEYS = ['menuiseries', 'ite', 'solaire', 'cloture', 'abri', 'piscine', 'ravalement', 'veranda']
 
-interface Plan { key: string; name: string; price: string; unit: string; per: string; tag: string; highlight: boolean; cta: string; desc: string; features: string[] }
+// `price`/`unit`/`per` drive the à-l'usage cards (per-dossier / per-pack already).
+// For the abonnement cards the headline is the PER-DOSSIER cost (perDossier) and the
+// full monthly amount is shown underneath as the total (total).
+interface Plan { key: string; name: string; price: string; unit: string; per: string; tag: string; highlight: boolean; cta: string; desc: string; features: string[]; perDossier?: string; total?: string }
 const PLANS_ABO: Plan[] = [
-    { key: 's', name: 'Studio', price: '290', unit: '€', per: 'par mois', tag: '', highlight: false, cta: 'Essayer 14 jours', desc: 'Indépendants, artisans et petits cabinets.', features: ['5 dossiers par mois — 58 € l’unité', 'Multi-projets et multi-clients', 'Exports à votre marque', 'Modifications illimitées', 'Sans engagement'] },
-    { key: 'c', name: 'Cabinet', price: '620', unit: '€', per: 'par mois', tag: 'Le plus choisi', highlight: true, cta: 'Essayer 14 jours', desc: 'Cabinets d’architecture et maîtres d’œuvre.', features: ['Tout de Studio, plus :', '12 dossiers/mois — ≈ 52 € l’unité', '5 utilisateurs inclus', 'Suivi par client et par chantier', 'Support prioritaire sous 4 h'] },
-    { key: 'e', name: 'Agence', price: 'Sur devis', unit: '', per: 'volume sur mesure', tag: '', highlight: false, cta: 'Parler à l’équipe', desc: 'Groupes, réseaux et grands comptes.', features: ['Dossiers et utilisateurs illimités', 'Tarif dégressif — plancher 50 €', 'Déploiement multi-agences', 'API, SSO et intégrations', 'Interlocuteur dédié'] },
+    { key: 's', name: 'Studio', price: '290', unit: '€', per: 'par mois', perDossier: '58 €', total: 'soit 290 € / mois · 5 dossiers', tag: '', highlight: false, cta: 'Essayer 14 jours', desc: 'Indépendants, artisans et petits cabinets.', features: ['Jusqu’à 5 dossiers par mois', 'Multi-projets et multi-clients', 'Exports à votre marque', 'Modifications illimitées', 'Sans engagement'] },
+    { key: 'c', name: 'Cabinet', price: '620', unit: '€', per: 'par mois', perDossier: '≈ 52 €', total: 'soit 620 € / mois · 12 dossiers', tag: 'Le plus choisi', highlight: true, cta: 'Essayer 14 jours', desc: 'Cabinets d’architecture et maîtres d’œuvre.', features: ['Tout de Studio, plus :', 'Jusqu’à 12 dossiers par mois', '5 utilisateurs inclus', 'Suivi par client et par chantier', 'Support prioritaire sous 4 h'] },
+    { key: 'e', name: 'Agence', price: 'Sur devis', unit: '', per: 'volume sur mesure', perDossier: 'dès 50 €', total: 'Sur devis · volume sur mesure', tag: '', highlight: false, cta: 'Parler à l’équipe', desc: 'Groupes, réseaux et grands comptes.', features: ['Dossiers et utilisateurs illimités', 'Tarif dégressif — plancher 50 €', 'Déploiement multi-agences', 'API, SSO et intégrations', 'Interlocuteur dédié'] },
 ]
 const PLANS_USAGE: Plan[] = [
     { key: 'd', name: 'Découverte', price: '0', unit: '€', per: 'pour toujours', tag: '', highlight: false, cta: 'Commencer', desc: 'Pour créer et vérifier votre dossier, sans payer.', features: ['Parcours guidé complet', 'Analyse PLU de la parcelle', 'Aperçu du CERFA et des pièces', 'Mode test avec filigrane', 'Sauvegarde de vos projets'] },
@@ -459,11 +462,22 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                                 {p.tag && <span style={s('position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--ac);color:#fff;font-family:var(--mf);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:5px 13px;border-radius:100px;white-space:nowrap')}>{p.tag}</span>}
                                 <div style={s('font-family:var(--hf);font-size:22px;font-weight:600;color:var(--ink)')}>{p.name}</div>
                                 <p style={s('font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:6px 0 0;min-height:40px')}>{p.desc}</p>
-                                <div style={s('display:flex;align-items:baseline;gap:6px;margin:18px 0 0')}>
-                                    <span style={{ fontFamily: 'var(--hf)', fontSize: p.price === 'Sur devis' ? 26 : 38, fontWeight: 600, color: 'var(--ink)', lineHeight: 1 }}>{p.price}</span>
-                                    <span style={s('font-size:18px;color:var(--muted)')}>{p.unit}</span>
-                                    <span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.04em;color:var(--muted);margin-left:4px')}>{p.per}</span>
-                                </div>
+                                {p.perDossier ? (
+                                    // Abonnement : le prix par dossier fait la une, le total mensuel dessous.
+                                    <div style={s('margin:18px 0 0')}>
+                                        <div style={s('display:flex;align-items:baseline;gap:6px')}>
+                                            <span style={{ fontFamily: 'var(--hf)', fontSize: p.perDossier.length > 5 ? 30 : 38, fontWeight: 600, color: 'var(--ink)', lineHeight: 1 }}>{p.perDossier}</span>
+                                            <span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.04em;color:var(--muted)')}>le dossier</span>
+                                        </div>
+                                        <div style={s('font-size:13px;color:var(--ink-2);margin-top:6px')}>{p.total}</div>
+                                    </div>
+                                ) : (
+                                    <div style={s('display:flex;align-items:baseline;gap:6px;margin:18px 0 0')}>
+                                        <span style={{ fontFamily: 'var(--hf)', fontSize: p.price === 'Sur devis' ? 26 : 38, fontWeight: 600, color: 'var(--ink)', lineHeight: 1 }}>{p.price}</span>
+                                        <span style={s('font-size:18px;color:var(--muted)')}>{p.unit}</span>
+                                        <span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.04em;color:var(--muted);margin-left:4px')}>{p.per}</span>
+                                    </div>
+                                )}
                                 <div style={s('height:1px;background:var(--line-2);margin:20px 0')}></div>
                                 <ul style={s('list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px;flex:1')}>
                                     {p.features.map((f) => (
