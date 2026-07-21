@@ -127,7 +127,7 @@ export function buildPlanMasseSvg(input: PlanMasseInput): string {
     }
 
     const parts: string[] = []
-    parts.push(`<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" style="background:#fbfaf7">`)
+    parts.push(`<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" style="width:100%;height:100%;display:block;background:#fbfaf7">`)
     parts.push(`<rect x="0" y="0" width="${VW}" height="${VH}" fill="#fbfaf7"/>`)
 
     // ── Parcels ──

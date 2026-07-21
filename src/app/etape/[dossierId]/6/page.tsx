@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { generateAICroquis, buildAIAfterImagePrompt, buildAICroquisPrompt, buildAIAfterImagePrompt as buildDP6Prompt, resizeImageForOpenAI } from '@/lib/aiImageGenerator'
-import { getTravauxDef } from '@/lib/travauxRegistry'
+import { getTravauxDef, travauxNatureLabel } from '@/lib/travauxRegistry'
 import { DPFormData } from '@/lib/models'
 import { uploadImage } from '@/lib/uploadImage'
 import html2canvas from 'html2canvas'
 import { geocodeAddress } from '@/lib/ignMaps'
+import { buildPlanMasseSvg } from '@/lib/planMasse'
 
 const MAX_IMG_SIZE = 1.5 * 1024 * 1024 // 1.5MB to save bandwidth for Nemotron
 
@@ -246,251 +247,33 @@ function Dp2VectorCard({ address, commune, formData, onCapture, savedImage, coor
     const renderMap = () => {
         if (!geoData || !geoData.cadastre) return null
         const [cx, cy] = geoData.center
-        const VW = 640, VH = 360
+        const terrain = formData?.terrain || {}, travaux = formData?.travaux || {}
 
-        // EPSG:3857 → ground-metre correction. Mercator units over-state true distance by 1/cos(lat);
-        // derive lat from the box centre (inverse Mercator) so on-screen cotes match the filed PDF.
-        const R = 6378137
-        const gf = Math.cos(2 * Math.atan(Math.exp(cy / R)) - Math.PI / 2)
-
-        const getCoords = (feat: any) => {
-            const t = feat.geometry?.type
-            if (t === 'Polygon') return feat.geometry.coordinates
-            if (t === 'MultiPolygon') return feat.geometry.coordinates.flat(1)
-            return []
-        }
-
-        const fC = geoData.cadastre?.features || []
-
-        // Prefer the applicant's exact cadastral reference (section + numéro) over nearest-to-geocode,
-        // so the preview highlights the same parcel the filed PDF identifies. See dpDocGenerator DP2.
-        const normSec = (s: any) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+/, '')
-        const normNum = (n: any) => String(parseInt(String(n || '').replace(/[^0-9]/g, ''), 10) || '')
-        const wantSec = normSec(formData?.terrain?.section_cadastrale)
-        const wantNum = normNum(formData?.terrain?.numero_parcelle)
-
-        let targetIdx = -1
-        if (wantSec && wantNum) {
-            targetIdx = fC.findIndex((f: any) => normSec(f.properties?.section) === wantSec && normNum(f.properties?.numero) === wantNum)
-        }
-        if (targetIdx < 0) {
-            let minDist = Infinity
-            for (let i = 0; i < fC.length; i++) {
-                const rings = getCoords(fC[i])
-                if (!rings || !rings[0]) continue
-                const ring = rings[0] as number[][]
-                let fx = 0, fy = 0
-                for (const c of ring) { fx += c[0]; fy += c[1] }
-                fx /= ring.length; fy /= ring.length
-                const dist = Math.sqrt((fx - cx) ** 2 + (fy - cy) ** 2)
-                if (dist < minDist) { minDist = dist; targetIdx = i }
-            }
-        }
-
-        let viewMinX = cx - 60, viewMaxX = cx + 60, viewMinY = cy - 60, viewMaxY = cy + 60
-        if (targetIdx >= 0) {
-            const ring = getCoords(fC[targetIdx])[0] as number[][]
-            if (ring) {
-                const pad = 20
-                let pMinX = Infinity, pMinY = Infinity, pMaxX = -Infinity, pMaxY = -Infinity
-                for (const c of ring) {
-                    if (c[0] < pMinX) pMinX = c[0]
-                    if (c[1] < pMinY) pMinY = c[1]
-                    if (c[0] > pMaxX) pMaxX = c[0]
-                    if (c[1] > pMaxY) pMaxY = c[1]
-                }
-                viewMinX = pMinX - pad; viewMaxX = pMaxX + pad
-                viewMinY = pMinY - pad; viewMaxY = pMaxY + pad
-            }
-        }
-
-        const srcW = viewMaxX - viewMinX, srcH = viewMaxY - viewMinY
-        const scale = Math.min(VW / srcW, VH / srcH) * 0.96
-        const offX = (VW - srcW * scale) / 2, offY = (VH - srcH * scale) / 2
-
-        const toSvg = (gx: number, gy: number) => ({
-            x: (gx - viewMinX) * scale + offX,
-            y: VH - ((gy - viewMinY) * scale + offY)
-        })
-
-        const toPath = (rings: number[][][]) => {
-            if (!rings) return ''
-            let d = ''
-            for (const ring of rings) {
-                if (!ring || ring.length < 3) continue
-                for (let i = 0; i < ring.length; i++) {
-                    const p = toSvg(ring[i][0], ring[i][1])
-                    d += (i === 0 ? `M ${p.x.toFixed(1)} ${p.y.toFixed(1)}` : ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-                }
-                d += ' Z'
-            }
-            return d
-        }
-
-        const fB = geoData.bati?.features || []
-        let tpMinX = Infinity, tpMinY = Infinity, tpMaxX = -Infinity, tpMaxY = -Infinity
-        if (targetIdx >= 0) {
-            const tpRing = (getCoords(fC[targetIdx])[0] || []) as number[][]
-            for (const c of tpRing) {
-                if (c[0] < tpMinX) tpMinX = c[0]; if (c[0] > tpMaxX) tpMaxX = c[0]
-                if (c[1] < tpMinY) tpMinY = c[1]; if (c[1] > tpMaxY) tpMaxY = c[1]
-            }
-        }
-
-        const bldDimLines: JSX.Element[] = []
-        fB.forEach((feat: any, bi: number) => {
-            const rings = getCoords(feat)
-            if (!rings || !rings[0]) return
-            const ring = rings[0] as number[][]
-            
-            // Strictly check if building is inside target parcel
-            if (targetIdx >= 0) {
-                let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity
-                for (const c of ring) {
-                    if (c[0] < bMinX) bMinX = c[0]; if (c[0] > bMaxX) bMaxX = c[0]
-                    if (c[1] < bMinY) bMinY = c[1]; if (c[1] > bMaxY) bMaxY = c[1]
-                }
-                const bCx = (bMinX + bMaxX) / 2, bCy = (bMinY + bMaxY) / 2
-                
-                // Building must be strictly within target parcel bounds
-                if (bCx < tpMinX || bCx > tpMaxX || bCy < tpMinY || bCy > tpMaxY) return
-                
-                // Second check: size of building to filter out tiny artifacts
-                const wM = bMaxX - bMinX, hM = bMaxY - bMinY
-                if (wM < 2 || hM < 2) return
-
-                const tl = toSvg(bMinX, bMaxY), tr = toSvg(bMaxX, bMaxY), bl = toSvg(bMinX, bMinY), br = toSvg(bMaxX, bMinY)
-                const svgW = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2)
-                const svgH = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2)
-                if (svgW < 12 && svgH < 12) return
-
-                const wlabel = `${(wM * gf).toFixed(1)} m`
-                const wmx = (bl.x + br.x) / 2, wmy = (bl.y + br.y) / 2 + 10
-                bldDimLines.push(
-                    <g key={`w${bi}`}>
-                        <line x1={bl.x} y1={bl.y + 8} x2={br.x} y2={br.y + 8} stroke="#111" strokeWidth={1.2} />
-                        <line x1={bl.x} y1={bl.y + 4} x2={bl.x} y2={bl.y + 12} stroke="#111" strokeWidth={1.2} />
-                        <line x1={br.x} y1={br.y + 4} x2={br.x} y2={br.y + 12} stroke="#111" strokeWidth={1.2} />
-                        <rect x={wmx - 16} y={wmy - 6} width={32} height={12} fill="white" rx={2} stroke="#ccc" strokeWidth={0.5} />
-                        <text x={wmx} y={wmy + 2.5} textAnchor="middle" fontSize={8} fontWeight="700" fill="#000">{wlabel}</text>
-                    </g>
-                )
-                const hlabel = `${(hM * gf).toFixed(1)} m`
-                const hmx = (tr.x + br.x) / 2 + 10, hmy = (tr.y + br.y) / 2
-                bldDimLines.push(
-                    <g key={`h${bi}`}>
-                        <line x1={tr.x + 8} y1={tr.y} x2={br.x + 8} y2={br.y} stroke="#111" strokeWidth={1.2} />
-                        <line x1={tr.x + 4} y1={tr.y} x2={tr.x + 12} y2={tr.y} stroke="#111" strokeWidth={1.2} />
-                        <line x1={br.x + 4} y1={br.y} x2={br.x + 12} y2={br.y} stroke="#111" strokeWidth={1.2} />
-                        <rect x={hmx - 16} y={hmy - 6} width={32} height={12} fill="white" rx={2} stroke="#ccc" strokeWidth={0.5} />
-                        <text x={hmx} y={hmy + 2.5} textAnchor="middle" fontSize={8} fontWeight="700" fill="#000">{hlabel}</text>
-                    </g>
-                )
-            }
-        })
-
-        const parcelDimLines: JSX.Element[] = []
-        if (targetIdx >= 0) {
-            const ring = (getCoords(fC[targetIdx])[0] || []) as number[][]
-            const sides: { i: number; distM: number }[] = []
-            for (let i = 0; i < ring.length - 1; i++) {
-                const dx = ring[i + 1][0] - ring[i][0], dy = ring[i + 1][1] - ring[i][1]
-                const distM = Math.sqrt(dx * dx + dy * dy)
-                if (distM >= 3) sides.push({ i, distM })
-            }
-            sides.sort((a, b) => b.distM - a.distM)
-            const topSides = sides.slice(0, 2)
-            for (const { i, distM } of topSides) {
-                const p1 = toSvg(ring[i][0], ring[i][1]), p2 = toSvg(ring[i + 1][0], ring[i + 1][1])
-                const svgLen = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
-                if (svgLen < 8) continue
-                const off = 12
-                const perpX = -(p2.y - p1.y) / svgLen * off, perpY = (p2.x - p1.x) / svgLen * off
-                const ox1 = p1.x + perpX, oy1 = p1.y + perpY, ox2 = p2.x + perpX, oy2 = p2.y + perpY
-                const mx = (ox1 + ox2) / 2, my = (oy1 + oy2) / 2
-                parcelDimLines.push(
-                    <g key={`p${i}`}>
-                        <line x1={p1.x} y1={p1.y} x2={ox1} y2={oy1} stroke="#2D5A4C" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
-                        <line x1={p2.x} y1={p2.y} x2={ox2} y2={oy2} stroke="#2D5A4C" strokeWidth={0.5} strokeDasharray="2,2" opacity={0.5} />
-                        <line x1={ox1} y1={oy1} x2={ox2} y2={oy2} stroke="#2D5A4C" strokeWidth={1} />
-                        <rect x={mx - 14} y={my - 5} width={28} height={10} fill="white" rx={1} opacity={0.9} />
-                        <text x={mx} y={my + 2} textAnchor="middle" fontSize={7} fontWeight="500" fill="#2D5A4C">{(distM * gf).toFixed(1)} m</text>
-                    </g>
-                )
-            }
-        }
-
-        const terrain = formData?.terrain || {}, travaux = formData?.travaux || {}, anns: string[] = []
+        // "Dimensions du projet" box lines — terrain/plancher surfaces + type-specific details.
+        const anns: string[] = []
         if (terrain.surface_terrain) anns.push(`Terrain: ${terrain.surface_terrain} m²`)
         if (terrain.surface_plancher) anns.push(`Plancher: ${terrain.surface_plancher} m²`)
-        
-        // Accurate work surfaces
-        const sCreee = travaux.surfaces?.creee || '0'
-        const sExist = travaux.surfaces?.existante || '0'
-        anns.push(`Surface créée: ${sCreee} m²`)
-        anns.push(`Existante: ${sExist} m²`)
-
-        // Specific work details
+        anns.push(`Surface créée: ${travaux.surfaces?.creee || '0'} m²`)
+        anns.push(`Existante: ${travaux.surfaces?.existante || '0'} m²`)
         if (travaux.type === 'menuiseries' && travaux.menuiseries) {
-            const m = travaux.menuiseries
-            anns.push(`Menuiseries: ${m.largeur || '?'}×${m.hauteur || '?'} cm`)
-            if (m.type) anns.push(`Type: ${m.type.replace('_', ' ')}`)
+            anns.push(`Menuiseries: ${travaux.menuiseries.largeur || '?'}×${travaux.menuiseries.hauteur || '?'} cm`)
+            if (travaux.menuiseries.type) anns.push(`Type: ${String(travaux.menuiseries.type).replace('_', ' ')}`)
         }
-        if (travaux.type === 'isolation' && travaux.isolation) {
-            anns.push(`Isolant: e=${travaux.isolation.epaisseur_isolant || '?'} cm`)
-        }
-        if (travaux.type === 'photovoltaique' && travaux.photovoltaique) {
-            const pv = travaux.photovoltaique
-            anns.push(`PV: ${pv.surface_totale || '?'} m² (${pv.nombre_panneaux || '?'} pan.)`)
-        }
+        if (travaux.type === 'isolation' && travaux.isolation) anns.push(`Isolant: e=${travaux.isolation.epaisseur_isolant || '?'} cm`)
+        if (travaux.type === 'photovoltaique' && travaux.photovoltaique) anns.push(`PV: ${travaux.photovoltaique.surface_totale || '?'} m² (${travaux.photovoltaique.nombre_panneaux || '?'} pan.)`)
 
-        const annLineH = 13, annBoxW = 145, annBoxH = anns.length > 0 ? anns.length * annLineH + 22 : 0
-        const annBoxX = VW - annBoxW - 6, annBoxY = VH - annBoxH - 70
-
-        return (
-            <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: '100%', background: '#e0e0e0' }}>
-                {fC.map((feat: any, i: number) => {
-                    const d = toPath(getCoords(feat))
-                    if (!d) return null
-                    const isTarget = i === targetIdx
-                    return <path key={i} d={d} fill={isTarget ? '#d0ebb8' : '#f5f5f2'} stroke={isTarget ? '#2D5A4C' : '#aaa'} strokeWidth={isTarget ? 2 : 0.8} />
-                })}
-                {(geoData.bati?.features || []).map((feat: any, i: number) => {
-                    const d = toPath(getCoords(feat))
-                    if (!d) return null
-                    return <path key={`b${i}`} d={d} fill="#9e9e9e" stroke="#333" strokeWidth={0.8} />
-                })}
-                {bldDimLines}
-                {parcelDimLines}
-                {(() => { const c = toSvg(cx, cy); return (<g><circle cx={c.x} cy={c.y} r={7} fill="none" stroke="#444" strokeWidth={0.9} /><circle cx={c.x} cy={c.y} r={2.5} fill="#444" /><line x1={c.x - 12} y1={c.y} x2={c.x + 12} y2={c.y} stroke="#444" strokeWidth={0.8} /><line x1={c.x} y1={c.y - 12} x2={c.x} y2={c.y + 12} stroke="#444" strokeWidth={0.8} /></g>) })()}
-                {anns.length > 0 && (
-                    <g>
-                        <rect x={annBoxX - 1} y={annBoxY - 1} width={annBoxW + 2} height={annBoxH + 2} fill="rgba(0,0,0,0.15)" rx={4} />
-                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={annBoxH} fill="#E8F0EC" stroke="#2D5A4C" strokeWidth={0.9} rx={3} />
-                        <rect x={annBoxX} y={annBoxY} width={annBoxW} height={15} fill="#2D5A4C" rx={3} />
-                        <rect x={annBoxX} y={annBoxY + 10} width={annBoxW} height={5} fill="#2D5A4C" />
-                        <text x={annBoxX + annBoxW / 2} y={annBoxY + 10.5} textAnchor="middle" fontSize={7.5} fontWeight="bold" fill="white">DIMENSIONS DU PROJET</text>
-                        {anns.map((ann, i) => <text key={i} x={annBoxX + 8} y={annBoxY + 28 + i * annLineH} fontSize={7.5} fill="#244A3E">• {ann}</text>)}
-                    </g>
-                )}
-                {[0, 45, 90, 135, 180, 225, 270, 315].map(a => {
-                    const rad = a * Math.PI / 180, r = a % 90 === 0 ? 16 : 10
-                    return <line key={a} x1={28} y1={VH - 28} x2={28 + Math.cos(rad) * r} y2={VH - 28 + Math.sin(rad) * r} stroke="#333" strokeWidth={a % 90 === 0 ? 1.4 : 0.8} />
-                })}
-                <circle cx={28} cy={VH - 28} r={2.5} fill="#333" />
-                <text x={28} y={VH - 50} textAnchor="middle" fontSize={8} fontWeight="bold" fill="#111">N</text>
-                <rect x={8} y={VH - 60} width={130} height={54} fill="white" stroke="#bbb" strokeWidth={0.7} rx={2} />
-                <rect x={14} y={VH - 52} width={9} height={7} fill="#d0ebb8" stroke="#2D5A4C" strokeWidth={1.2} />
-                <text x={26} y={VH - 47} fontSize={7} fill="#333">Parcelle concernée</text>
-                <rect x={14} y={VH - 42} width={9} height={7} fill="#f5f5f2" stroke="#aaa" strokeWidth={0.7} />
-                <text x={26} y={VH - 37} fontSize={7} fill="#333">Autres parcelles</text>
-                <rect x={14} y={VH - 32} width={9} height={7} fill="#9e9e9e" stroke="#333" strokeWidth={0.8} />
-                <text x={26} y={VH - 27} fontSize={7} fill="#333">Bâtiments BD TOPO</text>
-                <rect x={14} y={VH - 22} width={9} height={7} fill="#e0e0e0" stroke="#aaa" strokeWidth={0.5} />
-                <text x={26} y={VH - 17} fontSize={7} fill="#333">Voiries</text>
-                <text x={VW - 4} y={VH - 3} textAnchor="end" fontSize={5.5} fill="#888">BD TOPO® — Cadastre</text>
-            </svg>
-        )
+        // Delegated to the shared, framework-agnostic generator (also used by the PDF). Adds the
+        // "Localisation des travaux" marker + point-in-polygon parcel selection over the old inline SVG.
+        const svg = buildPlanMasseSvg({
+            cadastre: geoData.cadastre,
+            bati: geoData.bati,
+            center: [cx, cy],
+            wantSection: terrain.section_cadastrale,
+            wantNumero: terrain.numero_parcelle,
+            worksLabel: travaux.type ? travauxNatureLabel(formData as DPFormData) : undefined,
+            annotations: anns,
+        })
+        return <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: svg }} />
     }
 
     return (

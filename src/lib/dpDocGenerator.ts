@@ -760,6 +760,27 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 vMinX = parts[0]; vMinY = parts[1]; vMaxX = parts[2]; vMaxY = parts[3]
             }
 
+            // Subject building = the largest footprint whose centroid sits inside the target parcel.
+            // Highlighted + called out as "Localisation des travaux" (the works building).
+            let subjBuilding: any = null
+            if (targetParcel) {
+                const tr0 = getCoordArrays(targetParcel)[0] as number[][]
+                let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity
+                for (const c of tr0) { if (c[0] < sMinX) sMinX = c[0]; if (c[0] > sMaxX) sMaxX = c[0]; if (c[1] < sMinY) sMinY = c[1]; if (c[1] > sMaxY) sMaxY = c[1] }
+                let bestA = 0
+                for (const feat of featuresB) {
+                    const rings = getCoordArrays(feat); if (!rings || !rings[0]) continue
+                    const ring = rings[0] as number[][]
+                    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity
+                    for (const c of ring) { if (c[0] < bx0) bx0 = c[0]; if (c[0] > bx1) bx1 = c[0]; if (c[1] < by0) by0 = c[1]; if (c[1] > by1) by1 = c[1] }
+                    const bcx = (bx0 + bx1) / 2, bcy = (by0 + by1) / 2
+                    if (bcx < sMinX || bcx > sMaxX || bcy < sMinY || bcy > sMaxY) continue
+                    let a = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) a += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]
+                    a = Math.abs(a / 2)
+                    if (a > bestA) { bestA = a; subjBuilding = feat }
+                }
+            }
+
             const mapSrcW = vMaxX - vMinX
             const mapSrcH = vMaxY - vMinY
             const scale = Math.min(cW / mapSrcW, maxMapH / mapSrcH) * 0.98
@@ -823,10 +844,16 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 )
             }
 
-            // Draw Buildings
+            // Draw Buildings — the works building in terracotta, the rest neutral grey.
             for (const feat of featuresB) {
                 const rings = getCoordArrays(feat)
-                drawFillablePolygon(rings, rgb(0.62, 0.62, 0.62), rgb(0.2, 0.2, 0.2), 0.7)
+                const isSubj = feat === subjBuilding
+                drawFillablePolygon(
+                    rings,
+                    isSubj ? rgb(0.906, 0.796, 0.714) : rgb(0.62, 0.62, 0.62),
+                    isSubj ? rgb(0.69, 0.33, 0.18) : rgb(0.2, 0.2, 0.2),
+                    isSubj ? 1.6 : 0.7
+                )
             }
             
             // Pop Clipping
@@ -881,7 +908,9 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
 
             // Legend
             const legX = startX + 10, legY = startY + 10
-            box(page, legX, legY, 150, 60, C.white, C.dark, 0.8)
+            box(page, legX, legY, 155, 74, C.white, C.dark, 0.8)
+            page.drawRectangle({ x: legX + 8, y: legY + 59, width: 12, height: 8, color: rgb(0.906, 0.796, 0.714), borderColor: rgb(0.69, 0.33, 0.18), borderWidth: 1.5 })
+            tx(page, "Bâtiment des travaux", legX + 26, legY + 60, 7.5, font)
             page.drawRectangle({ x: legX + 8, y: legY + 45, width: 12, height: 8, color: rgb(0.82, 0.93, 0.72), borderColor: rgb(0, 0.35, 0.8), borderWidth: 1.5 })
             tx(page, "Parcelle concernée", legX + 26, legY + 46, 7.5, font)
             page.drawRectangle({ x: legX + 8, y: legY + 31, width: 12, height: 8, color: rgb(0.62, 0.62, 0.62), borderColor: rgb(0.2, 0.2, 0.2), borderWidth: 0.8 })
@@ -889,6 +918,16 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             page.drawRectangle({ x: legX + 8, y: legY + 17, width: 12, height: 8, color: rgb(0.88, 0.88, 0.88), borderColor: C.dark, borderWidth: 0.5 })
             tx(page, "Voiries / Autres", legX + 26, legY + 18, 7.5, font)
             tx(page, "IGN - BD TOPO / Cadastre", legX + 26, legY + 4, 6, fontOblique, C.mid)
+
+            // Works localisation callout (what + where) — the marker an instructeur scans for.
+            if (data.travaux.type && subjBuilding) {
+                const wl = san(`Travaux : ${natureLabel(data)}`)
+                const wlw = bold.widthOfTextAtSize(wl, 8)
+                const cbW = Math.min(wlw + 20, drawW - 20), cbX = startX + (drawW - cbW) / 2, cbY = startY + drawH - 24
+                box(page, cbX, cbY, cbW, 16, C.white, rgb(0.69, 0.33, 0.18), 1)
+                page.drawRectangle({ x: cbX, y: cbY, width: 4, height: 16, color: rgb(0.69, 0.33, 0.18) })
+                tx(page, wl, cbX + 9, cbY + 5, 8, bold, rgb(0.35, 0.16, 0.09))
+            }
 
             // Cadastral reference printed directly on the plan (required identification). When the
             // target parcel was matched, append its OFFICIAL surface (contenance, m²) from the
