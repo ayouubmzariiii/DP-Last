@@ -7,7 +7,7 @@ import { getSession } from '@/lib/auth'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const KINDS = new Set(['before', 'after', 'croquis', 'dp7', 'dp8', 'dp1', 'dp2'])
+const KINDS = new Set(['before', 'after', 'croquis', 'dp7', 'dp8', 'dp1', 'dp2', 'dp3'])
 const EXTS: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }
 
 // POST /api/blob/upload — server upload (all images < 4.5 MB). Auth + ownership guarded.
