@@ -47,9 +47,16 @@ async function main() {
 
     const piscine = buildPlanCoupeSvg({
         profile, parcelStartD, parcelEndD,
-        project: { kind: 'piscine', startD: 12.5, widthM: 8, depthM: 1.5, margelleM: 0.05 },
+        parcelStartKind: 'sep', parcelEndKind: 'voie',
+        project: {
+            // Parcel spans 6.2–23.9 m along the cut; house sits inside, near the boundary; pool beyond it.
+            kind: 'piscine', startD: 13.5, widthM: 8, depthM: 1.5, margelleM: 0.05,
+            existing: { startD: 6.8, widthM: 4.5, heightEgoutM: 2.7, heightFaitageM: 5.4 },
+        },
         worksLabel: 'Piscine enterrée 8 × 4 m',
-        annotations: ['Bassin : 8,00 × 4,00 m', 'Profondeur : 1,50 m', 'Margelle : +0,05 m / TN', 'Surface bassin : 32 m²'],
+        cartouche: { piece: 'DP3 · Plan de coupe A–A′', project: 'Piscine enterrée', ref: 'DP 024-000', date: '21/07/2026', scale: '1/100' },
+        miniPlan: { worksFrac: 0.55, worksCross: 0.5 },
+        annotations: ['Bassin : 8,00 × 4,00 m', 'Profondeur : 1,50 m', 'Recul / maison : voir cote', 'Surface bassin : 32 m²'],
     })
     writeFileSync(path.join(outDir, 'plancoupe-piscine.svg'), piscine)
     console.log(`OK — plancoupe-piscine.svg (${piscine.length} bytes)`)
@@ -62,6 +69,9 @@ async function main() {
             existing: { startD: 8.5, widthM: 8, heightEgoutM: 5.4, heightFaitageM: 7.8 },
         },
         worksLabel: 'Extension 4,2 m — toit mono-pente',
+        parcelStartKind: 'sep', parcelEndKind: 'voie',
+        cartouche: { piece: 'DP3 · Plan de coupe A–A′', project: 'Extension habitation', ref: 'DP 024-000', date: '21/07/2026', scale: '1/100' },
+        miniPlan: { worksFrac: 0.66, worksCross: 0.5 },
         annotations: ['Extension : 4,20 × 5,00 m', 'Égout : 2,60 m — Faîtage : 4,10 m', 'Surface créée : 21 m²', 'Adossée au pignon Est'],
     })
     writeFileSync(path.join(outDir, 'plancoupe-extension.svg'), extension)
