@@ -13,7 +13,7 @@
 // Strictement en LECTURE — aucun bouton d'écriture : les actions de gestion restent
 // dans l'onglet Utilisateurs (crédits, plans, rôle, suppression).
 // ─────────────────────────────────────────────────────────────────────────────
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
@@ -125,6 +125,104 @@ const renderVal = (v: unknown): React.ReactNode => {
     if (Array.isArray(v)) return v.length ? v.join(', ') : ''
     if (v === null || v === undefined) return ''
     return String(v)
+}
+
+// ── Documents générés ────────────────────────────────────────────────────────
+// Les PDF ne sont pas stockés : ils sont reconstruits à la demande depuis le `data`
+// en base (route /api/admin/dossiers/:id/document), donc toujours à jour. On les
+// récupère en blob plutôt que de pointer l'iframe directement sur l'URL, pour
+// pouvoir afficher une vraie erreur si la génération échoue.
+const DOCS = [
+    { kind: 'cerfa', icon: '📋', title: 'CERFA n°16702*03', blurb: 'Formulaire officiel, pré-rempli depuis le dossier.' },
+    { kind: 'dp', icon: '📁', title: 'Dossier DP complet', blurb: 'DP1 à DP8 — plans, notice, photos et insertions.' },
+    { kind: 'panneau', icon: '🪧', title: 'Panneau d’affichage', blurb: 'Panneau réglementaire à poser sur le terrain.' },
+] as const
+type DocKind = typeof DOCS[number]['kind']
+
+function DocumentsSection({ dossierId }: { dossierId: string }) {
+    const [kind, setKind] = useState<DocKind | null>(null)
+    const [url, setUrl] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
+    const [err, setErr] = useState<string | null>(null)
+    // Nombre de manques bloquants au moment de la génération (en-tête X-Dossier-Fatals) :
+    // le parcours client refuserait de produire le document, l'admin le voit quand même.
+    const [fatals, setFatals] = useState(0)
+    // Les object URLs doivent être révoquées à la main, sinon le blob reste en mémoire.
+    const urlRef = useRef<string | null>(null)
+
+    const revoke = () => { if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null } }
+    useEffect(() => revoke, [])
+
+    const open = useCallback(async (k: DocKind) => {
+        if (k === kind) { setKind(null); setUrl(null); setErr(null); revoke(); return }
+        setKind(k); setErr(null); setLoading(true); setUrl(null); setFatals(0); revoke()
+        try {
+            const r = await fetch(`/api/admin/dossiers/${dossierId}/document?kind=${k}`)
+            if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || 'Génération impossible.')
+            setFatals(Math.max(0, Number(r.headers.get('X-Dossier-Fatals') ?? 0)))
+            const blob = await r.blob()
+            const u = URL.createObjectURL(blob)
+            urlRef.current = u
+            setUrl(u)
+        } catch (e: any) { setErr(e.message) } finally { setLoading(false) }
+    }, [dossierId, kind])
+
+    return (
+        <Section title="Documents générés" icon="📥"
+            sub="Régénérés à la demande depuis les données en base — l’aperçu ne consomme ni quota ni crédit du client.">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                {DOCS.map(doc => {
+                    const active = kind === doc.kind
+                    return (
+                        <div key={doc.kind} style={{
+                            border: '1px solid', borderRadius: 12, padding: 14,
+                            ...(active ? { borderColor: 'var(--acb)', background: 'var(--act)' } : { borderColor: 'var(--line)', background: 'var(--surface-2)' }),
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                                <span style={{ fontSize: 18 }}>{doc.icon}</span>
+                                <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>{doc.title}</span>
+                            </div>
+                            <p style={{ fontSize: 11.5, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 10 }}>{doc.blurb}</p>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <button onClick={() => open(doc.kind)} disabled={loading && active}
+                                    className={active ? 'dp-btn-primary' : 'dp-btn-secondary'} style={miniBtn} aria-expanded={active}>
+                                    {loading && active ? 'Génération…' : active ? 'Masquer' : 'Aperçu'}
+                                </button>
+                                <a href={`/api/admin/dossiers/${dossierId}/document?kind=${doc.kind}&dl=1`}
+                                    className="dp-btn-secondary" style={{ ...miniBtn, textDecoration: 'none' }}>Télécharger</a>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+
+            {loading && (
+                <div style={{ textAlign: 'center', padding: 34 }}>
+                    <span className="dp-spinner" />
+                    <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>
+                        Composition du PDF (les plans et photos sont retéléchargés)…
+                    </div>
+                </div>
+            )}
+            {err && <div className="dp-alert is-error" style={{ marginTop: 14 }}>⚠️ {err}</div>}
+            {url && !loading && fatals > 0 && (
+                <div className="dp-alert is-warn" style={{ marginTop: 14 }}>
+                    Dossier incomplet : {fatals} point{fatals > 1 ? 's' : ''} bloquant{fatals > 1 ? 's' : ''}. Le client ne
+                    pourrait pas encore générer ce document — l’aperçu ci-dessous montre l’état actuel, champs manquants compris.
+                </div>
+            )}
+            {url && !loading && (
+                <div style={{ marginTop: 14 }}>
+                    <iframe src={url} title={`Aperçu ${kind}`} style={{
+                        width: '100%', height: 760, border: '1px solid var(--line)', borderRadius: 12, background: 'var(--surface-2)',
+                    }} />
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6 }}>
+                        Aperçu généré à l’instant. <a href={url} target="_blank" rel="noopener noreferrer" className="t-accent">Ouvrir dans un onglet ↗</a>
+                    </div>
+                </div>
+            )}
+        </Section>
+    )
 }
 
 // ── Cycle de vie ─────────────────────────────────────────────────────────────
@@ -304,6 +402,9 @@ export default function AdminDossierPage() {
                     </div>
                 </Section>
             )}
+
+            {/* Documents générés (CERFA, dossier DP, panneau) */}
+            <DocumentsSection dossierId={dd.id} />
 
             {/* Demandeur */}
             <Section title="Demandeur" icon="👤">
