@@ -243,10 +243,10 @@ function OverviewTab({ onError }: { onError: (m: string | null) => void }) {
                     <div style={lbl}>Derniers dossiers touchés</div>
                     {data.recentDossiers.map(dd => (
                         <div key={dd.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line-2)', fontSize: 13 }}>
-                            <div style={{ minWidth: 0 }}>
+                            <Link href={`/admin/dossiers/${dd.id}`} style={{ minWidth: 0, textDecoration: 'none' }} title="Ouvrir la fiche complète">
                                 <div style={{ fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.title}</div>
                                 <div style={{ fontSize: 11.5, color: 'var(--muted)', ...mono }}>{dd.email}</div>
-                            </div>
+                            </Link>
                             <span className="dp-chip" style={{ fontSize: 11, flexShrink: 0, alignSelf: 'center' }}>
                                 {dd.decision === 'accepted' ? '✓ acceptée' : dd.decision === 'rejected' ? '✗ refusée' : dd.status === 'complete' ? 'complet' : 'brouillon'}
                             </span>
@@ -422,9 +422,9 @@ function UsersTab({ onError, onNotice }: { onError: (m: string | null) => void; 
                                         {detail.dossiers.length === 0 ? <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Aucun dossier.</div> :
                                             detail.dossiers.slice(0, 8).map(dd => (
                                                 <div key={dd.id} style={{ fontSize: 12.5, color: 'var(--ink-2)', display: 'flex', justifyContent: 'space-between', gap: 8, padding: '4px 0', borderBottom: '1px solid var(--line-2)' }}>
-                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {dd.title}{dd.summary?.address ? <span style={{ color: 'var(--muted)' }}> — {dd.summary.address}</span> : ''}
-                                                    </span>
+                                                    <Link href={`/admin/dossiers/${dd.id}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'inherit', textDecoration: 'none' }} title="Ouvrir la fiche complète">
+                                                        {dd.title}{innerSummary(dd.summary)?.address ? <span style={{ color: 'var(--muted)' }}> — {innerSummary(dd.summary)!.address}</span> : ''}
+                                                    </Link>
                                                     <span style={{ flexShrink: 0, ...mono, fontSize: 11.5 }}>
                                                         {dd.decision === 'accepted' ? '✓' : dd.decision === 'rejected' ? '✗' : dd.status === 'complete' ? 'complet' : `étape ${dd.lastStep}/7`} · {fmtDate(dd.updatedAt)}
                                                     </span>
@@ -521,7 +521,7 @@ function DossiersTab({ onError }: { onError: (m: string | null) => void }) {
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                                    <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflowWrap: 'anywhere' }}>{dd.title}</span>
+                                    <Link href={`/admin/dossiers/${dd.id}`} style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflowWrap: 'anywhere', textDecoration: 'none' }} title="Ouvrir la fiche complète">{dd.title}</Link>
                                     <span className={chip.cls} style={chip.style}>{chip.label}</span>
                                     {lc === 'brouillon' && <span className="dp-chip" style={{ fontSize: 10.5 }}>étape {dd.lastStep}/7</span>}
                                     {dd.clientName && <span className="dp-chip" style={{ fontSize: 11 }}>👤 {dd.clientName}</span>}
@@ -535,9 +535,14 @@ function DossiersTab({ onError }: { onError: (m: string | null) => void }) {
                                 </div>
                                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2, ...mono }}>{dd.email}</div>
                             </div>
-                            <button onClick={() => setOpenId(openId === dd.id ? null : dd.id)} className="dp-btn-secondary" style={{ ...miniBtn, flexShrink: 0 }} aria-expanded={openId === dd.id}>
-                                {openId === dd.id ? 'Fermer' : 'Inspecter'}
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                                <Link href={`/admin/dossiers/${dd.id}`} className="dp-btn-primary" style={{ ...miniBtn, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                                    Fiche complète →
+                                </Link>
+                                <button onClick={() => setOpenId(openId === dd.id ? null : dd.id)} className="dp-btn-secondary" style={miniBtn} aria-expanded={openId === dd.id}>
+                                    {openId === dd.id ? 'Fermer' : 'Aperçu'}
+                                </button>
+                            </div>
                         </div>
 
                         {chips.length > 0 && (
@@ -558,6 +563,9 @@ function DossiersTab({ onError }: { onError: (m: string | null) => void }) {
                                 {s?.worksType && <div><b>Travaux :</b> {s.worksType}{s.abf ? ' · secteur protégé (ABF)' : ''}</div>}
                                 <div><b>Créé :</b> {fmtDate(dd.createdAt || null)} · <b>Déposé :</b> {fmtDate(dd.submittedAt)} · <b>Facturé :</b> {dd.billedAt ? fmtDate(dd.billedAt) : 'non'}{dd.archivedAt ? ` · Archivé : ${fmtDate(dd.archivedAt)}` : ''}</div>
                                 <div style={{ ...mono, fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>id {dd.id}</div>
+                                <Link href={`/admin/dossiers/${dd.id}`} className="t-accent" style={{ fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}>
+                                    Voir toutes les données du projet →
+                                </Link>
                             </div>
                         )}
                     </div>
