@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { db, dossiers } from '@/lib/db'
 import { requireAdmin } from '@/lib/adminGuard'
-import { generateCerfaPdf } from '@/lib/pdfGenerator'
+import { generateCerfa } from '@/lib/pdfGenerator'
 import { generateDPDocument } from '@/lib/dpDocGenerator'
 import { generatePanneauPdf } from '@/lib/panneauGenerator'
 import { validateDPForm, fatalIssues } from '@/lib/validation'
@@ -47,8 +47,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         let pdf: Uint8Array
         let filename: string
         if (kind === 'cerfa') {
-            pdf = await generateCerfaPdf(data)
-            filename = `CERFA_${nom}.pdf`
+            // Le nom porte le numéro du formulaire réellement produit : un fichier
+            // téléchargé doit rester identifiable hors de l'interface.
+            const cerfa = await generateCerfa(data)
+            pdf = cerfa.bytes
+            filename = `CERFA_${cerfa.form.id}_${nom}.pdf`
         } else if (kind === 'dp') {
             pdf = await generateDPDocument(data, { dossierId: row.id })
             filename = `Dossier_DP_${nom}.pdf`

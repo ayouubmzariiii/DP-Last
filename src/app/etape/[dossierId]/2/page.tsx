@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
-import { chooseCerfaForm } from '@/lib/cerfaForms'
+import { chooseCerfaForm, CERFA_CHOICES } from '@/lib/cerfaForms'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import ParcelPicker from '@/components/ParcelPicker'
 import { issuesForStep, fatalIssues } from '@/lib/validation'
@@ -360,33 +360,35 @@ export default function Etape2() {
                     </div>
 
                     {/* Nature du bien — détermine le formulaire CERFA (13703 ou 16702).
-                        La notice n°51434#12 impose le 13703 dès que le projet porte sur une
-                        maison individuelle : le choix est donc réglementaire, pas cosmétique. */}
+                        Options et libellés viennent de CERFA_CHOICES : une seule source pour
+                        la règle et pour ce qui est montré à l'utilisateur. */}
                     <div className="dp-card">
                         <h3 className="dp-section-title">Nature du bien</h3>
                         <p className="text-sm t-ink2 mb-4">
-                            Sur quel type de bien portent les travaux ? Cette réponse détermine le formulaire officiel
-                            que nous remplirons — les deux existent et ne sont pas interchangeables.
+                            Sur quel type de bien portent les travaux ? Il existe deux formulaires officiels de déclaration
+                            préalable et ils ne sont pas interchangeables : votre réponse détermine celui que nous remplirons.
                         </p>
                         <div className="grid md:grid-cols-2 gap-3">
-                            {([
-                                ['maison_individuelle', 'Maison individuelle', 'Votre maison et ses annexes : abri de jardin, piscine, clôture, façades, toiture, extension.'],
-                                ['autre', 'Autre bien', 'Appartement ou immeuble collectif, local commercial ou professionnel, bâtiment agricole, terrain nu.'],
-                            ] as const).map(([val, titre, desc]) => (
+                            {CERFA_CHOICES.map(f => (
                                 <button
-                                    key={val}
+                                    key={f.id}
                                     type="button"
-                                    onClick={() => updateField('nature_bien', val)}
-                                    className={`travaux-card text-left${natureBien === val ? ' selected' : ''}`}
+                                    onClick={() => updateField('nature_bien', f.natureBien)}
+                                    className={`travaux-card text-left${natureBien === f.natureBien ? ' selected' : ''}`}
                                 >
-                                    <div className="font-semibold t-ink mb-1">{titre}</div>
-                                    <div className="text-sm t-ink2 leading-relaxed">{desc}</div>
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                        <span className="font-semibold t-ink">{f.bien}</span>
+                                        <span className="dp-chip" style={{ padding: '2px 8px' }}>
+                                            <span className="code">Cerfa {f.numero}</span>
+                                        </span>
+                                    </div>
+                                    <div className="text-sm t-ink2 leading-relaxed">{f.usage}</div>
                                 </button>
                             ))}
                         </div>
-                        <div className="dp-alert is-info mt-4">
-                            <span className="dp-alert-title">Formulaire retenu</span>
-                            Cerfa n°{cerfaForm.numero} — {cerfaForm.titre.toLowerCase()}.
+                        <div className="dp-alert is-ok mt-4">
+                            <span className="dp-alert-title">Formulaire retenu — Cerfa n°{cerfaForm.numero}</span>
+                            {cerfaForm.pourquoi}
                         </div>
                     </div>
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDPContext } from '@/lib/context'
+import { chooseCerfaForm } from '@/lib/cerfaForms'
 import Logo from '@/components/Logo'
 
 const STEPS = [
@@ -24,7 +25,10 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
     const router = useRouter()
     const params = useParams<{ dossierId: string }>()
     const dossierId = params.dossierId
-    const { isTestMode, toggleTestMode, loadDossier, setLastStep, currentDossierId } = useDPContext()
+    const { formData, isTestMode, toggleTestMode, loadDossier, setLastStep, currentDossierId } = useDPContext()
+    // Formulaire que produira ce dossier — rappelé dans l'en-tête dès que la nature
+    // du bien est connue (étape 2), pour qu'il ne soit jamais une surprise à l'étape 7.
+    const cerfaForm = chooseCerfaForm(formData)
 
     const stepPath = (num: number) => `/etape/${dossierId}/${num}`
     // Current step = trailing numeric segment of the path.
@@ -74,7 +78,9 @@ export default function EtapeLayout({ children }: { children: React.ReactNode })
                         <Logo size={36} />
                         <div className="hidden sm:block">
                             <div style={{ fontFamily: 'var(--hf)', fontSize: 15, fontWeight: 600, lineHeight: 1.1 }}>DP Travaux</div>
-                            <div style={{ fontFamily: 'var(--mf)', fontSize: 10, letterSpacing: '.05em', color: '#9A9286', textTransform: 'uppercase' }}>Déclaration préalable</div>
+                            <div style={{ fontFamily: 'var(--mf)', fontSize: 10, letterSpacing: '.05em', color: '#9A9286', textTransform: 'uppercase' }} title={cerfaForm.titre}>
+                                DP · Cerfa {cerfaForm.numero}
+                            </div>
                         </div>
                     </Link>
 

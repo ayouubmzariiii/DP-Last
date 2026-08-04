@@ -21,6 +21,7 @@ import type { DPFormData } from '@/lib/models'
 import { getTravauxDef } from '@/lib/travauxRegistry'
 import { piecesChecklist, isProtectedSector } from '@/lib/validation'
 import { computeSuivi } from '@/lib/dossierTimeline'
+import { formForNature, type CerfaForm } from '@/lib/cerfaForms'
 
 interface AdminDossierDetail {
     dossier: {
@@ -133,13 +134,15 @@ const renderVal = (v: unknown): React.ReactNode => {
 // récupère en blob plutôt que de pointer l'iframe directement sur l'URL, pour
 // pouvoir afficher une vraie erreur si la génération échoue.
 const DOCS = [
-    { kind: 'cerfa', icon: '📋', title: 'Formulaire CERFA', blurb: '13703 ou 16702 selon la nature du bien, pré-rempli depuis le dossier.' },
+    // Le libellé du CERFA est calculé par dossier (cerfaForm ci-dessous) : le blurb
+    // générique ne sert que de repli si la nature du bien est absente.
+    { kind: 'cerfa', icon: '📋', title: 'Formulaire CERFA', blurb: 'Pré-rempli depuis le dossier.' },
     { kind: 'dp', icon: '📁', title: 'Dossier DP complet', blurb: 'DP1 à DP8 — plans, notice, photos et insertions.' },
     { kind: 'panneau', icon: '🪧', title: 'Panneau d’affichage', blurb: 'Panneau réglementaire à poser sur le terrain.' },
 ] as const
 type DocKind = typeof DOCS[number]['kind']
 
-function DocumentsSection({ dossierId }: { dossierId: string }) {
+function DocumentsSection({ dossierId, cerfaForm }: { dossierId: string; cerfaForm: CerfaForm }) {
     const [kind, setKind] = useState<DocKind | null>(null)
     const [url, setUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
@@ -180,9 +183,13 @@ function DocumentsSection({ dossierId }: { dossierId: string }) {
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                                 <span style={{ fontSize: 18 }}>{doc.icon}</span>
-                                <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>{doc.title}</span>
+                                <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>
+                                    {doc.kind === 'cerfa' ? `CERFA n°${cerfaForm.numero}` : doc.title}
+                                </span>
                             </div>
-                            <p style={{ fontSize: 11.5, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 10 }}>{doc.blurb}</p>
+                            <p style={{ fontSize: 11.5, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 10 }}>
+                                {doc.kind === 'cerfa' ? `${cerfaForm.bien} — ${cerfaForm.pourquoi}` : doc.blurb}
+                            </p>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                 <button onClick={() => open(doc.kind)} disabled={loading && active}
                                     className={active ? 'dp-btn-primary' : 'dp-btn-secondary'} style={miniBtn} aria-expanded={active}>
@@ -265,6 +272,8 @@ export default function AdminDossierPage() {
 
     const { dossier: dd, owner } = d
     const data = (dd.data || {}) as DPFormData
+    // Formulaire que ce dossier produit — même règle que le parcours client.
+    const cerfaForm = formForNature(data.nature_bien)
     const dem = data.demandeur || ({} as DPFormData['demandeur'])
     const co = data.co_demandeur
     const ter = data.terrain || ({} as DPFormData['terrain'])
@@ -404,7 +413,7 @@ export default function AdminDossierPage() {
             )}
 
             {/* Documents générés (CERFA, dossier DP, panneau) */}
-            <DocumentsSection dossierId={dd.id} />
+            <DocumentsSection dossierId={dd.id} cerfaForm={cerfaForm} />
 
             {/* Demandeur */}
             <Section title="Demandeur" icon="👤">

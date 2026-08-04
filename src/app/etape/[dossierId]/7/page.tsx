@@ -453,12 +453,13 @@ export default function Etape7() {
                                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--acb)' }}>📋</div>
                                     <div>
                                         <div className="font-bold t-ink">CERFA n°{cerfaForm.numero}</div>
-                                        <div className="text-xs t-ink2">Formulaire officiel rempli</div>
+                                        <div className="text-xs t-ink2">{cerfaForm.bien} — formulaire officiel rempli</div>
                                     </div>
                                     {cerfaDone && <span className="ml-auto t-ok text-xl">✅</span>}
                                 </div>
                                 <p className="text-xs t-ink2 mb-4">
-                                    Formulaire officiel de demande préalable, pré-rempli avec vos informations.
+                                    Pré-rempli avec vos informations. {cerfaForm.pourquoi}{' '}
+                                    <a href={`/etape/${dossierId}/2`} className="underline" style={{ color: 'var(--ac)' }}>Modifier la nature du bien</a>
                                 </p>
                                 <button
                                     onClick={downloadCerfa}

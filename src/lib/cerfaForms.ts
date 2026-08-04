@@ -36,6 +36,9 @@ import type { DPFormData } from '@/lib/models'
 
 export type CerfaFormId = '13703' | '16702'
 
+/** Nature du bien support des travaux — c'est elle qui détermine le formulaire. */
+export type NatureBien = 'maison_individuelle' | 'autre'
+
 export interface CerfaForm {
     id: CerfaFormId
     /** Nom du PDF dans /public. */
@@ -44,8 +47,15 @@ export interface CerfaForm {
     numero: string
     /** Intitulé officiel du formulaire. */
     titre: string
-    /** Quand il s'applique — affiché dans l'interface pour justifier le choix. */
+    /** Nature de bien qui déclenche ce formulaire. */
+    natureBien: NatureBien
+    /** Libellé court de cette nature — titre de l'option proposée à l'étape 2. */
+    bien: string
+    /** Ce que cette nature recouvre — description de l'option. */
     usage: string
+    /** Pourquoi ce formulaire, en une phrase — affiché partout où le document
+     *  apparaît, pour que le choix ne soit jamais opaque. */
+    pourquoi: string
 }
 
 export const CERFA_FORMS: Record<CerfaFormId, CerfaForm> = {
@@ -56,14 +66,20 @@ export const CERFA_FORMS: Record<CerfaFormId, CerfaForm> = {
         file: 'cerfa.pdf',
         numero: '16702*03',
         titre: 'Déclaration préalable — constructions et travaux non soumis à permis de construire',
-        usage: 'Immeuble collectif, local commercial ou professionnel, bâtiment agricole, terrain nu.',
+        natureBien: 'autre',
+        bien: 'Autre bien',
+        usage: 'Appartement ou immeuble collectif, local commercial ou professionnel, bâtiment agricole, terrain nu.',
+        pourquoi: 'Le projet ne porte pas sur une maison individuelle : c’est le formulaire général de déclaration préalable qui s’applique.',
     },
     '13703': {
         id: '13703',
         file: 'cerfa-13703.pdf',
         numero: '13703*12',
         titre: 'Déclaration préalable — constructions et travaux non soumis à permis de construire portant sur une maison individuelle et/ou ses annexes',
-        usage: 'Maison individuelle et ses annexes : abri de jardin, piscine, clôture, façades, toiture, extension.',
+        natureBien: 'maison_individuelle',
+        bien: 'Maison individuelle',
+        usage: 'Votre maison et ses annexes : abri de jardin, piscine, clôture, façades, toiture, extension.',
+        pourquoi: 'Le projet porte sur une maison individuelle : la notice n°51434#12 impose ce formulaire, le formulaire général ne convient pas.',
     },
 }
 
@@ -77,8 +93,18 @@ export const CERFA_FORMS: Record<CerfaFormId, CerfaForm> = {
  * seul des deux à être IMPOSÉ par la notice quand il s'applique.
  */
 export function chooseCerfaForm(data: DPFormData): CerfaForm {
-    return data?.nature_bien === 'autre' ? CERFA_FORMS['16702'] : CERFA_FORMS['13703']
+    return formForNature(data?.nature_bien)
 }
+
+/** Même règle, à partir de la seule nature du bien (interfaces, back-office). */
+export function formForNature(nature: NatureBien | undefined): CerfaForm {
+    return nature === 'autre' ? CERFA_FORMS['16702'] : CERFA_FORMS['13703']
+}
+
+/** Les deux formulaires dans l'ordre d'affichage : maison individuelle d'abord,
+ *  c'est le cas courant. Sert à construire le choix de l'étape 2 depuis cette
+ *  seule source, pour que libellés et règle ne puissent pas diverger. */
+export const CERFA_CHOICES: CerfaForm[] = [CERFA_FORMS['13703'], CERFA_FORMS['16702']]
 
 /**
  * Traduction des noms de champs du vocabulaire 16702 vers celui du 13703.
