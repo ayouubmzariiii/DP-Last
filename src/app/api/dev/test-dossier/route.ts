@@ -36,8 +36,20 @@ function makeTestData(): DPFormData {
  *  calling the same internal routes the wizard uses — so the test dossier mirrors a real one. */
 async function enrichWithAI(req: NextRequest, d: DPFormData): Promise<void> {
     const origin = req.nextUrl.origin
-    const post = (path: string, body: unknown) =>
-        fetch(`${origin}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    // Les routes IA exigent une session, comme dans le parcours réel : on relaie le
+    // cookie de l'appelant. Sans ce relais, chaque appel repartait en 401, la boucle
+    // passait son chemin sans lever d'erreur — donc sans trace dans les logs — et le
+    // cache n'était jamais réécrit. C'est ce silence qui a laissé vieillir la maquette.
+    const cookie = req.headers.get('cookie') || ''
+    const post = async (path: string, body: unknown) => {
+        const res = await fetch(`${origin}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(cookie ? { cookie } : {}) },
+            body: JSON.stringify(body),
+        })
+        if (!res.ok) console.warn(`[dev/test-dossier] ${path} → HTTP ${res.status} ${(await res.clone().text()).slice(0, 160)}`)
+        return res
+    }
 
     // EVERY façade that has a "before" photo gets its own photoreal "after" (DP6) and
     // architectural croquis (DP5) — not just the first one found. (Previously this only ever
@@ -116,13 +128,21 @@ export async function GET(req: NextRequest) {
     const params = req.nextUrl.searchParams
     const doc = (params.get('doc') || 'cerfa').toLowerCase()
     const cache = params.get('cache') === '1'
+    // force=1 : rejette les pièces IA déjà en cache avant de régénérer. Sans lui,
+    // enrichWithAI saute toute façade déjà pourvue — c'est précisément pourquoi les
+    // visuels de la maquette avaient vieilli sans qu'on puisse les renouveler.
+    const force = params.get('force') === '1'
     // Default: reuse the cached AI pieces baked into the fixture. Only call the AI when explicitly
     // asked (fresh=1, or the legacy ai=1, or cache=1 which implies a regenerate-then-persist).
-    const fresh = params.get('fresh') === '1' || params.get('ai') === '1' || cache
+    const fresh = params.get('fresh') === '1' || params.get('ai') === '1' || cache || force
     const disposition = params.get('dl') === '1' ? 'attachment' : 'inline'
 
     try {
         const data = makeTestData()
+        if (force) {
+            for (const f of data.photos.facades) { f.after = null; f.croquis = null }
+            data.plans.dp4_notice = null
+        }
         if (fresh) await enrichWithAI(req, data)
         if (cache) await persistCache(data)
 
