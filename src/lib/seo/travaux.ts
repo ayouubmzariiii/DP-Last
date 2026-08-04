@@ -53,6 +53,32 @@ export const PIECES: Record<PieceCode, { titre: string; desc: string }> = {
     DP8: { titre: 'Photographie du paysage lointain', desc: 'Le terrain replacé dans son paysage, pour apprécier l’insertion à l’échelle du quartier ou du site.' },
 }
 
+// ─── Secteurs protégés ────────────────────────────────────────────────
+// Les seuils publiés ne valent PAS partout. Le chapeau de l’article R. 421-2
+// réserve les dispenses « sauf lorsqu’ils sont implantés dans le périmètre d’un
+// site patrimonial remarquable, dans les abords des monuments historiques ou
+// dans un site classé ou en instance de classement », et l’article R. 421-9
+// s’ouvre symétriquement par « En dehors du périmètre … ». Dans ces périmètres,
+// c’est R. 421-11 qui s’applique : une déclaration préalable y est due sans
+// plancher de 5 m², voire un permis. Ne jamais présenter les seuils comme
+// nationaux sans cette réserve.
+export const SECTEURS_PROTEGES = [
+    'périmètre d’un site patrimonial remarquable',
+    'abords d’un monument historique',
+    'site classé ou en instance de classement',
+    'site inscrit',
+    'réserve naturelle ou cœur de parc national',
+    'espace remarquable du littoral',
+]
+
+/** Formulation courte de la réserve, affichée sous chaque tableau de seuils. */
+export const RESERVE_SECTEUR_PROTEGE =
+    'Ces seuils sont ceux du Code de l’urbanisme, mais ils ne s’appliquent pas partout : les articles qui les posent écartent expressément '
+    + 'les secteurs protégés. Dans le périmètre d’un site patrimonial remarquable, aux abords d’un monument historique, en site classé, '
+    + 'inscrit ou en instance de classement, en réserve naturelle, en cœur de parc national ou en espace remarquable du littoral, une '
+    + 'déclaration préalable est due même en deçà des seuils — sans plancher de 5 m² — et certains projets y relèvent du permis de '
+    + 'construire. Vérifiez d’abord si votre parcelle est concernée : c’est ce qui détermine tout le reste.'
+
 export const DISCLAIMER =
     'Information générale. Les seuils cités sont ceux du Code de l’urbanisme ; les règles de hauteur, d’implantation, de teinte et de matériaux dépendent du PLU de votre commune et, en secteur protégé, de l’avis de l’Architecte des Bâtiments de France. Cette page ne remplace pas une consultation du service urbanisme de votre mairie.'
 
@@ -66,10 +92,12 @@ export const VERIFIE_LE = 'août 2026'
 export const SOURCES: { ref: string; objet: string }[] = [
     { ref: 'R. 421-2', objet: 'constructions dispensées de formalité (5 m², 12 m de hauteur, bassin de 10 m²)' },
     { ref: 'R. 421-9', objet: 'constructions nouvelles soumises à déclaration préalable (5 à 20 m², bassin jusqu’à 100 m²)' },
+    { ref: 'R. 421-11', objet: 'rétablissement de la déclaration préalable en secteur protégé, sans plancher de 5 m²' },
     { ref: 'R. 421-12', objet: 'clôtures soumises à déclaration par délibération ou en secteur protégé' },
     { ref: 'R. 421-14 et R. 421-17', objet: 'travaux sur construction existante, extensions de 20 et 40 m²' },
     { ref: 'R. 421-17-1', objet: 'ravalement soumis à déclaration préalable' },
-    { ref: 'R. 421-23', objet: 'affouillements et exhaussements (100 m² et 2 m)' },
+    { ref: 'R. 421-9 e', objet: 'murs d’une hauteur au-dessus du sol égale ou supérieure à 2 m' },
+    { ref: 'R. 421-23 f', objet: 'affouillements et exhaussements (100 m² et 2 m)' },
     { ref: 'R. 431-2', objet: 'recours obligatoire à un architecte au-delà de 150 m²' },
     { ref: 'L. 152-5 et R. 152-5 à R. 152-9', objet: 'dérogation de 30 cm pour l’isolation par l’extérieur' },
     { ref: 'R. 423-23 et R. 424-17', objet: 'délai d’instruction d’un mois, validité de trois ans' },
@@ -146,14 +174,14 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         metaDescription: 'Piscine enterrée, semi-enterrée ou hors-sol : quand déposer une déclaration préalable, ce que le PLU impose, les pièces obligatoires et les erreurs qui font refuser le dossier.',
         aliases: ['déclaration préalable piscine', 'piscine 10m2 déclaration', 'autorisation piscine enterrée', 'déclaration piscine hors sol', 'piscine sans déclaration'],
         intro: [
-            'Deux seuils commandent toute la démarche : 10 m² et 100 m² de bassin. En dessous de 10 m², aucune formalité n’est requise hors secteur protégé. Entre 10 et 100 m², une déclaration préalable est obligatoire. Au-delà de 100 m², ou dès que la couverture dépasse 1,80 m de hauteur, le projet relève du permis de construire.',
+            'Deux seuils commandent toute la démarche : 10 m² et 100 m² de bassin. En dessous de 10 m², aucune formalité n’est requise hors secteur protégé. Entre 10 et 100 m², une déclaration préalable est obligatoire. Au-delà de 100 m², ou dès que la couverture atteint 1,80 m de hauteur, le projet relève du permis de construire.',
             'La surface prise en compte est celle du bassin, mesurée au miroir d’eau. Les plages, margelles et locaux techniques n’entrent pas dans ce calcul — mais ils comptent, eux, pour l’emprise au sol de la parcelle et pour les règles du PLU. Une piscine de 32 m² accompagnée d’une terrasse de 40 m² reste une déclaration préalable, tout en pouvant se heurter au coefficient d’emprise au sol de la zone.',
             'Le point le plus souvent négligé est le plan de coupe. Une piscine enterrée modifie le profil du terrain : c’est précisément l’objet de la pièce DP3, et un dossier qui l’élude est renvoyé.',
         ],
         seuils: [
             { formalite: 'aucune', condition: 'Bassin d’une superficie au plus égale à 10 m², non couvert — hors secteur protégé.' },
             { formalite: 'dp', condition: 'Bassin de plus de 10 m² et au plus 100 m², non couvert ou dont la couverture a une hauteur inférieure à 1,80 m.' },
-            { formalite: 'pc', condition: 'Bassin de plus de 100 m², ou couverture d’une hauteur supérieure à 1,80 m quelle que soit la surface du bassin.' },
+            { formalite: 'pc', condition: 'Bassin de plus de 100 m², ou couverture (fixe ou mobile) d’une hauteur égale ou supérieure à 1,80 m quelle que soit la surface du bassin — la déclaration préalable suppose une couverture strictement inférieure à 1,80 m.' },
             { formalite: 'dp', condition: 'Tout bassin, même de moins de 10 m², en site patrimonial remarquable, site classé ou aux abords d’un monument historique.' },
         ],
         pieces: ['DP1', 'DP2', 'DP3', 'DP4', 'DP6', 'DP7', 'DP8'],
@@ -175,7 +203,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         faq: [
             { q: 'Une piscine hors-sol nécessite-t-elle une déclaration préalable ?', a: 'Si elle est installée moins de trois mois par an, elle est dispensée de formalité. Au-delà de cette durée, elle est traitée comme une piscine ordinaire : déclaration préalable dès que le bassin dépasse 10 m².' },
             { q: 'Une piscine de 32 m² relève-t-elle du permis de construire ?', a: 'Non. Entre 10 et 100 m² de bassin, la déclaration préalable suffit, à condition que la piscine ne soit pas couverte par un abri de plus de 1,80 m de haut.' },
-            { q: 'Faut-il une autorisation pour couvrir une piscine existante ?', a: 'Oui. Un abri de piscine de moins de 1,80 m de hauteur relève de la déclaration préalable. Au-delà de 1,80 m, il faut un permis de construire, y compris si le bassin est petit.' },
+            { q: 'Faut-il une autorisation pour couvrir une piscine existante ?', a: 'Oui. Un abri de piscine de moins de 1,80 m de hauteur relève de la déclaration préalable. À partir de 1,80 m, il faut un permis de construire, y compris si le bassin est petit.' },
             { q: 'Quelle taxe pour une piscine ?', a: 'La taxe d’aménagement s’applique aux piscines sur une base forfaitaire au mètre carré de bassin, revalorisée chaque année, à laquelle s’ajoutent les taux communal et départemental. La piscine augmente également la valeur locative retenue pour la taxe foncière.' },
             { q: 'Combien de temps pour obtenir la réponse ?', a: 'Un mois en règle générale. Deux mois si le terrain est aux abords d’un monument historique, en site patrimonial remarquable ou en site classé, l’Architecte des Bâtiments de France devant être consulté.' },
         ],
@@ -197,8 +225,8 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         ],
         seuils: [
             { formalite: 'dp', condition: 'Pose de panneaux sur une toiture existante, en surimposition ou en intégration — modification de l’aspect extérieur.' },
-            { formalite: 'aucune', condition: 'Installation au sol d’une puissance au plus égale à 3 kWc et d’une hauteur au plus égale à 1,80 m, hors secteur protégé.' },
-            { formalite: 'dp', condition: 'Installation au sol d’une puissance comprise entre 3 kWc et 3 MWc, ou de moins de 3 kWc mais d’une hauteur d’au moins 1,80 m.' },
+            { formalite: 'aucune', condition: 'Installation au sol d’une puissance crête strictement inférieure à 3 kWc et d’une hauteur au-dessus du sol ne dépassant pas 1,80 m, hors secteur protégé.' },
+            { formalite: 'dp', condition: 'Installation au sol — ou ombrière intégrant un procédé de production d’énergies renouvelables — d’une puissance crête égale ou supérieure à 3 kWc et inférieure à 3 MWc, quelle que soit la hauteur ; ou de moins de 3 kWc mais dépassant 1,80 m de hauteur.' },
             { formalite: 'pc', condition: 'Installation au sol d’une puissance égale ou supérieure à 3 MWc — seuil porté de 250 kWc à 1 MWc fin 2022, puis à 3 MWc au 1er décembre 2024.' },
         ],
         pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8'],
@@ -287,9 +315,9 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         ],
         seuils: [
             { formalite: 'aucune', condition: 'Ravalement à l’identique, sans changement de teinte ni de matériau, hors secteur protégé et hors commune ayant délibéré.' },
-            { formalite: 'dp', condition: 'Changement de teinte, de matériau ou de finition de la façade — modification de l’aspect extérieur.' },
+            { formalite: 'dp', condition: 'Changement de teinte, de matériau ou de finition — il ne s’agit plus d’un simple ravalement mais d’une modification de l’aspect extérieur, soumise à déclaration au titre de l’article R. 421-17 a).' },
             { formalite: 'dp', condition: 'Tout ravalement, même à l’identique, en site patrimonial remarquable, site classé ou aux abords d’un monument historique.' },
-            { formalite: 'dp', condition: 'Tout ravalement dans une commune ayant délibéré pour les soumettre à déclaration préalable.' },
+            { formalite: 'dp', condition: 'Tout ravalement dans une commune — ou un périmètre de commune — dont le conseil municipal, ou l’EPCI compétent en matière de PLU, l’a décidé par délibération motivée (R. 421-17-1 e).' },
         ],
         pieces: ['DP1', 'DP4', 'DP7', 'DP8'],
         piecesNote: 'Le plan des façades (DP4) doit être fourni en deux états, actuel et projeté. Joindre les photos couleur de chaque façade traitée et la référence exacte de la teinte retenue.',
@@ -552,13 +580,13 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         aliases: ['déclaration préalable terrassement', 'déclaration préalable mur de soutènement', 'affouillement exhaussement déclaration', 'autorisation remblai', 'modifier niveau terrain autorisation'],
         intro: [
             'Modifier le relief d’un terrain porte un nom précis en urbanisme : affouillement quand on creuse, exhaussement quand on remblaie. La formalité tient à un double seuil cumulatif : une déclaration préalable est exigée lorsque la surface concernée atteint 100 m² et que la hauteur ou la profondeur excède 2 m. Sous l’un des deux seuils, aucune formalité n’est requise en zone ordinaire.',
-            'Les murs de soutènement suivent une logique distincte. Ils ne sont pas des clôtures et, en tant qu’ouvrages, ils sont soumis à déclaration préalable indépendamment de ces seuils dès qu’ils modifient l’aspect extérieur ou le profil du terrain. Beaucoup de PLU les encadrent spécifiquement en hauteur et en matériau.',
+            'Les murs suivent une logique distincte, et une confusion répandue mérite d’être levée : l’article sur les affouillements ne dit rien des murs. Un mur, de soutènement ou non, relève de la déclaration préalable dès que sa hauteur au-dessus du sol atteint 2 m ; en deçà, et s’il ne constitue pas une clôture, il est dispensé de formalité hors secteur protégé. Beaucoup de PLU les encadrent spécifiquement en hauteur et en matériau.',
             'Le sujet revient presque toujours accolé à un autre projet — piscine, extension, accès de garage — et c’est là qu’il se perd. Le décaissement fait partie du projet et doit apparaître sur la coupe, même quand il ne déclenche pas de formalité à lui seul.',
         ],
         seuils: [
             { formalite: 'dp', condition: 'Affouillement ou exhaussement dont la superficie est égale ou supérieure à 100 m² ET dont la hauteur (exhaussement) ou la profondeur (affouillement) excède 2 m — les deux conditions sont cumulatives.' },
             { formalite: 'aucune', condition: 'Mouvement de terre restant sous l’un des deux seuils, hors secteur protégé.' },
-            { formalite: 'dp', condition: 'Mur de soutènement modifiant l’aspect extérieur ou le profil du terrain.' },
+            { formalite: 'dp', condition: 'Mur — de soutènement ou non — dont la hauteur au-dessus du sol atteint 2 m (R. 421-9 e). En deçà de 2 m, un mur qui ne constitue pas une clôture est dispensé de formalité hors secteur protégé.' },
             { formalite: 'dp', condition: 'Tout affouillement ou exhaussement en site patrimonial remarquable, site classé ou aux abords d’un monument historique, sans condition de seuil.' },
         ],
         pieces: ['DP1', 'DP2', 'DP3', 'DP7', 'DP8'],
@@ -579,7 +607,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         ],
         faq: [
             { q: 'Quand un terrassement doit-il être déclaré ?', a: 'Lorsque les deux seuils sont franchis ensemble : au moins 100 m² de superficie et plus de 2 m de hauteur ou de profondeur. En secteur protégé, la déclaration est exigée sans condition de seuil.' },
-            { q: 'Un mur de soutènement nécessite-t-il une déclaration préalable ?', a: 'Oui dès qu’il modifie l’aspect extérieur ou le profil du terrain, et cela indépendamment des seuils d’affouillement. Le PLU en plafonne souvent la hauteur et impose un parement.' },
+            { q: 'Un mur de soutènement nécessite-t-il une déclaration préalable ?', a: 'Dès que sa hauteur au-dessus du sol atteint 2 m, oui : c’est le régime des murs, distinct de celui des affouillements. En deçà de 2 m, et s’il ne fait pas office de clôture, il en est dispensé hors secteur protégé. Le PLU en plafonne souvent la hauteur et impose un parement.' },
             { q: 'Faut-il déclarer le décaissement d’une piscine ?', a: 'Il ne déclenche généralement pas de formalité propre, mais il doit figurer sur le plan de coupe du dossier de piscine. C’est précisément la fonction de la pièce DP3.' },
             { q: 'Puis-je remblayer librement mon terrain ?', a: 'Sous les seuils et hors secteur protégé, aucune formalité d’urbanisme n’est exigée. Mais le PLU peut imposer le respect du terrain naturel, et le remblai est fréquemment encadré ou interdit en zone inondable.' },
             { q: 'Et si le terrain est en zone de risque ?', a: 'Un plan de prévention des risques peut interdire ou conditionner les mouvements de terre. Il est annexé au PLU et opposable : il faut le consulter avant de concevoir le projet.' },
@@ -634,7 +662,7 @@ export const VERDICTS: Record<string, { reponse: string; seuilCle: string }> = {
         seuilCle: '20 ou 40 m²',
     },
     'terrassement': {
-        reponse: 'Déclaration préalable à partir de 100 m² de superficie ET au-delà de 2 m de hauteur ou de profondeur. Un mur de soutènement y est soumis indépendamment de ces seuils.',
+        reponse: 'Déclaration préalable à partir de 100 m² de superficie ET au-delà de 2 m de hauteur ou de profondeur. Un mur de soutènement relève, lui, d’un autre régime : déclaration dès 2 m de hauteur.',
         seuilCle: '≥ 100 m² et > 2 m',
     },
 }

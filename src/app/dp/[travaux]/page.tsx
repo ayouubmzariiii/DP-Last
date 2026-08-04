@@ -8,7 +8,7 @@ import {
     FaqList, ProcedureBlock, Disclaimer, Cta, BreadcrumbJsonLd,
     QuickAnswer, Reperes, Sommaire,
 } from '@/components/seo/blocks'
-import { SEO_TRAVAUX, findTravaux, VERDICTS } from '@/lib/seo/travaux'
+import { SEO_TRAVAUX, findTravaux, VERDICTS, RESERVE_SECTEUR_PROTEGE } from '@/lib/seo/travaux'
 import { COMMUNES, communeParam } from '@/lib/seo/communes'
 import { canonical, ANNEE, SITE_NAME } from '@/lib/seo/site'
 
@@ -96,9 +96,14 @@ export default function TravauxGuide({ params }: { params: { travaux: string } }
             <Section>
                 <H2 id="seuils">Faut-il une autorisation ?</H2>
                 <p style={{ fontSize: 16, lineHeight: 1.72, color: 'var(--ink-2)', margin: '0 0 22px', maxWidth: '72ch' }}>
-                    Ces seuils relèvent du Code de l&apos;urbanisme : ils s&apos;appliquent partout en France.
+                    Ces seuils sont ceux du Code de l&apos;urbanisme. Ils valent sur l&apos;ensemble du territoire <em>hors secteur
+                    protégé</em> — la réserve ci-dessous n&apos;est pas un détail : elle change le régime applicable.
                 </p>
                 <SeuilsTable seuils={t.seuils} />
+                <div className="dp-alert is-warn" style={{ marginTop: 14 }}>
+                    <span className="dp-alert-title">Avant tout : votre parcelle est-elle en secteur protégé ?</span>
+                    {RESERVE_SECTEUR_PROTEGE}
+                </div>
                 <details style={{ marginTop: 20 }}>
                     <summary style={{ cursor: 'pointer', fontFamily: 'var(--mf)', fontSize: 11.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ac)' }}>
                         En détail — comment ces seuils se calculent

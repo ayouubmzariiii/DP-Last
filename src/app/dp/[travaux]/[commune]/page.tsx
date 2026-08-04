@@ -7,7 +7,7 @@ import {
     H2, Section, SeuilsTable, PiecesList, PluPoints, FaqList,
     ProcedureBlock, Disclaimer, Cta, BreadcrumbJsonLd, ErreursList, QuickAnswer, Reperes,
 } from '@/components/seo/blocks'
-import { SEO_TRAVAUX, findTravaux, VERDICTS } from '@/lib/seo/travaux'
+import { SEO_TRAVAUX, findTravaux, VERDICTS, RESERVE_SECTEUR_PROTEGE } from '@/lib/seo/travaux'
 import {
     COMMUNES, findCommune, communeParam, communesVoisines, densite,
     geoportailUrl, deCommune, aCommune, aCommuneCap, aCommuneParts,
@@ -166,15 +166,14 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
             <Section tone="surface">
                 <H2 id="seuils">{t.nom} {aCommune(c.nom)} : quelle formalité ?</H2>
                 <p style={{ fontSize: 16, lineHeight: 1.72, color: 'var(--ink-2)', margin: '0 0 22px', maxWidth: '72ch' }}>
-                    Ces seuils sont ceux du Code de l&apos;urbanisme : ils s&apos;appliquent {aCommune(c.nom)} comme partout ailleurs. Le
-                    PLU ne peut pas les abaisser, mais il ajoute ses propres exigences de forme.
+                    Ces seuils sont ceux du Code de l&apos;urbanisme : ils valent {aCommune(c.nom)} comme ailleurs, <em>hors secteur
+                    protégé</em>. Le PLU ne peut pas les abaisser, mais il ajoute ses propres exigences de forme.
                 </p>
                 <SeuilsTable seuils={t.seuils} />
                 <div className="dp-alert is-warn" style={{ marginTop: 16 }}>
-                    <span className="dp-alert-title">Secteur protégé</span>
-                    Si votre parcelle est située aux abords d&apos;un monument historique, en site patrimonial remarquable ou en site
-                    classé — cas courant dans les centres anciens comme celui {deCommune(c.nom)} — l&apos;Architecte des Bâtiments de France est
-                    consulté, le délai passe à deux mois et la déclaration devient exigible même pour des travaux normalement dispensés.
+                    <span className="dp-alert-title">Secteur protégé — à vérifier en premier</span>
+                    {RESERVE_SECTEUR_PROTEGE} Les centres anciens comme celui {deCommune(c.nom)} sont fréquemment concernés ;
+                    le délai d&apos;instruction y passe alors à deux mois, l&apos;Architecte des Bâtiments de France étant consulté.
                 </div>
             </Section>
 
