@@ -162,6 +162,14 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
     if (t.plu?.overlays?.hasSPR || (t.plu?.overlays?.monumentsWithin500m?.length || 0) > 0)
         add(4, 'Conformité PLU', 'warn', 'abf', 'Secteur protégé (SPR / abords de Monument Historique) : avis de l’ABF requis, délai porté à 2 mois.')
 
+    // DP7 et DP8 remplissent deux fonctions distinctes (R. 431-10 d) : situer le
+    // terrain dans son environnement PROCHE, puis dans le paysage LOINTAIN. Deux
+    // fois le même cliché ne remplit qu'une des deux, et c'est un motif classique
+    // de demande de pièces complémentaires.
+    const vp = data.photos?.dp7_vue_proche, vl = data.photos?.dp8_vue_lointaine
+    if (vp && vl && vp === vl)
+        add(7, 'Visuels', 'warn', 'dp7_dp8_identiques', 'Les pièces DP7 et DP8 utilisent la même photographie. Fournissez une vue rapprochée ET une vue éloignée : elles répondent à deux exigences différentes.')
+
     // Deterministic aspect conflict: the chosen material/teinte is explicitly on the règlement's
     // forbidden list → INTERDIT (severity 'forbidden' = red, blocks generation), with a compliant
     // alternative proposed from the same règlement's allowed list.

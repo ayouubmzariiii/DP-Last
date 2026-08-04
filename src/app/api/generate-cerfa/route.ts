@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateCerfa } from '@/lib/pdfGenerator'
 import { DPFormData } from '@/lib/models'
 import { validateDPForm, blockingIssues } from '@/lib/validation'
+import { blocksGeneration } from '@/lib/sampleAssets'
 import { getSession } from '@/lib/auth'
 
 export const maxDuration = 60;
@@ -24,6 +25,20 @@ export async function POST(req: NextRequest) {
                         ? 'Le projet retient un matériau ou une teinte interdits par le règlement d’urbanisme.'
                         : 'Dossier incomplet',
                     issues: blockers,
+                },
+                { status: 422 },
+            )
+        }
+
+
+        // Aucun visuel de démonstration ne doit sortir dans un document réel :
+        // un dossier déposé en mairie porterait la façade de quelqu’un d’autre.
+        const samples = blocksGeneration(data)
+        if (samples.length > 0) {
+            return NextResponse.json(
+                {
+                    error: 'Le dossier contient encore des visuels de démonstration. Remplaçez-les par vos propres photos avant de générer.',
+                    issues: samples.map(s => ({ id: 'sample_asset', severity: 'fatal', message: s })),
                 },
                 { status: 422 },
             )
