@@ -77,6 +77,15 @@ function Fields({ items, showEmpty = false }: { items: Field[]; showEmpty?: bool
     )
 }
 
+/** Emprise du DP1 en vrais mètres au sol. Les dossiers antérieurs à la correction de projection
+ *  ne stockent que `dp1_span_m`, exprimé en unités Web-Mercator : on le reconvertit pour ne pas
+ *  afficher une emprise ~30 % trop généreuse. */
+function dp1GroundLabel(pl: { dp1_ground_m?: number; dp1_span_m?: number }): string {
+    if (pl.dp1_ground_m) return ` (${pl.dp1_ground_m} m au sol)`
+    if (pl.dp1_span_m) return ` (~${Math.round(pl.dp1_span_m * Math.cos(46 * Math.PI / 180))} m au sol, capture ancienne)`
+    return ''
+}
+
 /** Vignette d'image cliquable (ouvre l'original dans un onglet) ; supporte les data: et les Blob URLs. */
 function Shot({ src, label, tall }: { src?: string | null; label: string; tall?: boolean }) {
     if (!src) return null
@@ -645,7 +654,7 @@ export default function AdminDossierPage() {
                     ? <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Aucun plan enregistré.</div>
                     : (
                         <Grid min={230}>
-                            <Shot src={pl.dp1_carte_situation} label={`DP1 · Plan de situation${pl.dp1_span_m ? ` (${pl.dp1_span_m} m)` : ''}`} tall />
+                            <Shot src={pl.dp1_carte_situation} label={`DP1 · Plan de situation${dp1GroundLabel(pl)}`} tall />
                             <Shot src={pl.dp2_plan_masse} label={`DP2 · Plan de masse${pl.dp2_span_m ? ` (${pl.dp2_span_m} m)` : ''}`} tall />
                             <Shot src={pl.dp3_coupe} label="DP3 · Plan de coupe" tall />
                         </Grid>

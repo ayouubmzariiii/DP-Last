@@ -19,16 +19,21 @@ import { buildAIAfterImagePrompt, buildAICroquisPrompt } from '@/lib/aiImageGene
 //                                                     simulation/croquis live via the AI (slow)
 //   GET /api/dev/test-dossier?doc=dp&fresh=1&cache=1 → regenerate AND persist them as the new
 //                                                     cache assets under public/test/cache/
+//   add &type=extension|cloture|ouverture|… to swap the declared nature of the works
 //   add &dl=1 to force download instead of inline preview.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
 
-/** Deep-clone the fixture and make it generation-ready (the fixture ships unsigned). */
-function makeTestData(): DPFormData {
+/** Deep-clone the fixture and make it generation-ready (the fixture ships unsigned).
+ *  `type` swaps the declared nature of the works — the fixture carries a filled sub-object for
+ *  every type, so this exercises the whole matrix (DP3 requirement, CERFA form choice, élévation
+ *  cotée DP4…) without hand-building a dossier per work type. */
+function makeTestData(type?: string | null): DPFormData {
     const d = JSON.parse(JSON.stringify(defaultFormData)) as DPFormData
     if (d.engagement) d.engagement.signature = true
+    if (type && type in d.travaux) d.travaux.type = type as DPFormData['travaux']['type']
     return d
 }
 
@@ -138,7 +143,7 @@ export async function GET(req: NextRequest) {
     const disposition = params.get('dl') === '1' ? 'attachment' : 'inline'
 
     try {
-        const data = makeTestData()
+        const data = makeTestData(params.get('type'))
         if (force) {
             for (const f of data.photos.facades) { f.after = null; f.croquis = null }
             data.plans.dp4_notice = null

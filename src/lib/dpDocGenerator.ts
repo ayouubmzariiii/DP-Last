@@ -1,10 +1,11 @@
-import { PDFDocument, StandardFonts, rgb, PageSizes, PDFFont, PDFPage, pushGraphicsState, popGraphicsState, moveTo, lineTo, closePath, clip, fillAndStroke, setFillingColor, setStrokingColor, setLineWidth, endPath, stroke } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, degrees, PageSizes, PDFFont, PDFPage, pushGraphicsState, popGraphicsState, moveTo, lineTo, closePath, clip, fillAndStroke, setFillingColor, setStrokingColor, setLineWidth, endPath, stroke } from 'pdf-lib'
 import { DPFormData } from './models'
 import * as fs from 'fs'
 import * as path from 'path'
-import { geocodeAddress, getIGNMapUrl, getVectorMapData } from './ignMaps'
+import { geocodeAddress, getIGNMapUrl, getVectorMapData, DP1_DEFAULT_GROUND_M } from './ignMaps'
 import { getTravauxDef, travauxNatureLabel, travauxWorksLabel } from './travauxRegistry'
 import { reculsToBoundaries } from './planMasse'
+import { facadeElevation, layoutElevation, scaleLabel, f as fmtM, STUB_M, BAY_GAP_M, WALL_PAD_M } from './planFacade'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -329,6 +330,74 @@ function scaleBar(page: PDFPage, font: PDFFont, x: number, y: number, pxPerMeter
     tx(page, `${fmt(ground)} m`, x + barPx - 8, y + 9, 7, font, C.nearBlack)
 }
 
+// ─── Vector primitives for the coted elevation (DP4) ─────────────────────────
+
+/** Filled/stroked polygon from an explicit point list. */
+function polygon(page: PDFPage, pts: { x: number; y: number }[],
+    fill?: ReturnType<typeof rgb>, border?: ReturnType<typeof rgb>, w = 1) {
+    if (pts.length < 3) return
+    page.pushOperators(pushGraphicsState(), setLineWidth(w))
+    if (border) page.pushOperators(setStrokingColor(border))
+    if (fill) page.pushOperators(setFillingColor(fill))
+    page.pushOperators(moveTo(pts[0].x, pts[0].y))
+    for (let i = 1; i < pts.length; i++) page.pushOperators(lineTo(pts[i].x, pts[i].y))
+    page.pushOperators(closePath())
+    page.pushOperators(fill ? fillAndStroke() : stroke())
+    page.pushOperators(popGraphicsState())
+}
+
+/** 45° hatching clipped to a rectangle — the conventional "existant / coupé" fill. */
+function hatchRect(page: PDFPage, x: number, y: number, w: number, h: number,
+    color = C.mid, step = 6, lw = 0.5) {
+    if (w <= 0 || h <= 0) return
+    page.pushOperators(pushGraphicsState())
+    page.pushOperators(moveTo(x, y), lineTo(x + w, y), lineTo(x + w, y + h), lineTo(x, y + h), closePath(), clip(), endPath())
+    for (let d = -h; d < w + h; d += step) ln(page, x + d, y, x + d + h, y + h, lw, color)
+    page.pushOperators(popGraphicsState())
+}
+
+/** Conventional "break" zigzag: the object continues beyond the drawing. Drawn twice — a thick
+ *  white pass erases whatever trame it crosses, so the break reads as a break and not as noise. */
+function breakLine(page: PDFPage, x: number, y1: number, y2: number, amp = 5, color = C.dark) {
+    const seg = Math.max(6, (y2 - y1) / 8)
+    let prev = { x, y: y1 }
+    let k = 0
+    for (let yy = y1 + seg; yy <= y2 + 0.1; yy += seg, k++) {
+        const p = { x: x + (k % 2 ? amp : -amp), y: yy }
+        ln(page, prev.x, prev.y, p.x, p.y, 3, C.white)
+        ln(page, prev.x, prev.y, p.x, p.y, 1, color)
+        prev = p
+    }
+}
+
+/** Horizontal dimension line with end ticks and a boxed label (cote). */
+function dimH(page: PDFPage, font: PDFFont, x1: number, x2: number, y: number, label: string, color = C.black) {
+    ln(page, x1, y, x2, y, 0.8, color)
+    ln(page, x1, y - 4, x1, y + 4, 0.8, color)
+    ln(page, x2, y - 4, x2, y + 4, 0.8, color)
+    const tw = font.widthOfTextAtSize(san(label), 8)
+    box(page, (x1 + x2) / 2 - tw / 2 - 4, y - 5.5, tw + 8, 11, C.white, undefined)
+    txCentered(page, label, (x1 + x2) / 2, y - 3, 8, font, color)
+}
+
+/** Vertical dimension line with end ticks and a rotated label (cote).
+ *  Le libellé est tourné à 90°, comme sur un plan d'architecte : couché, « faîtage 4,10 m »
+ *  mange 60 pt de largeur et va buter dans le cartouche dès que l'ouvrage est large. */
+function dimV(page: PDFPage, font: PDFFont, x: number, y1: number, y2: number, label: string, color = C.black) {
+    ln(page, x, y1, x, y2, 0.8, color)
+    ln(page, x - 4, y1, x + 4, y1, 0.8, color)
+    ln(page, x - 4, y2, x + 4, y2, 0.8, color)
+    const safe = san(label)
+    if (!safe.trim()) return
+    const size = 8
+    const tw = font.widthOfTextAtSize(safe, size)
+    const mid = (y1 + y2) / 2
+    box(page, x + 3, mid - tw / 2 - 3, size + 4, tw + 6, C.white, undefined)
+    try {
+        page.drawText(safe, { x: x + 3 + size, y: mid - tw / 2, size, font, color, rotate: degrees(90) })
+    } catch { /* ignore */ }
+}
+
 // ─── Image utilities ──────────────────────────────────────────────────────────
 async function loadImg(src: string | null): Promise<{ bytes: Uint8Array; isPng: boolean } | null> {
     if (!src) return null
@@ -630,8 +699,15 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         const mapUrl = isCaptured ? plans.dp1_carte_situation : (coords ? getIGNMapUrl('DP1', coords) : null)
         const mapImg = await embed(doc, mapUrl)
         const maxMapH = Math.min(y - FOOT_H - 25, 480)
-        // Ground span of the DP1 map: persisted from the capture zoom, else IGN default (500 m).
-        const dp1Span = isCaptured ? (plans.dp1_span_m || 500) : 500
+        // TRUE GROUND span of the DP1 map, in metres.
+        //   • dp1_ground_m  — current field, already ground metres (see ignMaps.groundToMercator).
+        //   • dp1_span_m    — legacy field, recorded in Web-Mercator units. Dossiers captured before
+        //     the fix still carry it, and their pixels are frozen: convert it the old way (×cos φ)
+        //     so an archived plan keeps printing the scale it was actually drawn at.
+        const dp1LatCos = coords ? Math.cos(coords.lat * Math.PI / 180) : 1
+        const dp1Ground = isCaptured
+            ? (plans.dp1_ground_m || (plans.dp1_span_m ? plans.dp1_span_m * dp1LatCos : DP1_DEFAULT_GROUND_M))
+            : DP1_DEFAULT_GROUND_M
         let dp1ScaleLabel = 'Variable'
 
         if (mapImg && maxMapH > 80) {
@@ -642,12 +718,11 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 target(page, M + cW / 2, (y + newY) / 2)
                 north(page, bold, M + cW - 26, y - 20)
             }
-            // Graphic scale bar + computed ratio. dp1Span is the map's horizontal extent expressed
-            // in Web-Mercator units; convert to TRUE ground metres with cos(lat) before deriving the
-            // scale. Web Mercator over-states ground distance by 1/cos(lat) (~45% at 46°N), so a plan
-            // built on the raw projected units would be filed at the wrong scale.
-            const groundFactor = coords ? Math.cos(coords.lat * Math.PI / 180) : 1
-            const pxPerMeter = dims.width / (dp1Span * groundFactor)
+            // Graphic scale bar + computed ratio. dp1Ground is already TRUE ground metres — the
+            // Web-Mercator distortion is undone once, at the point the bbox is built (ignMaps).
+            // Both sources (square WMS tile, 16:9 wizard capture) span the full width of the map,
+            // so the drawn width is the right denominator in either case.
+            const pxPerMeter = dims.width / dp1Ground
             const imgLeft = M + (cW - dims.width) / 2
             scaleBar(page, font, imgLeft + 10, newY + 12, pxPerMeter)
             dp1ScaleLabel = scaleRatioLabel(pxPerMeter)
@@ -681,8 +756,9 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         // flat screenshot. Fall back to the captured image, then to an IGN ortho image.
         let vectorData = null
         if (coords) {
-            // ~200 mercator-unit box (~140 m ground at 46°N): wide enough to keep neighbouring
-            // parcels/buildings in frame for setback context without starving the auto-fit view.
+            // 200 m GROUND half-span: wide enough to keep neighbouring parcels/buildings in frame
+            // for setback context without starving the auto-fit view. (Read as raw Mercator units
+            // this used to fetch only ~140 m of ground, which could clip a large parcel.)
             vectorData = await getVectorMapData(coords, 200)
         }
 
@@ -1055,7 +1131,9 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             }
         }
 
-        drawDesignFooter(page, font, bold, data, 'DP 3', 'Plan de coupe du terrain', 'Sans')
+        // La coupe rendue EST tracée au 1/100 (cf. la mention portée sous le dessin) : le cartouche
+        // doit dire la même chose. Il annonçait « Sans » alors que la planche portait une échelle.
+        drawDesignFooter(page, font, bold, data, 'DP 3', 'Plan de coupe du terrain', dp3Rendered ? '1/100' : 'Sans échelle')
     }
 
 
@@ -1103,7 +1181,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
 
             if (isHeading) {
                 if (y < FOOT_H + 70) {
-                    drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans')
+                    drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans échelle')
                     pdPage = addPage()
                     drawFrame(pdPage)
                     y = drawDesignHeader(pdPage, fontOblique)
@@ -1116,7 +1194,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 const wrapped = wrapText(trimmed, 110)
                 for (const l of wrapped) {
                     if (y < FOOT_H + 30) {
-                        drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans')
+                        drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans échelle')
                         pdPage = addPage()
                         drawFrame(pdPage)
                         y = drawDesignHeader(pdPage, fontOblique)
@@ -1127,7 +1205,217 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 y -= 10
             }
         }
-        drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans')
+        drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans échelle')
+    }
+
+    // ═══════════════ DP4 (a) – Élévation cotée du projet ═════════════════
+    // Le plan des façades attendu par R. 431-10 b) se juge sur des COTES : hauteur au faîtage,
+    // hauteur de clôture, dimensions d'une baie. Les vues photo/croquis de la page suivante
+    // montrent l'aspect, jamais la mesure. Cette planche-ci est tracée à une échelle normalisée
+    // à partir des seules dimensions déclarées à l'étape Travaux — rien n'est relevé sur une
+    // image générée. Quand les travaux ne définissent aucune géométrie cotable (ravalement,
+    // isolation, toiture, photovoltaïque), la planche n'est pas produite du tout.
+    const elevation = facadeElevation(data)
+    if (elevation) {
+        const page = addPage()
+        const M = M_INNER
+        const cW = PW - M * 2
+        drawFrame(page)
+        let y = drawDesignHeader(page, fontOblique)
+        y = drawTitleProfessional(page, bold, `${elevation.title} (DP 4)`, M, y)
+        y -= 12
+
+        const panelW = 300                      // colonne de droite : cotes déclarées
+        const areaX = M + 78                    // marge pour la cote verticale
+        const areaBot = MARGIN + FOOT_H + 82    // bande basse : cote horizontale, échelle, notes
+        const availW = cW - panelW - 100
+        const availH = Math.max(120, y - areaBot - 34)
+
+        // Combien dessiner et à quelle échelle — décidé dans planFacade (testable isolément).
+        const { denom, ptPerM, bayCount, drawnLengthM, totalW, fragmentNote } =
+            layoutElevation(elevation, availW, availH)
+
+        const orange = rgb(0.69, 0.33, 0.18)     // projet — même convention que le plan de coupe
+        const drawnW = totalW * ptPerM
+        const drawnH = (elevation.kind === 'baie' ? elevation.heightM + 0.8 : elevation.heightM) * ptPerM
+        // Ligne de sol : le dessin est centré verticalement dans la zone disponible. Ancré en bas,
+        // un ouvrage bas (une clôture) se tassait en pied de planche sous 30 cm de blanc.
+        const gy = areaBot + 26 + Math.max(0, (availH - drawnH) / 2)
+        // Bord gauche de l'ensemble dessiné : centré, puis décalé à gauche autant qu'il le faut
+        // pour garder une gouttière à droite. Les cotes verticales (égout/faîtage, hauteur de
+        // clôture) s'y logent ; sans cette réserve elles se rabattaient DANS le dessin dès que
+        // l'ouvrage occupait toute la largeur — une cote tracée à l'intérieur du mur ne se lit pas.
+        const COTE_GUTTER = elevation.kind === 'batiment' ? 62 : elevation.kind === 'cloture' ? 32 : 0
+        const ox = Math.max(M + 8, Math.min(
+            areaX + Math.max(0, (availW - drawnW) / 2),
+            areaX + availW - drawnW - COTE_GUTTER,
+        ))
+        const Y = (m: number) => gy + m * ptPerM
+
+        if (elevation.kind === 'batiment') {
+            const stubLeft = elevation.adossement === 'gauche'
+            const bx0 = ox + (stubLeft ? STUB_M * ptPerM : 0)
+            const bx1 = bx0 + elevation.widthM * ptPerM
+            const hE = elevation.eaveM ?? elevation.heightM
+            const yE = Y(hE), yF = Y(elevation.heightM)
+
+            // Amorce du bâti existant auquel l'extension s'adosse — hachurée, jamais cotée
+            // (ses dimensions ne sont pas déclarées ; la dessiner pleine laisserait croire l'inverse).
+            if (elevation.adossement) {
+                const sx = stubLeft ? ox : bx1
+                const sw = STUB_M * ptPerM
+                const sh = Math.max(elevation.heightM, hE + 0.6) * ptPerM
+                box(page, sx, gy, sw, sh, C.offWhite, C.mid, 0.9)
+                hatchRect(page, sx, gy, sw, sh, C.light, 7)
+                txCentered(page, 'EXISTANT', sx + sw / 2, gy + sh / 2, 7, font, C.dark)
+                // La hauteur du bâti existant n'est PAS déclarée : l'amorce est coupée sur son bord
+                // extérieur. Sans cette rupture, le dessin affirmerait une maison exactement aussi
+                // haute que le faîtage de l'extension — une cote qu'aucune donnée ne soutient.
+                breakLine(page, stubLeft ? sx + 4 : sx + sw - 4, gy, gy + sh, 4, C.mid)
+            }
+
+            box(page, bx0, gy, bx1 - bx0, yE - gy, rgb(0.97, 0.93, 0.89), orange, 1.6)
+            const roof = elevation.roof ?? 'double'
+            if (roof === 'flat' || elevation.heightM - hE < 0.05) {
+                ln(page, bx0, yE, bx1, yE, 1.6, orange)
+            } else if (roof === 'mono') {
+                // Mono-pente : le point haut est DU CÔTÉ DE L'ADOSSEMENT — l'appentis s'appuie
+                // contre la maison et sa pente descend en s'en écartant. Même convention que le
+                // plan de coupe DP3, sans quoi les deux pièces montreraient deux toits différents.
+                const highLeft = elevation.adossement === 'gauche'
+                polygon(page, [
+                    { x: bx0, y: highLeft ? yF : yE }, { x: bx1, y: highLeft ? yE : yF },
+                    { x: bx1, y: yE }, { x: bx0, y: yE },
+                ], rgb(0.94, 0.86, 0.79), orange, 1.6)
+            } else {
+                polygon(page, [{ x: bx0, y: yE }, { x: (bx0 + bx1) / 2, y: yF }, { x: bx1, y: yE }],
+                    rgb(0.94, 0.86, 0.79), orange, 1.6)
+            }
+
+            dimH(page, font, bx0, bx1, gy - 22, `${fmtM(elevation.widthM)} m`)
+            const cx = bx1 + 18
+            if (hE > 0) dimV(page, font, cx, gy, yE, `égout ${fmtM(hE)} m`)
+            if (elevation.heightM - hE >= 0.05) dimV(page, font, cx + 30, gy, yF, `faîtage ${fmtM(elevation.heightM)} m`)
+        } else if (elevation.kind === 'cloture') {
+            const fx1 = ox + drawnLengthM * ptPerM
+            const top = Y(elevation.heightM)
+            const fence = elevation.fence!
+            const bahutTop = Y(fence.bahutM)
+
+            // Remplissage selon le type déclaré — chaque type doit se DISTINGUER à l'œil : des
+            // panneaux pleins et une claire-voie n'ont pas le même impact et ne s'apprécient pas
+            // pareil au regard d'un règlement de PLU.
+            const solid = (x: number, w: number, yb: number, yt: number) => {
+                box(page, x, yb, w, yt - yb, rgb(0.94, 0.9, 0.86), orange, 1.6)
+                hatchRect(page, x, yb, w, yt - yb, rgb(0.82, 0.7, 0.6), 9, 0.4)
+            }
+            if (fence.type === 'mur') {
+                solid(ox, fx1 - ox, gy, top)
+            } else {
+                if (fence.bahutM > 0) solid(ox, fx1 - ox, gy, bahutTop)
+                const openBot = fence.bahutM > 0 ? bahutTop : gy
+                if (fence.type === 'panneaux') {
+                    // Panneaux pleins : seuls les joints entre panneaux (~1,80 m) se lisent.
+                    box(page, ox, openBot, fx1 - ox, top - openBot, rgb(0.97, 0.95, 0.93), orange, 1.6)
+                    for (let bx = ox + 1.8 * ptPerM; bx < fx1 - 1; bx += 1.8 * ptPerM) ln(page, bx, openBot + 1, bx, top - 1, 1, C.dark)
+                } else {
+                    box(page, ox, openBot, fx1 - ox, top - openBot, C.white, orange, 1.6)
+                    // Claire-voie / grillage : trame ajourée. Le pas est plafonné — sous ~2,5 pt
+                    // les barreaux se rejoignent en aplat et la clôture paraît pleine.
+                    const barStep = Math.max(2.5, 0.14 * ptPerM)
+                    for (let bx = ox + barStep; bx < fx1 - 1; bx += barStep) ln(page, bx, openBot + 1, bx, top - 1, 0.6, C.dark)
+                    if (fence.type === 'grillage') {
+                        for (let by = openBot + barStep; by < top - 1; by += barStep) ln(page, ox + 1, by, fx1 - 1, by, 0.6, C.dark)
+                    }
+                }
+            }
+            // Poteaux tous les ~2,5 m — le rythme que l'instructeur retrouve sur le terrain.
+            const postStep = 2.5 * ptPerM, postW = Math.max(2, 0.15 * ptPerM)
+            for (let px = ox; px <= fx1 + 0.1; px += postStep) {
+                box(page, Math.min(px, fx1 - postW), gy, postW, top - gy, rgb(0.86, 0.78, 0.71), orange, 0.9)
+            }
+
+            // Rupture conventionnelle à l'extrémité tronquée : le lecteur voit que l'ouvrage
+            // continue au-delà du cadre, il ne lit pas une clôture de 10 m là où il y en a 60.
+            if (drawnLengthM < elevation.widthM) breakLine(page, fx1 - 5, gy, top)
+
+            dimH(page, font, ox, fx1, gy - 22, `${fmtM(drawnLengthM)} m`)
+            dimV(page, font, fx1 + 16, gy, top, `${fmtM(elevation.heightM)} m`)
+            if (fence.bahutM > 0) dimV(page, font, ox - 26, gy, bahutTop, `bahut ${fmtM(fence.bahutM)} m`)
+        } else {
+            // Baie(s) : dessinées dans un fragment de mur existant, pour que la cote se lise
+            // bien comme celle du tableau et non celle d'un panneau isolé.
+            const bay = elevation.bay!
+            const wallH = (elevation.heightM + 0.8) * ptPerM
+            box(page, ox, gy, drawnW, wallH, rgb(0.97, 0.96, 0.94), C.mid, 1)
+            // Une fenêtre de toit n'est pas percée dans un mur : nommer correctement le support
+            // évite de faire lire au dossier une implantation qui n'est pas celle déclarée.
+            txCentered(page, bay.type === 'fenetre_toit' ? 'Pan de toiture existant' : 'Mur existant',
+                ox + drawnW / 2, gy + wallH - 12, 7, fontOblique, C.mid)
+
+            const bw = elevation.widthM * ptPerM, bh = elevation.heightM * ptPerM
+            const by = gy + 0.4 * ptPerM   // allège non déclarée : la baie est simplement décollée du sol
+            for (let i = 0; i < bayCount; i++) {
+                const bx = ox + WALL_PAD_M * ptPerM + i * (bw + BAY_GAP_M * ptPerM)
+                if (bay.operation === 'suppression') {
+                    box(page, bx, by, bw, bh, rgb(0.94, 0.9, 0.86), orange, 1.4)
+                    hatchRect(page, bx, by, bw, bh, rgb(0.75, 0.6, 0.5), 6, 0.6)
+                } else {
+                    box(page, bx, by, bw, bh, C.white, orange, 1.6)                       // dormant
+                    box(page, bx + 3, by + 3, bw - 6, bh - 6, rgb(0.93, 0.96, 0.98), orange, 0.9) // vitrage
+                    for (let v = 1; v < bay.vantaux; v++) ln(page, bx + (bw * v) / bay.vantaux, by + 3, bx + (bw * v) / bay.vantaux, by + bh - 3, 1.1, orange)
+                    if (bay.type === 'porte') page.drawCircle({ x: bx + bw - 9, y: by + bh / 2, size: 2, color: C.dark })
+                }
+                if (i === 0) {
+                    dimH(page, font, bx, bx + bw, gy - 22, `${fmtM(elevation.widthM)} m`)
+                    dimV(page, font, ox - 26, by, by + bh, `${fmtM(elevation.heightM)} m`)
+                }
+            }
+        }
+
+        // Ce que le tracé ne montre pas — annoncé AU-DESSUS du dessin, là où le regard tombe en
+        // premier (et loin de l'échelle graphique, que la mention recouvrait en pied de planche).
+        if (fragmentNote) tx(page, fragmentNote, areaX, gy + drawnH + 18, 9, bold, orange)
+
+        // Ligne de sol / terrain naturel : la référence de toutes les hauteurs cotées.
+        ln(page, areaX - 20, gy, areaX + availW + 20, gy, 1.6, C.nearBlack)
+        tx(page, elevation.kind === 'baie' ? 'Niveau du sol' : 'Terrain naturel (TN)', areaX - 20, gy - 12, 8, fontOblique, C.dark)
+
+        // Échelle graphique — elle survit à une photocopie mal calibrée, contrairement au ratio.
+        scaleBar(page, font, areaX, areaBot - 30, ptPerM)
+
+        // ── Panneau des cotes déclarées ──────────────────────────────────────
+        {
+            const px = M + cW - panelW, pw = panelW
+            let py = y - 8
+            box(page, px, py - 26, pw, 26, rgb(0.18, 0.35, 0.30), undefined)
+            tx(page, 'DIMENSIONS DÉCLARÉES', px + 12, py - 17, 10, bold, C.white)
+            py -= 26
+            const rows: string[] = [...elevation.dims]
+            if (elevation.material) rows.push(`Matériau / teinte : ${elevation.material}`)
+            const bodyH = rows.length * 20 + 16
+            box(page, px, py - bodyH, pw, bodyH, rgb(0.91, 0.94, 0.92), rgb(0.18, 0.35, 0.30), 1)
+            let ry = py - 22
+            for (const r of rows) { tx(page, `- ${r}`, px + 12, ry, 10, font, C.nearBlack); ry -= 20 }
+            py -= bodyH + 14
+
+            const notes = [
+                `Échelle du tracé : ${scaleLabel(denom)}.`,
+                'Cotes reprises de la déclaration du maître d\'ouvrage (étape « Travaux »).',
+                ...elevation.caveats.map(c => `${c}.`),
+            ]
+            for (const n of notes) {
+                const lines = wrapText(n, 46)
+                for (const l of lines) { tx(page, l, px, py, 8.5, fontOblique, C.dark); py -= 12 }
+                py -= 3
+            }
+        }
+
+        // Rappel explicite du périmètre du dessin — il ne remplace pas les vues d'aspect.
+        tx(page, san("Cette élévation cote le projet. L'aspect (matériaux, teintes, insertion) est présenté sur les vues de la planche suivante."),
+            M, MARGIN + FOOT_H + 16, 9, fontOblique, C.mid)
+
+        drawDesignFooter(page, font, bold, data, 'DP 4', 'Plan des façades et des toitures', scaleLabel(denom))
     }
 
     // ══════════════════════ PAGE 5 – DP5 Croquis Architectural ══════════
@@ -1140,7 +1428,9 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         const cW = PW - M * 2
         drawFrame(page)
         let y = drawDesignHeader(page, fontOblique)
-        y = drawTitleProfessional(page, bold, 'Plan des façades et des toitures : état existant et projeté (DP 4)', M, y)
+        y = drawTitleProfessional(page, bold, elevation
+            ? 'Façades : état existant et état projeté — vues d\'aspect (DP 4)'
+            : 'Plan des façades et des toitures : état existant et projeté (DP 4)', M, y)
         y -= 10
 
         if (facadesDp5.length === 0) {
@@ -1184,12 +1474,16 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             }
         }
 
-        const note = "Documents présentant les modifications architecturales projetées pour l'ensemble des façades concernées. Ils permettent d'apprécier l'aspect architectural, les proportions et les matériaux mis en œuvre."
+        // La note dit ce que ces vues prouvent — et ce qu'elles ne prouvent pas. Elles sont sans
+        // échelle : les cotes sont sur la planche d'élévation, quand le projet en admet une.
+        const note = elevation
+            ? "Vues d'aspect, sans échelle : elles permettent d'apprécier l'architecture, les proportions et les matériaux mis en œuvre. Les dimensions du projet sont cotées sur la planche d'élévation qui précède."
+            : "Documents présentant les modifications architecturales projetées pour l'ensemble des façades concernées. Ils permettent d'apprécier l'aspect architectural, les proportions et les matériaux mis en œuvre. Vues sans échelle : les travaux déclarés ne modifient ni le volume bâti ni les dimensions des ouvertures."
         const noteY = FOOT_H + 50
         box(page, M, noteY, cW, 44, C.offWhite, C.black, 1.2)
         textBlock(page, note, M + 14, noteY + 32, 10, font, 130, 14, C.nearBlack)
 
-        drawDesignFooter(page, font, bold, data, 'DP 4', 'Plan des façades et des toitures', 'Sans')
+        drawDesignFooter(page, font, bold, data, 'DP 4', elevation ? 'Façades et toitures : vues' : 'Plan des façades et des toitures', 'Sans échelle')
     }
 
     // ══════════════════════ PAGE 6 – DP6 Insertion Paysagere ══════════════
@@ -1205,7 +1499,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             y = drawTitleProfessional(page, bold, 'Insertion paysagère : comparaison visuelle', M, y)
             y -= 10
             placeholder(page, font, M, y, cW, 200, 'Aucune photo pour l\'insertion paysagere')
-            drawDesignFooter(page, font, bold, data, 'DP 5/6', 'Aspect extérieur et insertion paysagère', 'Sans')
+            drawDesignFooter(page, font, bold, data, 'DP 5/6', 'Aspect extérieur et insertion paysagère', 'Sans échelle')
         } else {
             for (const f of facadesToDraw) {
                 const page = addPage()

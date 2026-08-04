@@ -60,26 +60,50 @@ export async function geocodeAddress(address: string, commune: string): Promise<
 }
 
 /**
- * Generates the IGN WMS URL
- * VERSION=1.3.0 is REQUIRED by data.geopf.fr
+ * Web Mercator units are NOT ground metres: at latitude φ, one EPSG:3857 unit covers
+ * cos(φ) ground metres (~0.69 at 46°N). A bbox built from a raw metre count therefore
+ * covers ~30 % LESS ground than asked — which is why a "500 m" plan de situation only
+ * ever showed ~350 m of commune. Every caller below speaks TRUE GROUND METRES; this is
+ * the single place the projection distortion is undone.
  */
-export function getIGNMapUrl(type: 'DP1' | 'DP2', coords: MapCoords, sizeMeters?: number): string {
-    // Standard IGN Geoplateforme WMS endpoint (VERSION 1.3.0 mandatory)
-    const baseUrl = 'https://data.geopf.fr/wms-r/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=EPSG:3857&WIDTH=1000&HEIGHT=1000&STYLES=';
-
-    const timestamp = Date.now();
-    if (type === 'DP1') {
-        const bbox = getBBox3857(coords.lat, coords.lon, sizeMeters || 500); // Default to 500m
-        return `${baseUrl}&LAYERS=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&FORMAT=image/png&BBOX=${bbox}&ts=${timestamp}`;
-    } else {
-        const bbox = getBBox3857(coords.lat, coords.lon, sizeMeters || 150);
-        // Orthophoto + Cadastre
-        return `${baseUrl}&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS,CADASTRALPARCELS.PARCELS&FORMAT=image/png&BBOX=${bbox}&ts=${timestamp}`;
-    }
+export function groundToMercator(lat: number, groundMeters: number): number {
+    const c = Math.cos(lat * Math.PI / 180);
+    return groundMeters / Math.max(c, 0.2); // clamp guards the poles (never France, but cheap)
 }
 
+/** Default ground span of the DP1 plan de situation, in metres.
+ *  R. 431-36 a) asks for "un plan permettant de connaître la situation du terrain à
+ *  l'intérieur de la commune" — the terrain must be readable IN ITS COMMUNE, not just in
+ *  its street. Printed 169 mm wide on the A3 sheet, 1200 m lands at ≈ 1/7000. */
+export const DP1_DEFAULT_GROUND_M = 1200;
+/** Default ground span of the DP2 fallback ortho image, in metres. */
+export const DP2_DEFAULT_GROUND_M = 150;
+
+/**
+ * Generates the IGN WMS URL.
+ * VERSION=1.3.0 is REQUIRED by data.geopf.fr
+ * `groundMeters` is the TRUE ground span of the returned image (see groundToMercator).
+ */
+export function getIGNMapUrl(type: 'DP1' | 'DP2', coords: MapCoords, groundMeters?: number): string {
+    // Standard IGN Geoplateforme WMS endpoint (VERSION 1.3.0 mandatory).
+    // DP1 is requested at 1600² rather than 1000²: it now covers ~2.4× more ground, and at
+    // 169 mm printed a 1000 px tile would drop to ~150 dpi — too coarse to read street names.
+    const px = type === 'DP1' ? 1600 : 1000;
+    const baseUrl = `https://data.geopf.fr/wms-r/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=EPSG:3857&WIDTH=${px}&HEIGHT=${px}&STYLES=`;
+
+    const timestamp = Date.now();
+    const ground = groundMeters || (type === 'DP1' ? DP1_DEFAULT_GROUND_M : DP2_DEFAULT_GROUND_M);
+    const bbox = getBBox3857(coords.lat, coords.lon, groundToMercator(coords.lat, ground));
+    if (type === 'DP1') {
+        return `${baseUrl}&LAYERS=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&FORMAT=image/png&BBOX=${bbox}&ts=${timestamp}`;
+    }
+    // Orthophoto + Cadastre
+    return `${baseUrl}&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS,CADASTRALPARCELS.PARCELS&FORMAT=image/png&BBOX=${bbox}&ts=${timestamp}`;
+}
+
+/** `radiusMeters` is a TRUE GROUND half-span (the WFS bbox is widened accordingly). */
 export async function getVectorMapData(coords: MapCoords, radiusMeters: number) {
-    const bboxStr = getBBox3857(coords.lat, coords.lon, radiusMeters);
+    const bboxStr = getBBox3857(coords.lat, coords.lon, groundToMercator(coords.lat, radiusMeters));
     const baseUrl = 'https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&OUTPUTFORMAT=application/json&srsName=EPSG:3857';
 
     const urlCadastre = `${baseUrl}&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle&BBOX=${bboxStr},EPSG:3857`;

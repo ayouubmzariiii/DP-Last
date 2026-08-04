@@ -8,11 +8,19 @@ import { getTravauxDef, travauxNatureLabel } from '@/lib/travauxRegistry'
 import { DPFormData } from '@/lib/models'
 import { uploadImage } from '@/lib/uploadImage'
 import html2canvas from 'html2canvas'
-import { geocodeAddress } from '@/lib/ignMaps'
+import { geocodeAddress, DP1_DEFAULT_GROUND_M } from '@/lib/ignMaps'
 import { buildPlanMasseSvg } from '@/lib/planMasse'
 import { generateCoupeSvg } from '@/lib/coupeData'
 
 const MAX_IMG_SIZE = 1.5 * 1024 * 1024 // 1.5MB to save bandwidth for Nemotron
+
+/** Échelle imprimée du DP1, pour informer le choix de l'emprise.
+ *  Sur la planche A3 la capture 16:9 est ajustée à 480 pt de haut, soit ≈ 853 pt (301 mm) de large
+ *  (cf. dpDocGenerator, page DP1). Estimation arrondie — le cartouche du PDF fait foi. */
+function dp1PrintedRatio(groundM: number): number {
+    const printedWidthM = (853 / 72) * 0.0254
+    return Math.max(100, Math.round(groundM / printedWidthM / 100) * 100)
+}
 
 
 function MapCard({
@@ -115,19 +123,24 @@ function MapCard({
                 <div className="px-5 pb-4 flex items-center gap-4 bg-[var(--surface-2)] mx-4 mb-4 rounded-xl border border-white/10 py-3">
                     <div className="flex-1">
                         <div className="flex justify-between mb-1.5">
-                            <span className="text-[10px] font-bold t-ink2 uppercase tracking-wider">Échelle du plan (Zoom)</span>
-                            <span className="text-[10px] font-mono t-accent">{zoom}m</span>
+                            <span className="text-[10px] font-bold t-ink2 uppercase tracking-wider">Emprise du plan</span>
+                            {/* Le ratio imprimé, pas seulement l'emprise : c'est lui qui figure au
+                                cartouche du PDF, donc c'est lui que l'on choisit ici en connaissance. */}
+                            <span className="text-[10px] font-mono t-accent">{zoom} m au sol · ≈ 1/{dp1PrintedRatio(zoom!)}</span>
                         </div>
                         <input
                             type="range"
-                            min="200"
-                            max="2000"
+                            min="300"
+                            max="4000"
                             step="100"
                             value={zoom}
                             onChange={(e) => onZoomChange(parseInt(e.target.value))}
                             className="w-full h-1.5 bg-[var(--line-3)] rounded-lg appearance-none cursor-pointer"
                             style={{ accentColor: 'var(--ac)' }}
                         />
+                        <p className="text-[10px] t-muted mt-1.5 leading-snug">
+                            Le plan doit permettre de situer le terrain <strong>dans la commune</strong> (art. R. 431-36 a).
+                        </p>
                     </div>
                 </div>
             )}
@@ -668,7 +681,14 @@ export default function Etape6() {
     const goNext = () => { const i = flow.indexOf(subStep); if (i >= 0 && i < flow.length - 1) setSubStep(flow[i + 1]) }
     const goPrev = () => { const i = flow.indexOf(subStep); if (i > 0) setSubStep(flow[i - 1]) }
     const [selectedFacades, setSelectedFacades] = useState<string[]>([])
-    const [dp1Zoom, setDp1Zoom] = useState(500)
+    // Emprise au sol du plan de situation, en VRAIS mètres. 1200 m ≈ 1/7000 une fois imprimé :
+    // le terrain se lit dans sa commune, ce que demande l'art. R. 431-36 a). L'ancien réglage
+    // (500 unités Web-Mercator ≈ 350 m au sol) ne montrait guère plus que le pâté de maisons.
+    const [dp1Zoom, setDp1Zoom] = useState(DP1_DEFAULT_GROUND_M)
+    // Rouvrir un dossier doit rouvrir SON emprise, pas le réglage par défaut : sinon le curseur
+    // ment sur ce qui a été capturé, et la moindre recapture change l'échelle sans prévenir.
+    const savedDp1Ground = formData.plans.dp1_ground_m
+    useEffect(() => { if (savedDp1Ground) setDp1Zoom(savedDp1Ground) }, [savedDp1Ground])
     const [croquisInstructions, setCroquisInstructions] = useState<Record<string, string>>({})
     const [generatingFacades, setGeneratingFacades] = useState<string[]>([])
     const [showModifyInput, setShowModifyInput] = useState<Record<string, 'dp6' | 'dp5' | null>>({})
@@ -1057,7 +1077,9 @@ export default function Etape6() {
                                 onCapture={async (img) => {
                                     try {
                                         const url = await uploadImage(dossierId, 'dp1', img, { previousUrl: formData.plans.dp1_carte_situation })
-                                        updatePlans({ dp1_carte_situation: url, dp1_span_m: dp1Zoom })
+                                        // dp1_ground_m : vraies mètres au sol (cf. ignMaps.groundToMercator).
+                                        // On n'écrit plus dp1_span_m, qui comptait en unités Web-Mercator.
+                                        updatePlans({ dp1_carte_situation: url, dp1_ground_m: dp1Zoom, dp1_span_m: undefined })
                                     } catch { alert('Téléversement du plan DP1 échoué. Réessayez.') }
                                 }}
                                 savedImage={formData.plans.dp1_carte_situation}

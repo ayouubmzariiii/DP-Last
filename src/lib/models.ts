@@ -283,7 +283,10 @@ export interface PhotosUploadees {
 
 export interface PlansSauvegardes {
     dp1_carte_situation: string | null    // URL carte statique
-    dp1_span_m?: number                   // ground span (m) of the captured DP1 map, for scale bar
+    dp1_ground_m?: number                 // TRUE ground span (m) of the captured DP1 map, for the scale bar
+    /** @deprecated Web-Mercator span of the DP1 capture (≈ ground/cos φ). Kept read-only so
+     *  dossiers captured before the projection fix still print their real scale. */
+    dp1_span_m?: number
     dp2_plan_masse: string | null         // URL carte statique zoom+
     dp2_span_m?: number                   // ground span (m) of the captured DP2 map, for scale bar
     dp3_coupe?: string | null             // plan de coupe (DP3) — captured PNG, only when requiresDP3
