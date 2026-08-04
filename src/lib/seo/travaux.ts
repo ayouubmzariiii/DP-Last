@@ -54,7 +54,26 @@ export const PIECES: Record<PieceCode, { titre: string; desc: string }> = {
 }
 
 export const DISCLAIMER =
-    'Information générale à jour du Code de l’urbanisme. Les règles de hauteur, d’implantation, de teinte et de matériaux dépendent du PLU de votre commune et, en secteur protégé, de l’avis de l’Architecte des Bâtiments de France. Cette page ne remplace pas une consultation du service urbanisme de votre mairie.'
+    'Information générale. Les seuils cités sont ceux du Code de l’urbanisme ; les règles de hauteur, d’implantation, de teinte et de matériaux dépendent du PLU de votre commune et, en secteur protégé, de l’avis de l’Architecte des Bâtiments de France. Cette page ne remplace pas une consultation du service urbanisme de votre mairie.'
+
+/** Date de la dernière vérification des seuils contre les sources officielles.
+ *  À remettre à jour à chaque passage de contrôle — le droit bouge (le seuil
+ *  photovoltaïque au sol est passé de 250 kWc à 1 MWc puis 3 MWc en deux ans). */
+export const VERIFIE_LE = 'août 2026'
+
+/** Articles sur lesquels reposent les seuils publiés. Affichés en pied de guide :
+ *  ils rendent l’information vérifiable par le lecteur, et re-vérifiable par nous. */
+export const SOURCES: { ref: string; objet: string }[] = [
+    { ref: 'R. 421-2', objet: 'constructions dispensées de formalité (5 m², 12 m de hauteur, bassin de 10 m²)' },
+    { ref: 'R. 421-9', objet: 'constructions nouvelles soumises à déclaration préalable (5 à 20 m², bassin jusqu’à 100 m²)' },
+    { ref: 'R. 421-12', objet: 'clôtures soumises à déclaration par délibération ou en secteur protégé' },
+    { ref: 'R. 421-14 et R. 421-17', objet: 'travaux sur construction existante, extensions de 20 et 40 m²' },
+    { ref: 'R. 421-17-1', objet: 'ravalement soumis à déclaration préalable' },
+    { ref: 'R. 421-23', objet: 'affouillements et exhaussements (100 m² et 2 m)' },
+    { ref: 'R. 431-2', objet: 'recours obligatoire à un architecte au-delà de 150 m²' },
+    { ref: 'L. 152-5 et R. 152-5 à R. 152-9', objet: 'dérogation de 30 cm pour l’isolation par l’extérieur' },
+    { ref: 'R. 423-23 et R. 424-17', objet: 'délai d’instruction d’un mois, validité de trois ans' },
+]
 
 /** Rappels transverses réutilisés par toutes les pages (délais, dépôt, suites). */
 export const PROCEDURE = {
@@ -62,7 +81,7 @@ export const PROCEDURE = {
     delaiMajore: 'Il passe à deux mois lorsque le projet se situe aux abords d’un monument historique, dans un site patrimonial remarquable ou un site classé : l’Architecte des Bâtiments de France doit alors être consulté.',
     tacite: 'À l’expiration du délai, l’absence de réponse vaut décision de non-opposition. Vous pouvez demander en mairie un certificat attestant cette décision tacite.',
     incomplet: 'Si le dossier est incomplet, la mairie vous notifie une demande de pièces complémentaires dans le premier mois. Le délai est alors suspendu et vous disposez de trois mois pour compléter, sous peine de rejet tacite.',
-    cerfa: 'Le formulaire est le Cerfa n°16702 (déclaration préalable pour une maison individuelle et ses annexes), qui a remplacé l’ancien Cerfa 13703.',
+    cerfa: 'Pour des travaux portant sur une maison individuelle et/ou ses annexes — le cas le plus courant — le formulaire est le Cerfa n°13703 (version 13703*12, en vigueur). Le Cerfa n°16702 vise les constructions et travaux qui ne portent PAS sur une maison individuelle : les deux coexistent, l’un ne remplace pas l’autre.',
     depot: 'Le dossier se dépose en mairie, ou par voie dématérialisée : depuis 2022, les communes de plus de 3 500 habitants doivent proposer un guichet numérique (GNAU / AD’AU).',
     affichage: 'Dès la décision obtenue, un panneau réglementaire doit être affiché sur le terrain, visible de la voie publique, pendant toute la durée des travaux. Il fait courir le délai de recours des tiers de deux mois.',
     validite: 'La décision est valable trois ans, prorogeable deux fois un an sur demande faite deux mois avant l’échéance.',
@@ -112,7 +131,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { q: 'Quelle surface d’abri de jardin sans déclaration ?', a: 'Jusqu’à 5 m² d’emprise au sol et de surface de plancher inclus, avec une hauteur inférieure à 12 m, aucune formalité n’est exigée — sauf si le terrain se trouve en secteur protégé, où la déclaration préalable redevient obligatoire dès le premier mètre carré.' },
             { q: 'Un abri démontable ou sans fondation doit-il être déclaré ?', a: 'Oui. Le Code de l’urbanisme raisonne sur l’emprise au sol et la durée d’implantation, pas sur le mode de fixation. Un abri simplement posé, installé pour plus de trois mois, relève des mêmes seuils qu’une construction fondée.' },
             { q: 'Faut-il une déclaration préalable pour un carport ?', a: 'Un carport crée de l’emprise au sol même s’il est ouvert sur ses côtés. Entre 5 et 20 m², il relève de la déclaration préalable ; au-delà, du permis de construire.' },
-            { q: 'L’abri de jardin est-il taxé ?', a: 'La taxe d’aménagement est due dès lors que la surface est close et couverte et que la hauteur sous plafond atteint 1,80 m. Un carport ouvert n’y est pas soumis, un abri fermé l’est. Certaines communes appliquent une exonération sur les premiers mètres carrés d’annexe.' },
+            { q: 'L’abri de jardin est-il taxé ?', a: 'La taxe d’aménagement est due dès lors que la surface est close et couverte et que la hauteur sous plafond atteint 1,80 m. Un carport ouvert n’y est pas soumis, un abri fermé l’est. Les collectivités peuvent en outre exonérer, en tout ou partie, les abris de jardin soumis à déclaration préalable dont la surface n’excède pas 20 m² — c’est une délibération locale, à vérifier en mairie.' },
             { q: 'Que se passe-t-il si l’abri est déjà construit ?', a: 'Une déclaration de régularisation peut être déposée pour la construction existante. C’est la voie normale, et elle est très largement préférable à l’attente : l’infraction reste constatable pendant plusieurs années et bloque toute vente sereine du bien.' },
         ],
         related: ['extension-maison', 'terrassement', 'cloture'],
@@ -179,8 +198,8 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         seuils: [
             { formalite: 'dp', condition: 'Pose de panneaux sur une toiture existante, en surimposition ou en intégration — modification de l’aspect extérieur.' },
             { formalite: 'aucune', condition: 'Installation au sol d’une puissance au plus égale à 3 kWc et d’une hauteur au plus égale à 1,80 m, hors secteur protégé.' },
-            { formalite: 'dp', condition: 'Installation au sol dépassant 1,80 m de hauteur, ou d’une puissance comprise entre 3 et 250 kWc.' },
-            { formalite: 'pc', condition: 'Installation au sol d’une puissance supérieure à 250 kWc.' },
+            { formalite: 'dp', condition: 'Installation au sol d’une puissance comprise entre 3 kWc et 3 MWc, ou de moins de 3 kWc mais d’une hauteur d’au moins 1,80 m.' },
+            { formalite: 'pc', condition: 'Installation au sol d’une puissance égale ou supérieure à 3 MWc — seuil porté de 250 kWc à 1 MWc fin 2022, puis à 3 MWc au 1er décembre 2024.' },
         ],
         pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8'],
         piecesNote: 'Le plan des façades et toitures (DP4) doit montrer l’implantation exacte des modules sur le pan de toit, avec leur nombre et leurs dimensions. Un montage photographique du rendu est très fortement recommandé, et exigé en secteur protégé.',
@@ -532,12 +551,12 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
         metaDescription: 'Affouillement, exhaussement, mur de soutènement : quand une déclaration préalable est obligatoire, quelles pièces joindre et comment traiter le profil du terrain.',
         aliases: ['déclaration préalable terrassement', 'déclaration préalable mur de soutènement', 'affouillement exhaussement déclaration', 'autorisation remblai', 'modifier niveau terrain autorisation'],
         intro: [
-            'Modifier le relief d’un terrain porte un nom précis en urbanisme : affouillement quand on creuse, exhaussement quand on remblaie. La formalité tient à un double seuil cumulatif : une déclaration préalable est exigée lorsque la surface concernée dépasse 100 m² et que la hauteur ou la profondeur excède 2 m. Sous l’un des deux seuils, aucune formalité n’est requise en zone ordinaire.',
+            'Modifier le relief d’un terrain porte un nom précis en urbanisme : affouillement quand on creuse, exhaussement quand on remblaie. La formalité tient à un double seuil cumulatif : une déclaration préalable est exigée lorsque la surface concernée atteint 100 m² et que la hauteur ou la profondeur excède 2 m. Sous l’un des deux seuils, aucune formalité n’est requise en zone ordinaire.',
             'Les murs de soutènement suivent une logique distincte. Ils ne sont pas des clôtures et, en tant qu’ouvrages, ils sont soumis à déclaration préalable indépendamment de ces seuils dès qu’ils modifient l’aspect extérieur ou le profil du terrain. Beaucoup de PLU les encadrent spécifiquement en hauteur et en matériau.',
             'Le sujet revient presque toujours accolé à un autre projet — piscine, extension, accès de garage — et c’est là qu’il se perd. Le décaissement fait partie du projet et doit apparaître sur la coupe, même quand il ne déclenche pas de formalité à lui seul.',
         ],
         seuils: [
-            { formalite: 'dp', condition: 'Affouillement ou exhaussement dont la superficie est supérieure à 100 m² et la hauteur ou profondeur supérieure à 2 m.' },
+            { formalite: 'dp', condition: 'Affouillement ou exhaussement dont la superficie est égale ou supérieure à 100 m² ET dont la hauteur (exhaussement) ou la profondeur (affouillement) excède 2 m — les deux conditions sont cumulatives.' },
             { formalite: 'aucune', condition: 'Mouvement de terre restant sous l’un des deux seuils, hors secteur protégé.' },
             { formalite: 'dp', condition: 'Mur de soutènement modifiant l’aspect extérieur ou le profil du terrain.' },
             { formalite: 'dp', condition: 'Tout affouillement ou exhaussement en site patrimonial remarquable, site classé ou aux abords d’un monument historique, sans condition de seuil.' },
@@ -559,7 +578,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { titre: 'Les volumes annoncés ne correspondent pas aux plans', texte: 'Surface et hauteur doivent être cohérentes entre le Cerfa, la notice et la coupe. Les écarts sont relevés et suspendent l’instruction.' },
         ],
         faq: [
-            { q: 'Quand un terrassement doit-il être déclaré ?', a: 'Lorsque les deux seuils sont franchis ensemble : plus de 100 m² de superficie et plus de 2 m de hauteur ou de profondeur. En secteur protégé, la déclaration est exigée sans condition de seuil.' },
+            { q: 'Quand un terrassement doit-il être déclaré ?', a: 'Lorsque les deux seuils sont franchis ensemble : au moins 100 m² de superficie et plus de 2 m de hauteur ou de profondeur. En secteur protégé, la déclaration est exigée sans condition de seuil.' },
             { q: 'Un mur de soutènement nécessite-t-il une déclaration préalable ?', a: 'Oui dès qu’il modifie l’aspect extérieur ou le profil du terrain, et cela indépendamment des seuils d’affouillement. Le PLU en plafonne souvent la hauteur et impose un parement.' },
             { q: 'Faut-il déclarer le décaissement d’une piscine ?', a: 'Il ne déclenche généralement pas de formalité propre, mais il doit figurer sur le plan de coupe du dossier de piscine. C’est précisément la fonction de la pièce DP3.' },
             { q: 'Puis-je remblayer librement mon terrain ?', a: 'Sous les seuils et hors secteur protégé, aucune formalité d’urbanisme n’est exigée. Mais le PLU peut imposer le respect du terrain naturel, et le remblai est fréquemment encadré ou interdit en zone inondable.' },
@@ -615,8 +634,8 @@ export const VERDICTS: Record<string, { reponse: string; seuilCle: string }> = {
         seuilCle: '20 ou 40 m²',
     },
     'terrassement': {
-        reponse: 'Déclaration préalable au-delà de 100 m² ET de 2 m de hauteur. Un mur de soutènement y est soumis indépendamment de ces seuils.',
-        seuilCle: '> 100 m² et > 2 m',
+        reponse: 'Déclaration préalable à partir de 100 m² de superficie ET au-delà de 2 m de hauteur ou de profondeur. Un mur de soutènement y est soumis indépendamment de ces seuils.',
+        seuilCle: '≥ 100 m² et > 2 m',
     },
 }
 

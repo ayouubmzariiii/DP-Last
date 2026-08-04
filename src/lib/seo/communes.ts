@@ -105,11 +105,3 @@ export const gnauUrl = () => 'https://www.service-public.fr/particuliers/vosdroi
 
 /** Cadastre officiel, centré sur la commune (utile pour le plan de situation). */
 export const cadastreUrl = (c: Commune) => `https://www.cadastre.gouv.fr/scpc/rechercherPlan.do`
-
-/** Le tissu urbain conditionne le seuil d'extension (20 ou 40 m²) : une commune
- *  dense est presque certainement dotée d'un PLU avec zone U. On le formule
- *  comme une probabilité, jamais comme une certitude juridique. */
-export function probableZoneU(c: Commune): boolean {
-    const d = densite(c)
-    return d !== null && d >= 400
-}

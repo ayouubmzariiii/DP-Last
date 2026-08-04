@@ -2,7 +2,7 @@
 // des pièces, erreurs fréquentes, FAQ (+ JSON-LD), rappels de procédure, CTA.
 // Tous sont des composants serveur sans état — rien n'est envoyé au client.
 import Link from 'next/link'
-import { PIECES, FORMALITE_LABEL, PROCEDURE, DISCLAIMER } from '@/lib/seo/travaux'
+import { PIECES, FORMALITE_LABEL, PROCEDURE, DISCLAIMER, SOURCES, VERIFIE_LE } from '@/lib/seo/travaux'
 import type { Seuil, Faq, Erreur, PieceCode } from '@/lib/seo/travaux'
 
 const FORMALITE_STYLE: Record<Seuil['formalite'], { bg: string; border: string; color: string }> = {
@@ -250,11 +250,28 @@ export function Sommaire({ items }: { items: { id: string; label: string }[] }) 
     )
 }
 
-export function Disclaimer() {
+/** Mention légale + sources. Afficher les articles n'est pas cosmétique : cela
+ *  rend les seuils vérifiables par le lecteur, et re-vérifiables par nous à la
+ *  prochaine évolution réglementaire. */
+export function Disclaimer({ sources = true }: { sources?: boolean }) {
     return (
-        <p style={{ marginTop: 28, fontSize: 13, lineHeight: 1.65, color: 'var(--muted)', maxWidth: '78ch' }}>
-            {DISCLAIMER}
-        </p>
+        <div style={{ marginTop: 28, maxWidth: '78ch' }}>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: 'var(--muted)' }}>{DISCLAIMER}</p>
+            {sources && (
+                <details style={{ marginTop: 12 }}>
+                    <summary style={{ cursor: 'pointer', fontFamily: 'var(--mf)', fontSize: 10.5, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                        Sources — Code de l’urbanisme · seuils vérifiés en {VERIFIE_LE}
+                    </summary>
+                    <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 5 }}>
+                        {SOURCES.map(s => (
+                            <li key={s.ref} style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)' }}>
+                                <span style={{ fontFamily: 'var(--mf)', color: 'var(--ink-2)' }}>Art. {s.ref}</span> — {s.objet}
+                            </li>
+                        ))}
+                    </ul>
+                </details>
+            )}
+        </div>
     )
 }
 

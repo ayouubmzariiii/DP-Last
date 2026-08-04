@@ -10,7 +10,7 @@ import {
 import { SEO_TRAVAUX, findTravaux, VERDICTS } from '@/lib/seo/travaux'
 import {
     COMMUNES, findCommune, communeParam, communesVoisines, densite,
-    geoportailUrl, probableZoneU, deCommune, aCommune, aCommuneCap, aCommuneParts,
+    geoportailUrl, deCommune, aCommune, aCommuneCap, aCommuneParts,
     type Commune,
 } from '@/lib/seo/communes'
 import { canonical, ANNEE, SITE_NAME } from '@/lib/seo/site'
@@ -57,7 +57,6 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
 
     const voisines = communesVoisines(c)
     const d = densite(c)
-    const zoneU = probableZoneU(c)
     const nf = (n: number) => n.toLocaleString('fr-FR')
 
     const faits: [string, string][] = [
@@ -144,8 +143,9 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
                             Vérifier les règles applicables à votre parcelle
                         </p>
                         <p style={{ margin: '0 0 16px', fontSize: 14.5, lineHeight: 1.65, color: 'var(--ink-2)' }}>
-                            Le zonage conditionne tout le reste : recul aux limites, hauteur admise, teintes imposées. {aCommuneCap(c.nom)}, le
-                            tissu est {tissu(c)}{zoneU ? ', ce qui rend probable un classement en zone urbaine du PLU — le seuil de 40 m² pour une extension y est alors applicable' : ' ; vérifiez le classement de la parcelle avant de retenir le seuil de 20 ou 40 m² pour une extension'}.
+                            Le zonage conditionne tout le reste : recul aux limites, hauteur admise, teintes imposées. Il décide aussi du
+                            seuil applicable à une extension — 40 m² en zone urbaine d&apos;un PLU, 20 m² ailleurs. Nous ne pouvons pas le
+                            déduire de loin : relevez-le sur votre parcelle avant de dessiner le projet.
                         </p>
                         <a
                             href={geoportailUrl(c)}
