@@ -110,7 +110,21 @@ export async function generateCoupeSvg(data: DPFormData, opts: { cartoucheRef?: 
 
     const t = data.travaux
     const centre = ((parcelStartD ?? 8) + (parcelEndD ?? 22)) / 2
-    const existing = house ? { startD: house.startD, widthM: house.widthM, heightEgoutM: 2.7, heightFaitageM: 5.4 } : undefined
+    // BD TOPO donne l'emprise du bâti existant, jamais ses hauteurs. Elles étaient codées en
+    // dur (2,70 / 5,40) : la coupe dessinait donc une maison dont personne n'avait déclaré le
+    // faîtage, sur la pièce même où se lisent les prospects. On prend désormais les hauteurs
+    // saisies à l'étape Terrain ; à défaut, la silhouette est marquée comme non renseignée
+    // (planCoupe la trace alors en pointillé, sans affirmer de niveau).
+    const hE = num(data.terrain.existant_hauteur_egout, 0)
+    const hF = num(data.terrain.existant_hauteur_faitage, 0)
+    const existing = house
+        ? {
+            startD: house.startD, widthM: house.widthM,
+            heightEgoutM: hE > 0 ? hE : 2.7,
+            heightFaitageM: hF > 0 ? hF : Math.max(hE > 0 ? hE + 1.5 : 5.4, hE),
+            declared: hE > 0 || hF > 0,
+        }
+        : undefined
 
     let project: PlanCoupeProject
     const anns: string[] = []

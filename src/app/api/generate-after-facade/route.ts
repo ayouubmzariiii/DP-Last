@@ -5,9 +5,14 @@ import { Readable } from 'stream'
 import { getSession } from '@/lib/auth'
 import { MAX_IMAGE_ATTEMPTS, ownsDossier, imageAttemptCount, bumpImageAttempt } from '@/lib/imageAttempts'
 import { getSetting } from '@/lib/appSettings'
+import { buildFacadeAuditPrompt, buildCorrectionPrompt, parseFacadeAudit, type FacadeAudit } from '@/lib/facadeAudit'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
+
+// Reprises INTERNES quand le contrôle de fidélité rejette la simulation. Elles corrigent nos
+// propres ratés : elles ne sont jamais décomptées du quota de générations du demandeur.
+const MAX_AUDIT_RETRIES = 2
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_build' })
 
@@ -83,8 +88,8 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json() as { prompt: string; imageBase64?: string; dossierId?: string; facadeId?: string }
-        const { prompt, dossierId, facadeId } = body
+        const body = await req.json() as { prompt: string; imageBase64?: string; dossierId?: string; facadeId?: string; worksDescription?: string; skipAudit?: boolean }
+        const { prompt, dossierId, facadeId, worksDescription } = body
         let { imageBase64 } = body
 
         if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
@@ -141,69 +146,112 @@ export async function POST(req: NextRequest) {
 
         // ── OpenRouter Path ───────────────────────────────────────────────
         if (openRouterKey) {
-            const contentArray: any[] = [{ type: 'text', text: prompt }]
+            const orCall = (body: unknown) => fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${openRouterKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
+                    'X-Title': 'DP Travaux Facade Generator'
+                },
+                body: JSON.stringify(body),
+            })
 
-            if (imageBase64) {
-                // For image editing/referencing, pass the image directly
-                contentArray.push({
-                    type: 'image_url',
-                    image_url: {
-                        url: imageBase64
+            // Image generation is the ONE paid step — the model is admin-configurable
+            // (/admin → Règles, repli env OPENROUTER_IMAGE_MODEL). seedream-4.5 supports
+            // both image input (editing the "before" photo) and image output.
+            const imageModel = await getSetting<string>('image_model').catch(() => process.env.OPENROUTER_IMAGE_MODEL || 'bytedance-seed/seedream-4.5')
+            const auditModel = await getSetting<string>('facade_audit_model').catch(() => process.env.OPENROUTER_FACADE_AUDIT_MODEL || 'google/gemini-3.5-flash')
+            // Le contrôle ne s'applique qu'à l'édition photo : l'appelant s'y inscrit en fournissant
+            // la description des travaux. Le croquis (DP5) passe par la même route mais produit un
+            // dessin technique — le comparer à une photo signalerait TOUT comme un écart.
+            const auditEnabled = !!worksDescription && !body.skipAudit
+                && await getSetting<boolean>('facade_audit_enabled').catch(() => true)
+
+            let lastTextSnippet = ''
+
+            /** Une génération complète, avec les relances propres au modèle qui répond en TEXTE. */
+            const generateOnce = async (promptText: string): Promise<string | null> => {
+                // The model occasionally answers with TEXT instead of an image (e.g. a refusal or a
+                // description). That is NOT a usable result — never fall back to message.content as an
+                // "image". Instead retry a couple of times, nudging it to return only the image.
+                const MAX_ATTEMPTS = 3
+                for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                    const text = attempt === 1
+                        ? promptText
+                        : `${promptText}\n\nIMPORTANT: respond with the edited IMAGE only — do not reply with text or an explanation.`
+                    const content: any[] = [{ type: 'text', text }]
+                    if (imageBase64) content.push({ type: 'image_url', image_url: { url: imageBase64 } })
+
+                    const response = await orCall({ model: imageModel, messages: [{ role: 'user', content }], modalities: ['image'] })
+                    if (!response.ok) {
+                        const errText = await response.text()
+                        // 4xx (bad request / content policy) won't fix itself — fail fast.
+                        if (response.status >= 400 && response.status < 500) {
+                            throw new Error(`OpenRouter image model error: ${response.status} ${errText}`)
+                        }
+                        lastTextSnippet = `${response.status} ${errText}`.slice(0, 200)
+                        continue
                     }
-                })
+                    const data = await response.json()
+                    const msg = data.choices?.[0]?.message
+                    // ONLY accept a real generated image (a data: URL or http(s) image URL).
+                    const img: string | undefined = msg?.images?.[0]?.image_url?.url
+                    if (img) return img
+                    lastTextSnippet = (typeof msg?.content === 'string' ? msg.content : '').slice(0, 200)
+                    console.warn(`[facade] attempt ${attempt}/${MAX_ATTEMPTS} returned no image${lastTextSnippet ? ' — text: ' + lastTextSnippet : ''}`)
+                }
+                return null
             }
 
-            // The model occasionally answers with TEXT instead of an image (e.g. a refusal or a
-            // description). That is NOT a usable result — never fall back to message.content as an
-            // "image". Instead retry a couple of times, nudging it to return only the image, then
-            // surface a clean error so the client can show a retry instead of a broken picture.
-            const MAX_ATTEMPTS = 3
-            let lastTextSnippet = ''
-            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-                const content = attempt === 1
-                    ? contentArray
-                    : [{ type: 'text', text: `${prompt}\n\nIMPORTANT: respond with the edited IMAGE only — do not reply with text or an explanation.` },
-                       ...(imageBase64 ? [{ type: 'image_url', image_url: { url: imageBase64 } }] : [])]
-
-                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${openRouterKey}`,
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://github.com/ayouubmzariiii/DP-Last',
-                        'X-Title': 'DP Travaux Facade Generator'
-                    },
-                    body: JSON.stringify({
-                        // Image generation is the ONE paid step — the model is admin-configurable
-                        // (/admin → Règles, repli env OPENROUTER_IMAGE_MODEL). seedream-4.5 supports
-                        // both image input (editing the "before" photo) and image output.
-                        model: await getSetting<string>('image_model').catch(() => process.env.OPENROUTER_IMAGE_MODEL || 'bytedance-seed/seedream-4.5'),
-                        messages: [{ role: 'user', content }],
-                        modalities: ['image']
+            /** Compare l'image produite à la photo d'origine. `null` = contrôle indisponible. */
+            const audit = async (after: string): Promise<FacadeAudit | null> => {
+                if (!imageBase64) return null   // sans « avant », il n'y a rien à comparer
+                try {
+                    const res = await orCall({
+                        model: auditModel,
+                        messages: [{
+                            role: 'user', content: [
+                                { type: 'text', text: buildFacadeAuditPrompt(worksDescription || '') },
+                                { type: 'image_url', image_url: { url: imageBase64 } },
+                                { type: 'image_url', image_url: { url: after } },
+                            ],
+                        }],
                     })
-                })
-
-                if (!response.ok) {
-                    const errText = await response.text()
-                    // 4xx (bad request / content policy) won't fix itself — fail fast.
-                    if (response.status >= 400 && response.status < 500) {
-                        throw new Error(`OpenRouter image model error: ${response.status} ${errText}`)
-                    }
-                    lastTextSnippet = `${response.status} ${errText}`.slice(0, 200)
-                    continue
+                    if (!res.ok) { console.warn('[facade/audit] HTTP', res.status); return null }
+                    const j = await res.json()
+                    const txt = j.choices?.[0]?.message?.content
+                    return parseFacadeAudit(typeof txt === 'string' ? txt : '')
+                } catch (e) {
+                    console.warn('[facade/audit] failed:', e)
+                    return null   // un contrôle en panne ne doit jamais bloquer une génération
                 }
+            }
 
-                const data = await response.json()
-                const msg = data.choices?.[0]?.message
-                // ONLY accept a real generated image (a data: URL or http(s) image URL).
-                const img: string | undefined = msg?.images?.[0]?.image_url?.url
-                if (img) {
-                    return img.startsWith('data:')
-                        ? await finish({ imageBase64: img })
-                        : await finish({ imageUrl: img })
+            // Boucle génération → contrôle → reprise. Ces reprises sont INTERNES : elles corrigent
+            // nos propres ratés et ne doivent pas être décomptées du quota du demandeur (finish()
+            // n'est appelé qu'une fois, à la sortie).
+            let best: { img: string; audit: FacadeAudit | null } | null = null
+            let promptText = prompt
+            for (let round = 0; round <= MAX_AUDIT_RETRIES; round++) {
+                const img = await generateOnce(promptText)
+                if (!img) break
+                const verdict = auditEnabled ? await audit(img) : null
+                if (!best || (best.audit && verdict && verdict.issues.length < best.audit.issues.length)) {
+                    best = { img, audit: verdict }
                 }
-                lastTextSnippet = (typeof msg?.content === 'string' ? msg.content : '').slice(0, 200)
-                console.warn(`[facade] attempt ${attempt}/${MAX_ATTEMPTS} returned no image${lastTextSnippet ? ' — text: ' + lastTextSnippet : ''}`)
+                if (!verdict || verdict.faithful) { best = { img, audit: verdict }; break }
+                console.warn(`[facade/audit] round ${round + 1}: ${verdict.issues.map(i => i.code).join(', ')}`)
+                promptText = buildCorrectionPrompt(prompt, verdict.issues)
+            }
+
+            if (best) {
+                // Le verdict repart au client : le parcours peut dire ce qui a été vérifié, et
+                // signaler honnêtement un écart résiduel plutôt que de le laisser filer au dossier.
+                const payload: Record<string, unknown> = best.img.startsWith('data:')
+                    ? { imageBase64: best.img } : { imageUrl: best.img }
+                if (best.audit) payload.audit = best.audit
+                return await finish(payload)
             }
 
             return NextResponse.json(

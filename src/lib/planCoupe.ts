@@ -27,6 +27,11 @@ export interface PlanCoupeExisting {
     widthM: number
     heightEgoutM: number    // hauteur à l'égout du toit (m above TN)
     heightFaitageM: number  // hauteur au faîtage (m above TN)
+    /** Les hauteurs ci-dessus ont-elles été DÉCLARÉES ? BD TOPO ne fournit que l'emprise :
+     *  quand elles sont estimées, la silhouette est tracée en pointillé et annoncée comme
+     *  telle, au lieu d'affirmer un faîtage que rien ne soutient sur une pièce où se lisent
+     *  précisément les hauteurs et les prospects. */
+    declared?: boolean
 }
 
 export interface PlanCoupeProject {
@@ -156,9 +161,13 @@ export function buildPlanCoupeSvg(input: PlanCoupeInput): string {
         const ex0 = X(ex.startD), ex1 = X(ex.startD + ex.widthM)
         const eTN = Y(zAt(profile, ex.startD + ex.widthM / 2))
         const eyE = eTN - ex.heightEgoutM * s, eyF = eTN - ex.heightFaitageM * s
-        parts.push(`<rect x="${ex0}" y="${eyE}" width="${ex1 - ex0}" height="${eTN - eyE}" fill="#dedad2" stroke="#6f6a61" stroke-width="1"/>`)
-        parts.push(`<path d="M${ex0} ${eyE} L${(ex0 + ex1) / 2} ${eyF} L${ex1} ${eyE} Z" fill="#cfc9bf" stroke="#6f6a61" stroke-width="1"/>`)
+        // Hauteurs non déclarées → contour en pointillé : la silhouette situe le bâtiment sans
+        // prétendre en donner le niveau. Un trait plein sur une coupe se lit comme une cote.
+        const dash = ex.declared ? '' : ' stroke-dasharray="4,3"'
+        parts.push(`<rect x="${ex0}" y="${eyE}" width="${ex1 - ex0}" height="${eTN - eyE}" fill="#dedad2" stroke="#6f6a61" stroke-width="1"${dash}/>`)
+        parts.push(`<path d="M${ex0} ${eyE} L${(ex0 + ex1) / 2} ${eyF} L${ex1} ${eyE} Z" fill="#cfc9bf" stroke="#6f6a61" stroke-width="1"${dash}/>`)
         parts.push(`<text x="${(ex0 + ex1) / 2}" y="${(eyE + eTN) / 2}" text-anchor="middle" font-size="7.5" fill="#6f6a61">EXISTANT</text>`)
+        if (!ex.declared) parts.push(`<text x="${(ex0 + ex1) / 2}" y="${(eyE + eTN) / 2 + 9}" text-anchor="middle" font-size="6" fill="#8a8378">hauteurs non renseignées</text>`)
     }
 
     // ── The project in section ────────────────────────────────────────────────

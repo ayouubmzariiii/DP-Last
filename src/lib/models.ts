@@ -72,6 +72,13 @@ export interface Terrain {
     surface_terrain: string
     surface_plancher: string
     description_projet: string
+    // Hauteurs du bâti EXISTANT sur la parcelle, en mètres depuis le terrain naturel.
+    // Le contour du bâtiment vient de BD TOPO, jamais ses hauteurs : elles étaient donc
+    // codées en dur (2,70 / 5,40) et le plan de coupe DP3 dessinait une maison dont
+    // personne n'avait déclaré le faîtage. Renseignées, elles servent au DP3 (silhouette
+    // de l'existant, prospects) et au DP4 (amorce du bâti auquel l'extension s'adosse).
+    existant_hauteur_egout?: string
+    existant_hauteur_faitage?: string
     // Identique au demandeur ?
     meme_adresse: boolean
         plu?: {
@@ -136,6 +143,9 @@ export interface TravauxMenuiseries {
     nombre: string
     largeur: string
     hauteur: string
+    /** Hauteur d'allège en cm (dessous de la baie au-dessus du sol fini). Facultative :
+     *  sans elle, l'élévation DP4 ne peut pas coter la position verticale de la baie. */
+    allege?: string
     remplacement: boolean
     description: string
 }
@@ -189,6 +199,8 @@ export interface TravauxOuverture {
     nombre: string
     largeur: string  // cm
     hauteur: string  // cm
+    /** Hauteur d'allège en cm (dessous de la baie au-dessus du sol fini). Facultative. */
+    allege?: string
     facade: string
     description: string
 }
@@ -455,6 +467,9 @@ export const defaultTerrain: Terrain = {
     numero_parcelle: '0172',
     surface_terrain: '199',
     surface_plancher: '95',
+    // Maison de ville R+1 du centre ancien : gouttière ~5,40 m, faîtage ~8,20 m.
+    existant_hauteur_egout: '5.40',
+    existant_hauteur_faitage: '8.20',
     description_projet: 'Remplacement des menuiseries extérieures (fenêtres et porte d\'entrée) par des éléments en PVC blanc (RAL 9016). Immeuble situé dans le secteur sauvegardé (PSMV) du centre ancien de Sarlat-la-Canéda.',
     meme_adresse: true,
     // Pre-baked PLU result so TEST MODE stays consistent offline. REAL for this parcel: secteur
@@ -521,6 +536,7 @@ export const defaultTravaux: Travaux = {
         nombre: '4',
         largeur: '120',
         hauteur: '115',
+        allege: '95',
         remplacement: true,
         description: 'Remplacement des fenêtres existantes par des fenêtres PVC blanc (RAL 9016), double vitrage 4/16/4 argon.',
     },
@@ -725,6 +741,7 @@ export const emptyDemandeur: Demandeur = {
 export const emptyTerrain: Terrain = {
     adresse: '', lieu_dit: '', code_postal: '', commune: '', prefixe_cadastral: '', section_cadastrale: '', numero_parcelle: '',
     surface_terrain: '', surface_plancher: '', description_projet: '', meme_adresse: true,
+    existant_hauteur_egout: '', existant_hauteur_faitage: '',
     plu: undefined,
 }
 
@@ -732,13 +749,13 @@ export const emptyTravaux: Travaux = {
     // No pre-selected works type: the client must choose explicitly at Étape 3 (a silent
     // default risks a DP filed for the wrong works). '' is a valid TypeTravaux.
     type: '',
-    menuiseries: { type: 'fenetre', materiau: 'aluminium', couleur: '', couleur_ral: '', nombre: '', largeur: '', hauteur: '', remplacement: true, description: '' },
+    menuiseries: { type: 'fenetre', materiau: 'aluminium', couleur: '', couleur_ral: '', nombre: '', largeur: '', hauteur: '', allege: '', remplacement: true, description: '' },
     isolation: { type_finition: 'enduit', couleur: '', epaisseur_isolant: '', materiau_isolant: '', facades_concernees: [], description: '' },
     photovoltaique: { nombre_panneaux: '', surface_totale: '', puissance_kw: '', marque: '', orientation: '', inclinaison: '', integration: 'surimposition', description: '' },
     cloture: { type_cloture: '', materiau: '', couleur: '', hauteur: '', longueur: '', sur_voie: true, description: '' },
     ravalement: { finition: 'enduit', couleur: '', materiau: '', facades_concernees: [], description: '' },
     toiture: { operation: 'refection_identique', materiau_couverture: '', couleur: '', description: '' },
-    ouverture: { type_ouverture: 'fenetre', operation: 'creation', nombre: '', largeur: '', hauteur: '', facade: '', description: '' },
+    ouverture: { type_ouverture: 'fenetre', operation: 'creation', nombre: '', largeur: '', hauteur: '', allege: '', facade: '', description: '' },
     piscine: { longueur: '', largeur: '', profondeur: '', hauteur_margelle: '0.05', recul_maison: '', local_technique: false, description: '' },
     extension: { largeur: '', profondeur: '', hauteur_egout: '', hauteur_faitage: '', type_toit: '', cote_adossement: '', materiau: '', couleur: '', description: '' },
     abri: { largeur: '', profondeur: '', hauteur_egout: '', hauteur_faitage: '', type_toit: '', materiau: '', couleur: '', description: '' },

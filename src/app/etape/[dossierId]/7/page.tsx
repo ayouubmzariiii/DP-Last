@@ -6,6 +6,7 @@ import { useDPContext } from '@/lib/context'
 import { validateDPForm, piecesChecklist, fatalIssues, forbiddenIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
 import { getTravauxDef } from '@/lib/travauxRegistry'
 import { chooseCerfaForm } from '@/lib/cerfaForms'
+import { facadeElevation, layoutElevation, scaleLabel } from '@/lib/planFacade'
 import { RalInline } from '@/components/RalPicker'
 import { MaterialInline } from '@/components/MaterialIcon'
 
@@ -53,6 +54,12 @@ export default function Etape7() {
     const warns = warnIssues(issues)
     const pieces = piecesChecklist(formData)
     const missingFatalPieces = pieces.filter(p => !p.present && p.severity === 'fatal')
+
+    // Élévation cotée du DP4 : `null` quand les travaux déclarés ne définissent aucune géométrie
+    // cotable (ravalement, isolation, toiture, photovoltaïque…). La zone de dessin passée ici est
+    // celle de la planche A3 — mêmes constantes que dpDocGenerator, pour annoncer LA bonne échelle.
+    const elevation = facadeElevation(formData)
+    const elevationLayout = elevation ? layoutElevation(elevation, 680, 506) : null
     // Test mode no longer blocks generation — it lets you preview the real output with the fictional
     // sample data (the "données fictives" banner makes clear the dossier is not for real filing).
     const blocked = fatals.length > 0 || forbiddens.length > 0 || missingFatalPieces.length > 0
@@ -358,11 +365,11 @@ export default function Etape7() {
                         ]}
                     />
 
-                    {/* Pièces du dossier (DP1–DP8) — single unified view (previously duplicated as a
+                    {/* Pièces du dossier (DP1–DP11) — single unified view (previously duplicated as a
                         chips list inside the status panel AND this grid). */}
                     <div className="dp-card">
                         <h3 className="dp-section-title flex items-center gap-2">
-                            <span>📄</span> Pièces du dossier (DP1–DP8)
+                            <span>📄</span> Pièces du dossier (DP1–DP11)
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {pieces.map(pc => (
@@ -384,6 +391,36 @@ export default function Etape7() {
                             </p>
                         )}
                     </div>
+
+                    {/* Cotes de l'élévation DP4 — dernier point où elles peuvent encore être corrigées.
+                        Le plan des façades est tracé à l'échelle depuis ces seules valeurs, et il n'est
+                        visible nulle part avant le PDF final : une faute de frappe sur une hauteur au
+                        faîtage partirait sinon en mairie sans que personne l'ait relue. */}
+                    {elevation && elevationLayout && (
+                        <div className="dp-card">
+                            <h3 className="dp-section-title flex items-center gap-2">
+                                <span>📐</span> Cotes du plan des façades (DP4) — à relire
+                            </h3>
+                            <p className="text-xs t-ink2 mb-4">
+                                L’élévation du DP4 est tracée <strong>à l’échelle {scaleLabel(elevationLayout.denom)}</strong> à partir
+                                des dimensions ci-dessous, telles que vous les avez déclarées à l’étape <em>Travaux</em>.
+                                Une valeur fausse ici donne un plan faux : vérifiez-les avant de générer le dossier.
+                            </p>
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5 text-sm t-ink">
+                                {elevation.dims.map((d, i) => <li key={i}>• {d}</li>)}
+                                {elevation.material && <li>• Matériau / teinte : {elevation.material}</li>}
+                            </ul>
+                            {(elevation.caveats.length > 0 || elevationLayout.fragmentNote) && (
+                                <div className="mt-3 pt-3 border-t text-xs t-ink2 space-y-1" style={{ borderColor: 'var(--line)' }}>
+                                    {elevationLayout.fragmentNote && <p>ℹ️ {elevationLayout.fragmentNote}.</p>}
+                                    {elevation.caveats.map((c, i) => <p key={i}>ℹ️ {c} — complétez l’étape Travaux pour la faire figurer.</p>)}
+                                </div>
+                            )}
+                            <button onClick={() => router.push(`/etape/${dossierId}/3`)} className="dp-btn-secondary mt-4 text-xs" style={{ padding: '7px 14px' }}>
+                                Corriger une cote
+                            </button>
+                        </div>
+                    )}
 
                     {/* Error */}
                     {error && (
@@ -558,13 +595,13 @@ export default function Etape7() {
                         {/* Numbered steps — tight, consistent rhythm */}
                         <ol className="space-y-4">
                             {[
-                                { t: 'Préparer', c: <>Signez le CERFA (rubrique <em>« Engagement du déclarant »</em>), vérifiez que les pièces DP1–DP8 ci-dessus sont présentes, et complétez à la main les cotes du plan de masse si besoin.</> },
+                                { t: 'Préparer', c: <>Signez le CERFA (rubrique <em>« Engagement du déclarant »</em>), vérifiez que les pièces DP1–DP11 ci-dessus sont présentes, et complétez à la main les cotes du plan de masse si besoin.</> },
                                 { t: 'Déposer — au choix', c: <>
                                     <span className="block"><strong>🖥️ En ligne (recommandé)</strong> — sur le <strong>Guichet Numérique des Autorisations d'Urbanisme (GNAU)</strong> de votre commune, ou via l'assistant officiel <strong>AD'AU</strong>. Accusé de réception électronique immédiat.</span>
                                     <span className="block mt-1"><strong>🏛️ En mairie / courrier</strong> — imprimez le dossier en <strong>2 exemplaires</strong> (plus en secteur ABF), dépôt contre récépissé ou <strong>lettre recommandée avec AR</strong>.</span>
                                 </> },
                                 { t: 'Délais d\'instruction', c: <><strong>1 mois</strong> en général, <strong>2 mois</strong> en périmètre Monument Historique / Site Patrimonial (avis ABF). La mairie a 1 mois pour réclamer des pièces ; sans réponse, vous obtenez une <strong>décision tacite</strong> (demandez-en le certificat).</> },
-                                { t: 'Après acceptation', c: <><strong>Affichez l'autorisation</strong> sur le terrain (panneau visible de la rue) pendant tout le chantier et au moins 2 mois, puis envoyez la <strong>déclaration d'achèvement (DAACT)</strong> en fin de travaux.</> },
+                                { t: 'Après acceptation', c: <><strong>Affichez l'autorisation</strong> sur le terrain (panneau visible de la rue) pendant tout le chantier. Le délai de recours des tiers est de 2 mois et court à compter du <strong>premier jour de 2 mois d'affichage continu</strong> : un panneau retiré puis reposé fait repartir le décompte. En fin de travaux, envoyez la <strong>déclaration d'achèvement (DAACT)</strong>.</> },
                             ].map((s, i) => (
                                 <li key={i} className="flex gap-3">
                                     <span className="shrink-0 flex items-center justify-center" style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--act)', border: '1px solid var(--acb)', color: 'var(--acd)', fontFamily: 'var(--mf)', fontSize: 12, fontWeight: 600 }}>{i + 1}</span>
@@ -580,9 +617,9 @@ export default function Etape7() {
                         <div className="dp-alert is-info mt-5">
                             <span className="dp-alert-title">Liens officiels</span>
                             <div className="flex flex-wrap gap-x-4 gap-y-1">
-                                <a href="https://www.service-public.fr/particuliers/vosdroits/F17578" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Déclaration préalable (DP)</a>
-                                <a href="https://www.service-public.fr/particuliers/vosdroits/F1992" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Ouverture de chantier (DOC)</a>
-                                <a href="https://www.service-public.fr/particuliers/vosdroits/F1997" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Achèvement (DAACT)</a>
+                                <a href="https://www.service-public.gouv.fr/particuliers/vosdroits/F17578" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Déclaration préalable (DP)</a>
+                                <a href="https://www.service-public.gouv.fr/particuliers/vosdroits/F1992" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Ouverture de chantier (DOC)</a>
+                                <a href="https://www.service-public.gouv.fr/particuliers/vosdroits/F1997" target="_blank" rel="noopener noreferrer" className="t-accent hover:underline font-medium">Achèvement (DAACT)</a>
                             </div>
                             <p className="mt-2 text-xs">Astuce : cherchez « guichet numérique urbanisme + <em>votre commune</em> » pour le portail de dépôt en ligne local.</p>
                         </div>

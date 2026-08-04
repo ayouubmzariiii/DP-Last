@@ -306,6 +306,33 @@ export default function Etape2() {
                             </div>
                         </div>
 
+                        {/* Hauteurs du bâti existant. Le cadastre et BD TOPO donnent l'EMPRISE du
+                            bâtiment, jamais sa hauteur : sans ces deux cotes, le plan de coupe (DP3)
+                            et l'élévation (DP4) ne peuvent que dessiner une silhouette approximative,
+                            sur les pièces mêmes où l'instructeur lit les hauteurs et les prospects. */}
+                        <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--line)' }}>
+                            <label className="text-sm font-medium t-ink2 block mb-1">Hauteurs de la construction existante</label>
+                            <p className="text-[11px] t-muted mb-3">
+                                Mesurées depuis le terrain naturel. Facultatives, mais elles seules permettent de tracer
+                                le bâti existant à sa vraie hauteur sur le <b>plan de coupe (DP3)</b> et le <b>plan des façades (DP4)</b>.
+                                Non renseignées, la silhouette est tracée en pointillé et signalée comme estimée.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Hauteur à l’égout (m)</label>
+                                    <input className="dp-input" type="number" step="0.1" placeholder="ex: 5.40"
+                                        value={t.existant_hauteur_egout || ''}
+                                        onChange={e => updateTerrain({ existant_hauteur_egout: e.target.value })} />
+                                </div>
+                                <div className="dp-form-group">
+                                    <label className="dp-label">Hauteur au faîtage (m)</label>
+                                    <input className="dp-input" type="number" step="0.1" placeholder="ex: 8.20"
+                                        value={t.existant_hauteur_faitage || ''}
+                                        onChange={e => updateTerrain({ existant_hauteur_faitage: e.target.value })} />
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Multi-Parcelles (Section 3 addition) */}
                         <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--line)' }}>
                             <label className="text-sm font-medium t-ink2 block mb-3">Parcelles supplémentaires (si le projet s'étend sur plusieurs parcelles)</label>

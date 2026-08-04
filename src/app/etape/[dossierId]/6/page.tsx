@@ -9,6 +9,7 @@ import { DPFormData } from '@/lib/models'
 import { uploadImage } from '@/lib/uploadImage'
 import html2canvas from 'html2canvas'
 import { geocodeAddress, DP1_DEFAULT_GROUND_M } from '@/lib/ignMaps'
+import { AUDIT_LABELS, type FacadeAudit } from '@/lib/facadeAudit'
 import { buildPlanMasseSvg } from '@/lib/planMasse'
 import { generateCoupeSvg } from '@/lib/coupeData'
 
@@ -689,6 +690,10 @@ export default function Etape6() {
     // ment sur ce qui a été capturé, et la moindre recapture change l'échelle sans prévenir.
     const savedDp1Ground = formData.plans.dp1_ground_m
     useEffect(() => { if (savedDp1Ground) setDp1Zoom(savedDp1Ground) }, [savedDp1Ground])
+    // Verdict du contrôle de fidélité, par façade. Non persisté : il porte sur LA génération
+    // qui vient d'avoir lieu. Le serveur régénère déjà tout seul quand il détecte un écart ;
+    // ce qui reste ici, c'est ce qu'il n'a pas réussi à corriger — et le demandeur doit le voir.
+    const [facadeAudits, setFacadeAudits] = useState<Record<string, FacadeAudit | null>>({})
     const [croquisInstructions, setCroquisInstructions] = useState<Record<string, string>>({})
     const [generatingFacades, setGeneratingFacades] = useState<string[]>([])
     const [showModifyInput, setShowModifyInput] = useState<Record<string, 'dp6' | 'dp5' | null>>({})
@@ -844,7 +849,9 @@ export default function Etape6() {
                     const res = await fetch('/api/generate-after-facade', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, imageBase64, dossierId, facadeId: f.id })
+                        // worksDescription active le contrôle de fidélité côté serveur : sans lui,
+                        // le contrôleur signalerait les travaux eux-mêmes comme des écarts.
+                        body: JSON.stringify({ prompt, imageBase64, dossierId, facadeId: f.id, worksDescription })
                     })
                     if (!res.ok) {
                         const errData = await res.json()
@@ -852,6 +859,7 @@ export default function Etape6() {
                     }
                     const data = await res.json()
                     imageUrl = data.imageBase64 || data.imageUrl
+                    setFacadeAudits(prev => ({ ...prev, [f.id]: data.audit ?? null }))
                 }
 
                 if (imageUrl) {
@@ -904,7 +912,7 @@ export default function Etape6() {
                     const res = await fetch('/api/generate-after-facade', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, imageBase64, dossierId, facadeId: facade.id })
+                        body: JSON.stringify({ prompt, imageBase64, dossierId, facadeId: facade.id, worksDescription })
                     })
                     if (!res.ok) {
                         const errData = await res.json()
@@ -912,6 +920,7 @@ export default function Etape6() {
                     }
                     const data = await res.json()
                     newImage = data.imageBase64 || data.imageUrl
+                    setFacadeAudits(prev => ({ ...prev, [facadeId]: data.audit ?? null }))
                 }
 
                 if (newImage) {
@@ -1275,6 +1284,21 @@ export default function Etape6() {
                                         {!worksDescription && worksDescriptionSuggestion && (
                                             <p className="text-[11px] t-muted">À défaut, nous simulerons : « {worksDescriptionSuggestion} »</p>
                                         )}
+                                        {/* Le conflit est structurel : les travaux portent sur les menuiseries,
+                                            et un volet baissé les masque. Le générateur relève alors le volet
+                                            pour « montrer » le résultat — une modification que personne n'a
+                                            demandée, sur la pièce que l'instructeur compare. Mieux vaut le dire
+                                            avant la prise de vue que le rattraper après. */}
+                                        {(formData.travaux.type === 'menuiseries' || formData.travaux.type === 'ouverture') && (
+                                            <div className="rounded-2xl border px-4 py-3" style={{ borderColor: 'var(--acb)', background: 'var(--act)' }}>
+                                                <p className="text-[11px] t-ink2 leading-relaxed">
+                                                    <strong className="t-ink">Photographiez volets ouverts.</strong> Vos travaux portent sur les
+                                                    menuiseries : si un volet est baissé sur la photo, il masque l’ouverture concernée et la
+                                                    simulation ne peut pas montrer le résultat sans le relever — ce qui modifie l’aspect de la
+                                                    façade sans que vous l’ayez demandé. Une photo volets ouverts évite entièrement le problème.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="w-full lg:w-[280px] space-y-4">
                                         <div className="bg-[var(--surface-2)] rounded-2xl p-5 border border-[color:var(--line)] space-y-2">
@@ -1431,6 +1455,33 @@ export default function Etape6() {
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {/* Verdict du contrôle de fidélité. Le serveur régénère déjà seul
+                                                    quand il détecte un écart : ce qui s'affiche ici, c'est ce qu'il
+                                                    n'a PAS su corriger. Le demandeur doit le savoir avant de déposer,
+                                                    plutôt que de le découvrir devant l'instructeur. */}
+                                                {f.after && facadeAudits[f.id] !== undefined && (
+                                                    facadeAudits[f.id] === null ? null : facadeAudits[f.id]!.faithful ? (
+                                                        <p className="text-[10px] t-ok flex items-start gap-1.5 px-1">
+                                                            <span>✓</span>
+                                                            <span>Simulation vérifiée : aucune modification non demandée détectée par rapport à la photo d’origine.</span>
+                                                        </p>
+                                                    ) : (
+                                                        <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: 'var(--warn-b, #E5D5AC)', background: 'var(--warn-bg, #FBF6E8)' }}>
+                                                            <p className="text-[10px] font-bold mb-1" style={{ color: '#7A5C1E' }}>
+                                                                À vérifier avant dépôt — la simulation s’écarte de la photo d’origine :
+                                                            </p>
+                                                            <ul className="text-[10px] space-y-0.5" style={{ color: '#7A5C1E' }}>
+                                                                {facadeAudits[f.id]!.issues.map((it, i) => (
+                                                                    <li key={i}>• {AUDIT_LABELS[it.code]}{it.detail ? ` — ${it.detail}` : ''}</li>
+                                                                ))}
+                                                            </ul>
+                                                            <p className="text-[10px] mt-1.5 t-ink2">
+                                                                Régénérez la simulation, ou importez votre propre image « après ».
+                                                            </p>
+                                                        </div>
+                                                    )
+                                                )}
                                             </div>
                                         </div>
                                     </div>

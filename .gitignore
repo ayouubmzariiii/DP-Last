@@ -44,3 +44,8 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 .design-sync/compiled.css
+
+# Test-script output (test-plancoupe, test-dp3-all) - never versioned
+dp3-*.svg
+plancoupe-*.svg
+planmasse-*.svg

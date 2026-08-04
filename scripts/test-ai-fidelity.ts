@@ -21,6 +21,7 @@ import sharp from 'sharp'
 import { config } from 'dotenv'
 import { defaultFormData, DPFormData } from '../src/lib/models'
 import { buildAIAfterImagePrompt } from '../src/lib/aiImageGenerator'
+import { travauxWorksLabel } from '../src/lib/travauxRegistry'
 
 config({ path: '.env.local' })
 config({ path: '.env' })
@@ -58,12 +59,16 @@ async function main() {
         const res = await fetch(`${BASE}/api/generate-after-facade`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', cookie },
-            body: JSON.stringify({ prompt, imageBase64: facade.before }),
+            // worksDescription active le contrôle de fidélité côté serveur, comme le fait le parcours.
+            body: JSON.stringify({ prompt, imageBase64: facade.before, worksDescription: travauxWorksLabel(d) }),
         })
         if (!res.ok) { console.log(`${type}: HTTP ${res.status} — ${(await res.text()).slice(0, 200)}`); continue }
         const j = await res.json()
         const after = j.imageBase64 || j.imageUrl
         if (!after) { console.log(`${type}: aucune image renvoyée`); continue }
+        const verdict = j.audit
+            ? (j.audit.faithful ? 'conforme' : `écarts résiduels : ${j.audit.issues.map((i: any) => i.code).join(', ')}`)
+            : 'contrôle non exécuté'
 
         // Montage AVANT | APRÈS, même hauteur : toute dérive de cadrage, de couleur ou de
         // partition saute aux yeux sur une comparaison côte à côte, pas sur deux fichiers.
@@ -78,7 +83,7 @@ async function main() {
         await sharp({ create: { width: W, height: H, channels: 3, background: '#ffffff' } })
             .composite([{ input: b, left: 0, top: 0 }, { input: a, left: (mb.width || 0) + 12, top: 0 }])
             .jpeg({ quality: 88 }).toFile(file)
-        console.log(`${type}: ${file}  (${((Date.now() - t0) / 1000).toFixed(0)} s)`)
+        console.log(`${type}: ${file}  (${((Date.now() - t0) / 1000).toFixed(0)} s) — ${verdict}`)
     }
 }
 

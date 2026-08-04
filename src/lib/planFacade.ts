@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { DPFormData } from './models'
+import { MATERIAU_LABEL } from './travauxRegistry'
 
 /** Parse un champ de saisie en mètres. Accepte la virgule décimale (saisie FR). */
 export function num(v: string | undefined | null): number {
@@ -37,12 +38,17 @@ export interface FacadeElevation {
     roof?: 'mono' | 'double' | 'flat'
     /** Côté du bâti existant auquel l'extension s'adosse — dessiné en amorce hachurée. */
     adossement?: 'gauche' | 'droite'
+    /** Hauteur au faîtage du bâti existant (m), quand elle a été déclarée à l'étape Terrain.
+     *  Absente, l'amorce est coupée par un trait de rupture au lieu d'affirmer un niveau. */
+    existantFaitageM?: number
     fence?: { type: 'mur' | 'mur_bahut' | 'grillage' | 'panneaux' | 'claire_voie'; bahutM: number }
     bay?: {
         type: 'fenetre' | 'porte' | 'porte_fenetre' | 'fenetre_toit'
         operation: 'creation' | 'agrandissement' | 'suppression'
         count: number
         vantaux: number
+        /** Hauteur d'allège en mètres (0 = non déclarée : la baie n'est pas cotée en hauteur). */
+        allegeM: number
     }
     title: string
     /** Cotes déclarées, imprimées telles quelles dans l'encart « dimensions déclarées ». */
@@ -55,6 +61,18 @@ export interface FacadeElevation {
 
 /** Cote au format français, deux décimales — la convention d'un plan déposé. */
 export const f = (n: number) => n.toFixed(2).replace('.', ',')
+
+/** « pvc » → « PVC ». Sans cela le cartouche imprime la valeur brute du formulaire. */
+function materiauLabel(m?: string): string {
+    if (!m) return ''
+    return MATERIAU_LABEL[m] || m
+}
+/** Le champ RAL est saisi tantôt « 9016 », tantôt « RAL 9016 » : ne pas doubler le préfixe. */
+function ralLabel(ral?: string): string {
+    const v = (ral || '').trim()
+    if (!v) return ''
+    return /^ral\b/i.test(v) ? v.toUpperCase().replace(/^RAL\s*/, 'RAL ') : `RAL ${v}`
+}
 /** Pluriel appliqué au NOM, pas au complément : « fenêtres de toit », jamais « fenêtre de toits ». */
 function plural(label: string, n: number): string {
     if (n <= 1) return label
@@ -90,13 +108,19 @@ export function facadeElevation(data: DPFormData): FacadeElevation | null {
                 `Profondeur : ${f(num(s.profondeur))} m`,
                 hE > 0 ? `Hauteur à l'égout : ${f(hE)} m / TN` : '',
                 hF > 0 ? `Hauteur au faîtage : ${f(hF)} m / TN` : '',
+                // Cotée sur le dessin → listée ici aussi : une cote tracée sans être déclarée
+                // au tableau laisse le lecteur deviner d'où elle sort.
+                adoss && num(data.terrain.existant_hauteur_faitage) > 0
+                    ? `Faîtage du bâti existant : ${f(num(data.terrain.existant_hauteur_faitage))} m / TN` : '',
             ].filter(Boolean)
             const caveats: string[] = []
             if (hE <= 0) caveats.push("Hauteur à l'égout non renseignée")
             if (hF <= 0) caveats.push('Hauteur au faîtage non renseignée')
+            const exF = num(data.terrain.existant_hauteur_faitage)
             return {
                 kind: 'batiment', widthM: w, heightM: h, eaveM: hE > 0 ? hE : h, roof,
                 adossement: adoss,
+                existantFaitageM: adoss && exF > 0 ? exF : undefined,
                 title: t.type === 'extension' ? "Élévation de l'extension projetée" : "Élévation de l'abri projeté",
                 dims, material: [s.materiau, s.couleur].filter(Boolean).join(' — ') || undefined,
                 caveats,
@@ -143,12 +167,16 @@ export function facadeElevation(data: DPFormData): FacadeElevation | null {
             // le prompt IA impose de conserver (buildAIAfterImagePrompt) — les deux pièces
             // doivent raconter la même chose.
             const vantaux = type === 'porte' ? 1 : w >= 0.9 ? 2 : 1
+            // Une porte n'a pas d'allège, et une fenêtre de toit n'en a pas non plus dans une
+            // élévation de façade : ne pas coter ce qui n'a pas de sens ici.
+            const allegeM = type === 'porte' || type === 'porte_fenetre' || type === 'fenetre_toit'
+                ? 0 : num(s.allege) / 100
             const label = type === 'porte' ? 'porte' : type === 'porte_fenetre' ? 'porte-fenêtre'
                 : type === 'fenetre_toit' ? 'fenêtre de toit' : 'fenêtre'
             const opLabel = operation === 'suppression' ? 'Suppression' : operation === 'agrandissement' ? 'Agrandissement' : 'Création'
             return {
                 kind: 'baie', widthM: w, heightM: h,
-                bay: { type, operation, count, vantaux },
+                bay: { type, operation, count, vantaux, allegeM },
                 title: t.type === 'ouverture'
                     ? `${opLabel} d'ouverture — élévation cotée`
                     : 'Menuiserie remplacée — élévation cotée',
@@ -156,13 +184,15 @@ export function facadeElevation(data: DPFormData): FacadeElevation | null {
                     `${opLabel} : ${count} ${plural(label, count)}`,
                     `Largeur : ${f(w)} m (${Math.round(w * 100)} cm)`,
                     `Hauteur : ${f(h)} m (${Math.round(h * 100)} cm)`,
+                    allegeM > 0 ? `Allège : ${f(allegeM)} m (${Math.round(allegeM * 100)} cm)` : '',
                     t.type === 'ouverture' && t.ouverture?.facade ? `Façade : ${t.ouverture.facade}` : '',
                 ].filter(Boolean),
                 material: t.type === 'menuiseries'
-                    ? [t.menuiseries?.materiau, t.menuiseries?.couleur_ral ? `RAL ${t.menuiseries.couleur_ral}` : t.menuiseries?.couleur].filter(Boolean).join(' — ') || undefined
+                    ? [materiauLabel(t.menuiseries?.materiau), ralLabel(t.menuiseries?.couleur_ral) || t.menuiseries?.couleur]
+                        .filter(Boolean).join(' — ') || undefined
                     : undefined,
-                // L'allège (hauteur sous appui) n'est pas saisie : elle ne peut pas être cotée.
-                caveats: ["Allège (hauteur d'appui) non déclarée : non cotée"],
+                caveats: (type === 'fenetre' && allegeM <= 0)
+                    ? ["Allège (hauteur d'appui) non déclarée : non cotée"] : [],
             }
         }
         default:
@@ -240,7 +270,15 @@ export function layoutElevation(e: FacadeElevation, availW: number, availH: numb
         e.kind === 'batiment' ? e.widthM + (e.adossement ? STUB_M : 0)
             : e.kind === 'baie' ? bayCount * e.widthM + (bayCount - 1) * BAY_GAP_M + WALL_PAD_M * 2
                 : lengthM
-    const totalH = e.kind === 'baie' ? e.heightM + 0.8 : e.heightM
+    // Hauteur totale à faire tenir sur la planche :
+    //  • baie      — le pan de mur doit contenir l'allège déclarée, sinon la baie déborderait
+    //                sous le sol dès qu'une allège dépasse la marge forfaitaire ;
+    //  • bâtiment  — l'amorce de l'existant peut DÉPASSER le projet (une maison R+1 à 8,20 m
+    //                contre une extension à 4,10 m). L'échelle doit être choisie sur le plus
+    //                haut des deux, faute de quoi l'existant sortirait de la feuille.
+    const totalH = e.kind === 'baie'
+        ? e.heightM + Math.max(0.8, (e.bay?.allegeM ?? 0) + 0.5)
+        : Math.max(e.heightM, e.existantFaitageM ?? 0)
 
     // Candidats, du plus complet au plus réduit.
     const candidates: { bayCount: number; lengthM: number }[] = []

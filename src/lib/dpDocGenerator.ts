@@ -1232,12 +1232,12 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         const availH = Math.max(120, y - areaBot - 34)
 
         // Combien dessiner et à quelle échelle — décidé dans planFacade (testable isolément).
-        const { denom, ptPerM, bayCount, drawnLengthM, totalW, fragmentNote } =
+        const { denom, ptPerM, bayCount, drawnLengthM, totalW, totalH, fragmentNote } =
             layoutElevation(elevation, availW, availH)
 
         const orange = rgb(0.69, 0.33, 0.18)     // projet — même convention que le plan de coupe
         const drawnW = totalW * ptPerM
-        const drawnH = (elevation.kind === 'baie' ? elevation.heightM + 0.8 : elevation.heightM) * ptPerM
+        const drawnH = totalH * ptPerM
         // Ligne de sol : le dessin est centré verticalement dans la zone disponible. Ancré en bas,
         // un ouvrage bas (une clôture) se tassait en pied de planche sous 30 cm de blanc.
         const gy = areaBot + 26 + Math.max(0, (availH - drawnH) / 2)
@@ -1264,14 +1264,19 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             if (elevation.adossement) {
                 const sx = stubLeft ? ox : bx1
                 const sw = STUB_M * ptPerM
-                const sh = Math.max(elevation.heightM, hE + 0.6) * ptPerM
+                // Hauteur déclarée à l'étape Terrain → l'amorce monte au vrai faîtage et se cote.
+                // Sinon on la coupe par un trait de rupture : sans donnée, le dessin ne doit pas
+                // affirmer une maison exactement aussi haute que le faîtage de l'extension.
+                const exF = elevation.existantFaitageM
+                const sh = (exF && exF > 0 ? exF : Math.max(elevation.heightM, hE + 0.6)) * ptPerM
                 box(page, sx, gy, sw, sh, C.offWhite, C.mid, 0.9)
                 hatchRect(page, sx, gy, sw, sh, C.light, 7)
-                txCentered(page, 'EXISTANT', sx + sw / 2, gy + sh / 2, 7, font, C.dark)
-                // La hauteur du bâti existant n'est PAS déclarée : l'amorce est coupée sur son bord
-                // extérieur. Sans cette rupture, le dessin affirmerait une maison exactement aussi
-                // haute que le faîtage de l'extension — une cote qu'aucune donnée ne soutient.
-                breakLine(page, stubLeft ? sx + 4 : sx + sw - 4, gy, gy + sh, 4, C.mid)
+                txCentered(page, 'EXISTANT', sx + sw / 2, gy + Math.min(sh / 2, drawnH / 2), 7, font, C.dark)
+                if (exF && exF > 0) {
+                    dimV(page, font, stubLeft ? sx - 18 : sx + sw + 18, gy, gy + sh, `existant ${fmtM(exF)} m`, C.dark)
+                } else {
+                    breakLine(page, stubLeft ? sx + 4 : sx + sw - 4, gy, gy + sh, 4, C.mid)
+                }
             }
 
             box(page, bx0, gy, bx1 - bx0, yE - gy, rgb(0.97, 0.93, 0.89), orange, 1.6)
@@ -1346,7 +1351,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             // Baie(s) : dessinées dans un fragment de mur existant, pour que la cote se lise
             // bien comme celle du tableau et non celle d'un panneau isolé.
             const bay = elevation.bay!
-            const wallH = (elevation.heightM + 0.8) * ptPerM
+            const wallH = drawnH
             box(page, ox, gy, drawnW, wallH, rgb(0.97, 0.96, 0.94), C.mid, 1)
             // Une fenêtre de toit n'est pas percée dans un mur : nommer correctement le support
             // évite de faire lire au dossier une implantation qui n'est pas celle déclarée.
@@ -1354,7 +1359,9 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 ox + drawnW / 2, gy + wallH - 12, 7, fontOblique, C.mid)
 
             const bw = elevation.widthM * ptPerM, bh = elevation.heightM * ptPerM
-            const by = gy + 0.4 * ptPerM   // allège non déclarée : la baie est simplement décollée du sol
+            // Allège déclarée → la baie est posée à sa vraie hauteur d'appui et cotée comme telle.
+            // Sinon elle est simplement décollée du sol, et la réserve le dit sous le dessin.
+            const by = gy + (bay.allegeM > 0 ? bay.allegeM : 0.4) * ptPerM
             for (let i = 0; i < bayCount; i++) {
                 const bx = ox + WALL_PAD_M * ptPerM + i * (bw + BAY_GAP_M * ptPerM)
                 if (bay.operation === 'suppression') {
@@ -1369,6 +1376,9 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 if (i === 0) {
                     dimH(page, font, bx, bx + bw, gy - 22, `${fmtM(elevation.widthM)} m`)
                     dimV(page, font, ox - 26, by, by + bh, `${fmtM(elevation.heightM)} m`)
+                    // L'allège est la cote que l'instructeur croise avec les vues de rue :
+                    // elle situe la baie sur la façade, là où largeur × hauteur ne dit que sa taille.
+                    if (bay.allegeM > 0) dimV(page, font, ox - 52, gy, by, `allège ${fmtM(bay.allegeM)} m`, C.dark)
                 }
             }
         }
@@ -1547,7 +1557,12 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 ln(page, M, y, PW - M, y, 1, C.black)
                 
                 // Note technique block
-                const note6 = `Le document DP6 est une insertion graphique permettant d'apprécier l'intégration du projet pour la ${f.label.toLowerCase()}. Cette simulation photoréaliste montre le futur aspect de la construction.`
+                // Ce que la simulation prouve, et ce qu'elle ne prouve pas. Elle annonçait « montre
+                // le futur aspect de la construction » : un contrôle nature par nature a montré que
+                // le générateur peut relever un volet roulant ou omettre un détail sans qu'on le lui
+                // demande. La pièce qui fait foi sur l'aspect, c'est la notice DP11 et les matériaux
+                // déclarés ; l'insertion sert à en apprécier l'intégration, pas à la définir.
+                const note6 = `Le document DP6 est une insertion graphique permettant d'apprécier l'intégration du projet pour la ${f.label.toLowerCase()}. Il s'agit d'une simulation indicative, produite par traitement d'image à partir de la photographie de l'état existant : elle restitue l'intention architecturale et non le détail exact de l'ouvrage. Les matériaux, teintes et mises en œuvre qui font foi sont ceux décrits dans la notice (DP11) et sur le plan des façades (DP4).`
                 const n6Lines = wrapText(note6, 110)
                 const n6H = 35 + n6Lines.length * 16 + 10
                 y -= n6H

@@ -164,6 +164,13 @@ export default function Etape3() {
                                         <input className="dp-input" placeholder="Hauteur (cm)" type="number" value={t.menuiseries?.hauteur || ''} onChange={e => updateMen({ hauteur: e.target.value })} />
                                     </div>
                                 </div>
+                                {/* Voir le commentaire du même champ côté « Ouverture » : c'est la cote
+                                    qui positionne la baie sur l'élévation DP4. */}
+                                <div className="dp-form-group md:col-span-2">
+                                    <label className="dp-label">Allège — hauteur d’appui depuis le sol (cm)</label>
+                                    <input className="dp-input" type="number" placeholder="ex: 95" value={t.menuiseries?.allege || ''} onChange={e => updateMen({ allege: e.target.value })} />
+                                    <p className="text-[11px] t-muted mt-1">Facultatif, mais c’est la cote qui positionne la baie sur le <b>plan des façades (DP4)</b>.</p>
+                                </div>
 
                             </div>
                         </div>
@@ -448,6 +455,13 @@ export default function Etape3() {
                                         <span className="flex items-center t-ink2 font-semibold">×</span>
                                         <input className="dp-input" type="number" placeholder="Hauteur (cm)" value={t.ouverture?.hauteur || ''} onChange={e => updateOuv({ hauteur: e.target.value })} />
                                     </div>
+                                </div>
+                                {/* L'allège situe la baie sur la façade : sans elle, l'élévation cotée DP4
+                                    donne la taille de l'ouverture mais pas sa position. */}
+                                <div className="dp-form-group md:col-span-2">
+                                    <label className="dp-label">Allège — hauteur d’appui depuis le sol (cm)</label>
+                                    <input className="dp-input" type="number" placeholder="ex: 95" value={t.ouverture?.allege || ''} onChange={e => updateOuv({ allege: e.target.value })} />
+                                    <p className="text-[11px] t-muted mt-1">Facultatif, mais c’est la cote qui positionne la baie sur le <b>plan des façades (DP4)</b>. Sans elle, la baie est dessinée sans cote de position.</p>
                                 </div>
                             </div>
                         </div>

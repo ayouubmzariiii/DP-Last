@@ -101,20 +101,24 @@ export const SOURCES: { ref: string; objet: string }[] = [
     { ref: 'R. 431-2', objet: 'recours obligatoire à un architecte au-delà de 150 m²' },
     { ref: 'L. 152-5 et R. 152-5 à R. 152-9', objet: 'dérogation de 30 cm pour l’isolation par l’extérieur' },
     { ref: 'R. 423-23 et R. 424-17', objet: 'délai d’instruction d’un mois, validité de trois ans' },
+    { ref: 'R. 424-21', objet: 'prorogation : deux fois un an, demande au moins deux mois avant l’échéance' },
+    { ref: 'R. 423-38 et R. 423-39', objet: 'pièces manquantes réclamées dans le premier mois, trois mois pour compléter' },
+    { ref: 'R. 600-2', objet: 'recours des tiers : deux mois à compter du premier jour de deux mois d’affichage continu' },
+    { ref: 'L. 423-3', objet: 'saisine par voie électronique et instruction dématérialisée au-delà de 3 500 habitants' },
 ]
 
 /** Rappels transverses réutilisés par toutes les pages (délais, dépôt, suites). */
 export const PROCEDURE = {
     delai: 'Le délai d’instruction de droit commun d’une déclaration préalable est de un mois à compter du dépôt.',
     delaiMajore: 'Il passe à deux mois aux abords d’un monument historique ou dans un site patrimonial remarquable : le délai est alors majoré d’un mois (art. R. 423-24) et l’Architecte des Bâtiments de France doit donner son accord. Un site classé relève, lui, d’une autorisation spéciale distincte, au titre du Code de l’environnement, qui allonge également le délai.',
-    tacite: 'À l’expiration du délai, l’absence de réponse vaut décision de non-opposition. Vous pouvez demander en mairie un certificat attestant cette décision tacite.',
-    incomplet: 'Si le dossier est incomplet, la mairie vous notifie une demande de pièces complémentaires dans le premier mois. Le délai est alors suspendu et vous disposez de trois mois pour compléter, sous peine de rejet tacite.',
-    cerfa: 'Pour des travaux portant sur une maison individuelle et/ou ses annexes — le cas le plus courant — le formulaire est le Cerfa n°13703 (version 13703*12, en vigueur). Le Cerfa n°16702 vise les constructions et travaux qui ne portent PAS sur une maison individuelle : les deux coexistent, l’un ne remplace pas l’autre.',
-    depot: 'Le dossier se dépose en mairie, ou par voie dématérialisée : depuis 2022, les communes de plus de 3 500 habitants doivent proposer un guichet numérique (GNAU / AD’AU).',
-    affichage: 'Dès la décision obtenue, un panneau réglementaire doit être affiché sur le terrain, visible de la voie publique, pendant toute la durée des travaux. Il fait courir le délai de recours des tiers de deux mois.',
-    validite: 'La décision est valable trois ans, prorogeable deux fois un an sur demande faite deux mois avant l’échéance.',
+    tacite: 'À l’expiration du délai, l’absence de réponse vaut décision de non-opposition. Sur simple demande, la mairie doit vous délivrer un certificat attestant cette décision tacite : réclamez-le, c’est la seule preuve écrite que vous aurez à opposer plus tard.',
+    incomplet: 'Si le dossier est incomplet, la mairie vous notifie une demande de pièces complémentaires dans le premier mois. Le délai d’instruction ne court alors qu’à compter de la réception des pièces, et vous disposez de trois mois pour les fournir : passé ce délai sans réponse de votre part, la demande est tacitement rejetée.',
+    cerfa: 'Pour des travaux portant sur une maison individuelle et/ou ses annexes — le cas le plus courant — le formulaire est le Cerfa n°13703 (version 13703*12, valable depuis le 30/06/2023). Le Cerfa n°16702 (version 16702*03, valable depuis le 01/07/2026) vise les constructions et travaux qui ne portent PAS sur une maison individuelle : les deux coexistent, l’un ne remplace pas l’autre. Un troisième formulaire, le Cerfa n°13702, est réservé aux lotissements et divisions foncières — il ne concerne pas des travaux.',
+    depot: 'Depuis le 1ᵉʳ janvier 2022, toute commune doit être en mesure de recevoir une demande d’autorisation d’urbanisme par voie électronique ; les communes de plus de 3 500 habitants doivent en outre l’instruire sous forme dématérialisée, et disposent pour cela d’un guichet numérique (GNAU / AD’AU). Un particulier garde le choix : dépôt en mairie, lettre recommandée avec accusé de réception, ou voie dématérialisée. Une personne morale, elle, dépose obligatoirement par voie électronique dans les communes de plus de 3 500 habitants.',
+    affichage: 'Dès la décision obtenue, un panneau réglementaire doit être affiché sur le terrain, visible de la voie publique, pendant toute la durée des travaux. Le délai de recours des tiers est de deux mois, et il court à compter du premier jour d’une période continue de deux mois d’affichage : un panneau retiré puis reposé fait repartir le décompte.',
+    validite: 'La décision est valable trois ans, prorogeable deux fois un an sur demande faite au moins deux mois avant l’échéance (art. R. 424-21).',
     daact: 'Les travaux achevés, vous déposez une déclaration attestant l’achèvement et la conformité des travaux (DAACT).',
-    cout: 'Le dépôt d’une déclaration préalable est gratuit. Seule une taxe d’aménagement peut être due, sur les surfaces closes et couvertes de plus de 5 m² d’une hauteur au moins égale à 1,80 m, et forfaitairement sur les piscines.',
+    cout: 'Le dépôt d’une déclaration préalable ne donne lieu à aucun frais de dossier. Une taxe d’aménagement peut en revanche être due, sur les surfaces closes et couvertes de plus de 5 m² dont la hauteur sous plafond est supérieure à 1,80 m, et sur les piscines à une valeur forfaitaire au m² de bassin. Ces valeurs forfaitaires sont revalorisées chaque année : vérifiez celle de l’année en cours avant de chiffrer.',
 }
 
 const T = (t: SeoTravaux) => t

@@ -101,7 +101,9 @@ export const geoportailUrl = (c: Commune) =>
     `https://www.geoportail-urbanisme.gouv.fr/map/#tile=1&lon=2.4&lat=46.6&zoom=6&mlon=&mlat=&insee=${c.insee}`
 
 /** Guichet numérique des autorisations d'urbanisme — recherche de la commune. */
-export const gnauUrl = () => 'https://www.service-public.fr/particuliers/vosdroits/R52221'
+// service-public.fr redirige (301) vers service-public.gouv.fr : on pointe directement
+// la destination, un lien public ne doit pas coûter un aller-retour au lecteur.
+export const gnauUrl = () => 'https://www.service-public.gouv.fr/particuliers/vosdroits/R52221'
 
 /** Cadastre officiel, centré sur la commune (utile pour le plan de situation). */
 export const cadastreUrl = (c: Commune) => `https://www.cadastre.gouv.fr/scpc/rechercherPlan.do`

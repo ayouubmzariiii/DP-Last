@@ -49,6 +49,19 @@ export const SETTING_DEFS: SettingDef[] = [
         options: ['bytedance-seed/seedream-4.5', 'google/gemini-2.5-flash-image', 'black-forest-labs/flux-1.1-pro'],
     },
     {
+        key: 'facade_audit_model', type: 'string', group: 'ai',
+        label: 'Modèle IA — contrôle de fidélité du visuel',
+        help: 'Modèle vision qui compare la simulation « après travaux » à la photo d\'origine et rejette les écarts non demandés (texte peint sur la façade, volets supprimés, portail effacé…). Doit accepter DEUX images.',
+        envVar: 'OPENROUTER_FACADE_AUDIT_MODEL', def: 'google/gemini-3.5-flash',
+        options: ['google/gemini-3.5-flash', 'anthropic/claude-sonnet-5', 'openai/gpt-5-mini', 'openrouter/free'],
+    },
+    {
+        key: 'facade_audit_enabled', type: 'boolean', group: 'ai',
+        label: 'Contrôler la fidélité du visuel « après travaux »',
+        help: 'Activé : chaque simulation est comparée à la photo d\'origine et régénérée (jusqu\'à 2 fois, sans consommer le quota du client) si elle introduit une modification non demandée. Coûte un appel vision par génération.',
+        def: true,
+    },
+    {
         key: 'image_attempts_per_facade', type: 'number', group: 'limits',
         label: 'Générations d\'image par façade',
         help: 'Nombre maximum de générations IA réussies du visuel « après travaux » par façade et par dossier (compteur durable côté serveur).',

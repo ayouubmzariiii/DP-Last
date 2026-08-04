@@ -41,7 +41,7 @@ export interface TravauxTypeDef {
     validate: (data: DPFormData) => TravauxWarning[]
 }
 
-const MATERIAU_LABEL: Record<string, string> = {
+export const MATERIAU_LABEL: Record<string, string> = {
     pvc: 'PVC', aluminium: 'aluminium', bois: 'bois', mixte: 'mixte bois-aluminium',
 }
 const FINITION_LABEL: Record<string, string> = {

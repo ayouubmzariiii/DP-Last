@@ -58,7 +58,13 @@ export default function VilleHub({ params }: { params: { commune: string } }) {
         },
         {
             q: `Où déposer sa déclaration préalable ${aCommune(c.nom)} ?`,
-            a: `Auprès du service urbanisme de la mairie ${deCommune(c.nom)}, ou par voie dématérialisée. Avec ${nf(c.population)} habitants, la commune est tenue de proposer une saisine par voie électronique via un guichet numérique des autorisations d’urbanisme. Le dépôt donne lieu à un récépissé portant le numéro d’enregistrement et la date de départ du délai d’instruction.`,
+            // Deux obligations distinctes (art. L. 423-3) : RECEVOIR par voie électronique
+            // s'impose à toute commune depuis le 1ᵉʳ janvier 2022 ; INSTRUIRE sous forme
+            // dématérialisée, avec le guichet numérique qui va avec, ne s'impose qu'au-delà
+            // de 3 500 habitants. Les confondre promet un GNAU à des communes qui n'en ont pas.
+            a: c.population > 3500
+                ? `Auprès du service urbanisme de la mairie ${deCommune(c.nom)}, ou par voie dématérialisée. Avec ${nf(c.population)} habitants, la commune dépasse le seuil de 3 500 habitants : elle doit instruire les demandes sous forme dématérialisée et met à disposition un guichet numérique des autorisations d’urbanisme (GNAU). Le dépôt donne lieu à un récépissé portant le numéro d’enregistrement et la date de départ du délai d’instruction.`
+                : `Auprès du service urbanisme de la mairie ${deCommune(c.nom)}, par lettre recommandée avec accusé de réception, ou par voie électronique — depuis le 1ᵉʳ janvier 2022, toute commune doit pouvoir recevoir une demande d’urbanisme par voie électronique. Avec ${nf(c.population)} habitants, la commune reste en deçà du seuil de 3 500 habitants : elle n’est pas tenue de disposer d’un guichet numérique dédié, renseignez-vous sur les modalités qu’elle a retenues. Le dépôt donne lieu à un récépissé portant le numéro d’enregistrement et la date de départ du délai d’instruction.`,
         },
         {
             q: `Quel délai d’instruction ${aCommune(c.nom)} ?`,
