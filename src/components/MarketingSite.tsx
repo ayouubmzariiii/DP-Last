@@ -51,7 +51,7 @@ const STEPS: Step[] = [
 
 const PRO_FEATURES = [
     { ds: ['M12 3l7 3v5c0 4.6-3.1 7.7-7 9-3.9-1.3-7-4.4-7-9V6l7-3z', 'M9 12l2 2 4-4'], title: 'Analyse PLU automatique', body: 'Le projet croisé au règlement de la parcelle : blocages, teintes imposées et secteurs ABF repérés avant le dépôt.' },
-    { ds: ['M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5', 'M9 13h6M9 17h5'], title: 'CERFA & pièces assemblés', body: 'Le 16702*03 pré-rempli et les pièces DP1 à DP8 réunies dans un dossier unique, prêt à imprimer ou déposer en ligne.' },
+    { ds: ['M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5', 'M9 13h6M9 17h5'], title: 'CERFA & pièces assemblés', body: 'Le bon formulaire officiel pré-rempli — 13703 pour une maison individuelle, 16702 sinon — et les pièces DP1 à DP8 réunies dans un dossier unique.' },
     { ds: ['M12 3l1.9 4.9L19 9.8l-5.1 1.9L12 16.6l-1.9-4.9L5 9.8l5.1-1.9z', 'M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z'], title: 'Vues « après » & marque perso', body: 'L’insertion paysagère (DP6) générée par IA, la notice DP4 rédigée, et des exports à l’en-tête de votre cabinet.' },
 ]
 
@@ -85,7 +85,7 @@ const PLANS_ABO: Plan[] = [
 ]
 const PLANS_USAGE: Plan[] = [
     { key: 'd', name: 'Découverte', price: '0', unit: '€', per: 'pour toujours', tag: '', highlight: false, cta: 'Commencer', desc: 'Pour créer et vérifier votre dossier, sans payer.', features: ['Parcours guidé complet', 'Analyse PLU de la parcelle', 'Aperçu du CERFA et des pièces', 'Mode test avec filigrane', 'Sauvegarde de vos projets'] },
-    { key: 'o', name: 'Dossier complet', price: '69', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer, en ≈ 10 minutes.', features: ['Tout de Découverte, plus :', 'CERFA 16702*03 pré-rempli', 'Pièces DP1 à DP8 assemblées', 'Vues « après » par IA', 'Export PDF & ZIP sans filigrane'] },
+    { key: 'o', name: 'Dossier complet', price: '69', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer, en ≈ 10 minutes.', features: ['Tout de Découverte, plus :', 'CERFA officiel pré-rempli (13703 ou 16702)', 'Pièces DP1 à DP8 assemblées', 'Vues « après » par IA', 'Export PDF & ZIP sans filigrane'] },
     { key: 'p', name: 'Pack Rénovation', price: '179', unit: '€', per: '3 dossiers', tag: '', highlight: false, cta: 'Choisir le pack', desc: 'Plusieurs chantiers ? 59,70 € le dossier.', features: ['Tout de Dossier complet', '3 dossiers, quand vous voulez', 'Modifications illimitées 6 mois', 'Assistance email prioritaire'] },
 ]
 
@@ -200,7 +200,7 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
                                     </div>
                                 </div>
                                 <div style={s('padding:8px 20px 20px')}>
-                                    {[['Analyse PLU · Zone UA', 'Conforme'], ['Pièces DP1 à DP8', '8 / 8'], ['CERFA 16702*03', 'Rempli']].map(([label, val], i) => (
+                                    {[['Analyse PLU · Zone UA', 'Conforme'], ['Pièces DP1 à DP8', '8 / 8'], ['CERFA 13703*12', 'Rempli']].map(([label, val], i) => (
                                         <div key={label}>
                                             {i > 0 && <div style={s('height:1px;background:var(--line-2)')}></div>}
                                             <div style={s('display:flex;align-items:center;gap:12px;padding:12px 0')}>

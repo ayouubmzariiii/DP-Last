@@ -48,7 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         let filename: string
         if (kind === 'cerfa') {
             pdf = await generateCerfaPdf(data)
-            filename = `CERFA_16702_${nom}.pdf`
+            filename = `CERFA_${nom}.pdf`
         } else if (kind === 'dp') {
             pdf = await generateDPDocument(data, { dossierId: row.id })
             filename = `Dossier_DP_${nom}.pdf`

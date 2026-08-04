@@ -294,6 +294,9 @@ export interface ParcelleCadastrale {
     prefixe: string
     section: string
     numero: string
+    /** Superficie de la parcelle en m². Les deux CERFA la demandent par parcelle
+     *  (T2TP2/T2TP3 sur le 16702, colonne 4 du tableau sur le 13703). */
+    superficie_m2?: string
 }
 
 export interface CerfaData {
@@ -364,6 +367,12 @@ export interface DPFormData {
     // Infos complémentaires Cerfa - Etape 6
     cadastrales_multiparcelles: ParcelleCadastrale[]
     terrain_lotissement: boolean
+    // Nature du bien support des travaux. C'est LE critère qui détermine le
+    // formulaire CERFA : la notice n°51434#12 impose le 13703 dès que le projet
+    // porte sur une maison individuelle ou l'une de ses annexes ; tout le reste
+    // (immeuble collectif, local commercial, bâtiment agricole, terrain nu)
+    // relève du 16702. Voir lib/cerfaForms.ts.
+    nature_bien: 'maison_individuelle' | 'autre'
     nature_travaux: string // 'nouvelle_construction', 'travaux_existante', 'cloture', 'piscine'
     projet_concerne: 'principale' | 'secondaire' | ''
     sous_nature_nouvelle: {
@@ -641,6 +650,7 @@ export const defaultFormData: DPFormData = {
     // Nouveaux champs Etape 6 (CERFA détaillé)
     cadastrales_multiparcelles: [],
     terrain_lotissement: false,
+    nature_bien: 'maison_individuelle',
     nature_travaux: 'travaux_existante',
     projet_concerne: 'principale',
     sous_nature_nouvelle: { piscine: false, garage: false, veranda: false, abri_jardin: false, autre: false, autre_desc: '' },
@@ -771,7 +781,8 @@ export const emptyFormData: DPFormData = {
     travaux: emptyTravaux,
     photos: emptyPhotos,
     plans: emptyPlans,
-    cadastrales_multiparcelles: [], terrain_lotissement: false, nature_travaux: 'travaux_existante', projet_concerne: 'principale',
+    cadastrales_multiparcelles: [], terrain_lotissement: false, nature_bien: 'maison_individuelle',
+    nature_travaux: 'travaux_existante', projet_concerne: 'principale',
     sous_nature_nouvelle: { piscine: false, garage: false, veranda: false, abri_jardin: false, autre: false, autre_desc: '' },
     sous_nature_existante: { extension: false, surelevation: false, creation_niveaux: false, autre: false, autre_desc: '' },
     zones_specifiques: { site_patrimonial: false, abords_monument: false, site_classe: false },

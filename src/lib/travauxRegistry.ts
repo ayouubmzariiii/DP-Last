@@ -3,7 +3,7 @@
  *
  * Adding a new work type means adding ONE entry here (plus its detail sub-form in Étape 3 and its
  * data interface in models). Everything cross-cutting — the Étape 3 card, the human/works labels on
- * the DP plans, the CERFA 16702 §4.1 nature box, whether a plan de coupe (DP3) is required, the AI
+ * the DP plans, the CERFA §4.1 nature box, whether a plan de coupe (DP3) is required, the AI
  * "après travaux" description, and the Étape 3 validation warnings — is read from this registry
  * instead of being branched across ~13 files.
  */
@@ -28,7 +28,7 @@ export interface TravauxTypeDef {
     // ── Étape 3 "Description & Surfaces" free-text field ────────────────────
     descLabel: string
     descPlaceholder: string
-    // ── CERFA 16702 §4.1 nature of works + volume/surface semantics ─────────
+    // ── CERFA §4.1 nature of works + volume/surface semantics ─────────
     cerfaNature: 'existante' | 'nouvelle' | 'cloture'
     createsSurface: boolean   // touches surface de plancher / emprise au sol
     requiresDP3: boolean      // modifies terrain profile or built volume → plan de coupe

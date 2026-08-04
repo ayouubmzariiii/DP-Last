@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateCerfaPdf } from '@/lib/pdfGenerator'
+import { generateCerfa } from '@/lib/pdfGenerator'
 import { DPFormData } from '@/lib/models'
 import { validateDPForm, fatalIssues } from '@/lib/validation'
 import { getSession } from '@/lib/auth'
@@ -20,13 +20,13 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const pdfBytes = await generateCerfaPdf(data)
+        const { bytes: pdfBytes, form } = await generateCerfa(data)
 
         return new NextResponse(Buffer.from(pdfBytes), {
             status: 200,
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="CERFA_16702_${data.demandeur.nom || 'demande'}.pdf"`,
+                'Content-Disposition': `attachment; filename="CERFA_${form.id}_${data.demandeur.nom || 'demande'}.pdf"`,
             },
         })
     } catch (err) {

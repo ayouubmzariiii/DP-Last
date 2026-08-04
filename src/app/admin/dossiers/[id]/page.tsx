@@ -133,7 +133,7 @@ const renderVal = (v: unknown): React.ReactNode => {
 // récupère en blob plutôt que de pointer l'iframe directement sur l'URL, pour
 // pouvoir afficher une vraie erreur si la génération échoue.
 const DOCS = [
-    { kind: 'cerfa', icon: '📋', title: 'CERFA n°16702*03', blurb: 'Formulaire officiel, pré-rempli depuis le dossier.' },
+    { kind: 'cerfa', icon: '📋', title: 'Formulaire CERFA', blurb: '13703 ou 16702 selon la nature du bien, pré-rempli depuis le dossier.' },
     { kind: 'dp', icon: '📁', title: 'Dossier DP complet', blurb: 'DP1 à DP8 — plans, notice, photos et insertions.' },
     { kind: 'panneau', icon: '🪧', title: 'Panneau d’affichage', blurb: 'Panneau réglementaire à poser sur le terrain.' },
 ] as const

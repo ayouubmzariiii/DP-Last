@@ -1657,7 +1657,7 @@ function generateDP4Notice(data: DPFormData): string {
     }
 
     return `NOTICE DESCRIPTIVE – DEMANDE PRÉALABLE DE TRAVAUX
-            (Pièce DP4 – Cerfa n°16702*03)
+            (Pièce DP4)
 
             Date : ${date}
             Demandeur : ${nom}

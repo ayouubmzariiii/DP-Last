@@ -210,7 +210,7 @@ export function Reperes() {
     const tiles: [string, string, string][] = [
         ['1 mois', 'Délai d’instruction', '2 mois en secteur protégé'],
         ['0 €', 'Coût du dépôt', 'taxe d’aménagement à part'],
-        ['16702', 'Formulaire Cerfa', 'ex-13703'],
+        ['13703', 'Formulaire Cerfa', 'maison individuelle'],
         ['3 ans', 'Validité', 'prorogeable 2 × 1 an'],
     ]
     return (

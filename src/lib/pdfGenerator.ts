@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts, rgb, PageSizes } from 'pdf-lib'
 import { DPFormData } from './models'
 import { isProtectedSector } from './validation'
 import { getTravauxDef } from './travauxRegistry'
+import { chooseCerfaForm, resolveField, type CerfaForm } from './cerfaForms'
 import path from 'path'
 
 // ─── French transliteration (no accented chars in PDF StandardFonts) ─────────
@@ -30,9 +31,14 @@ function s(text: string): string {
 }
 
 /**
- * Generates the Cerfa 16702*03 PDF ("Déclaration préalable — Constructions et travaux non soumis
- * à permis de construire") by loading the base PDF and filling all fields.
- * Reads cerfa.pdf directly from the filesystem (server) or via fetch (browser).
+ * Génère le CERFA de déclaration préalable, en choisissant le BON formulaire :
+ * 13703*12 lorsque le projet porte sur une maison individuelle (le cas courant,
+ * et le seul que la notice n°51434#12 rende obligatoire), 16702*03 sinon.
+ * Voir lib/cerfaForms.ts pour la règle et la table de correspondance.
+ *
+ * Les noms de champs ci-dessous sont ceux du 16702, qui sert de vocabulaire de
+ * référence ; resolveField() les traduit vers le formulaire retenu et écarte
+ * ceux qui n'y existent pas. Les deux formulaires partagent 95 champs.
  *
  * Field-name reference (16702*03 AcroForm), mapped from the app's DPFormData:
  *   1. Déclarant particulier  D1N/D1P/D1A/D1C/D1D/D1E   · morale D2D/D2R/D2S/D2J/D2N/D2P
@@ -47,7 +53,13 @@ function s(text: string): string {
  *                             DPC6=P3GF1 DPC7=P3GG1 DPC8=P3GH1 DPC11=P4CD1
  */
 export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
+    return (await generateCerfa(data)).bytes
+}
+
+/** Variante qui rend aussi le formulaire retenu — utile pour nommer le fichier. */
+export async function generateCerfa(data: DPFormData): Promise<{ bytes: Uint8Array; form: CerfaForm }> {
     const { demandeur, terrain } = data
+    const cerfaForm = chooseCerfaForm(data)
 
     try {
         let pdfBytes: ArrayBuffer
@@ -55,20 +67,20 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         if (typeof window === 'undefined') {
             // ── Server-side: read directly from filesystem ────────────────
             const fs = await import('fs/promises')
-            const filePath = path.join(process.cwd(), 'public', 'cerfa.pdf')
+            const filePath = path.join(process.cwd(), 'public', cerfaForm.file)
             try {
                 const buf = await fs.readFile(filePath)
                 pdfBytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
             } catch (e) {
-                console.error('[CERFA] cerfa.pdf not found at', filePath, e)
-                return generateFallbackCerfa(data)
+                console.error('[CERFA]', cerfaForm.file, 'introuvable :', filePath, e)
+                return { bytes: await generateFallbackCerfa(data), form: cerfaForm }
             }
         } else {
             // ── Client-side: fetch from server ────────────────────────────
-            const response = await fetch('/cerfa.pdf')
+            const response = await fetch('/' + cerfaForm.file)
             if (!response.ok) {
                 console.warn('[CERFA] Base PDF fetch failed:', response.status)
-                return generateFallbackCerfa(data)
+                return { bytes: await generateFallbackCerfa(data), form: cerfaForm }
             }
             pdfBytes = await response.arrayBuffer()
         }
@@ -79,21 +91,27 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         // Helper: safely set a text field (handles missing fields gracefully)
         const setField = (name: string, value: string) => {
             if (!value) return
+            // Traduit le nom vers le formulaire retenu ; `null` = champ absent de
+            // ce formulaire, on n'écrit rien (décision explicite, pas un échec).
+            const real = resolveField(cerfaForm.id, name.trim())
+            if (!real) return
             try {
-                form.getTextField(name.trim()).setText(s(value))
+                form.getTextField(real).setText(s(value))
             } catch {
-                console.debug(`[CERFA] Field not found or not text: "${name}"`)
+                console.debug(`[CERFA] champ texte introuvable sur le ${cerfaForm.numero} : "${real}"`)
             }
         }
 
         // Helper: safely check/uncheck a checkbox (pdf-lib resolves the field's on-value, /Oui here)
         const checkBox = (name: string, val: boolean) => {
+            const real = resolveField(cerfaForm.id, name.trim())
+            if (!real) return
             try {
-                const field = form.getCheckBox(name.trim())
+                const field = form.getCheckBox(real)
                 if (val) field.check()
                 else field.uncheck()
             } catch {
-                console.debug(`[CERFA] Checkbox not found: "${name}"`)
+                console.debug(`[CERFA] case à cocher introuvable sur le ${cerfaForm.numero} : "${real}"`)
             }
         }
 
@@ -174,8 +192,11 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
         setField('T2N_numero', terrain.numero_parcelle)
         setField('T2T_superficie', (terrain.surface_terrain || '').toString().replace(/[^0-9]/g, ''))
         const extra = data.cadastrales_multiparcelles || []
-        if (extra[0]) { setField('T2FP2_prefixe', extra[0].prefixe); setField('T2SP2_section', extra[0].section); setField('T2NP2_numero', extra[0].numero) }
-        if (extra[1]) { setField('T2FP3_prefixe', extra[1].prefixe); setField('T2SP3_section', extra[1].section); setField('T2NP3_numero', extra[1].numero) }
+        // La superficie par parcelle existe sur les DEUX formulaires (T2TP2/T2TP3 sur le
+        // 16702, colonne 4 du tableau sur le 13703) : on la reporte, elle était omise.
+        const digits = (v?: string) => (v || '').toString().replace(/[^0-9]/g, '')
+        if (extra[0]) { setField('T2FP2_prefixe', extra[0].prefixe); setField('T2SP2_section', extra[0].section); setField('T2NP2_numero', extra[0].numero); setField('T2TP2_superficie', digits(extra[0].superficie_m2)) }
+        if (extra[1]) { setField('T2FP3_prefixe', extra[1].prefixe); setField('T2SP3_section', extra[1].section); setField('T2NP3_numero', extra[1].numero); setField('T2TP3_superficie', digits(extra[1].superficie_m2)) }
         setField('D5T_total', (terrain.surface_terrain || '').toString().replace(/[^0-9]/g, ''))
 
         // 3.2 Situation juridique — lotissement from the declared value; the other (optional)
@@ -323,11 +344,11 @@ export async function generateCerfaPdf(data: DPFormData): Promise<Uint8Array> {
 
         // NB: we intentionally do NOT flatten — some official CERFA appearance streams make pdf-lib's
         // flatten throw; the fields are made read-only above, which prevents casual edits reliably.
-        return await pdfDoc.save()
+        return { bytes: await pdfDoc.save(), form: cerfaForm }
 
     } catch (err) {
         console.error('[CERFA] Error generating PDF:', err)
-        return generateFallbackCerfa(data)
+        return { bytes: await generateFallbackCerfa(data), form: cerfaForm }
     }
 }
 
@@ -389,7 +410,7 @@ async function generateFallbackCerfa(data: DPFormData): Promise<Uint8Array> {
     // ── Header ───────────────────────────────────────────────────────────
     pages[pageIdx].drawRectangle({ x: 0, y: PH - 70, width: PW, height: 70, color: rgb(0.08, 0.08, 0.08) })
     safeTx('DEMANDE PREALABLE DE TRAVAUX', M, PH - 28, 16, bold, rgb(1, 1, 1))
-    safeTx('Cerfa n16702*03  |  Resume du dossier constitue', M, PH - 46, 9, font, rgb(0.75, 0.75, 0.75))
+    safeTx('Declaration prealable  |  Resume du dossier constitue', M, PH - 46, 9, font, rgb(0.75, 0.75, 0.75))
     safeTx('REPUBLIQUE FRANCAISE', PW - M - 110, PH - 28, 8, font, rgb(0.6, 0.6, 0.6))
     y = PH - 90
 

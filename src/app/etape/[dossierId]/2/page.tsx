@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
+import { chooseCerfaForm } from '@/lib/cerfaForms'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import ParcelPicker from '@/components/ParcelPicker'
 import { issuesForStep, fatalIssues } from '@/lib/validation'
@@ -12,6 +13,8 @@ export default function Etape2() {
     const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updateTerrain, updateField, updateDemandeur } = useDPContext()
     const t = formData.terrain
+    const natureBien = formData.nature_bien || 'maison_individuelle'
+    const cerfaForm = chooseCerfaForm(formData)
     const d = formData.demandeur
 
     const stepFatals = fatalIssues(issuesForStep(formData, 2))
@@ -117,7 +120,7 @@ export default function Etape2() {
     // Dynamic Cadastre functions migrated from Etape 6
     const addCadastre = () => {
         const current = formData.cadastrales_multiparcelles || []
-        updateField('cadastrales_multiparcelles', [...current, { prefixe: '', section: '', numero: '' }])
+        updateField('cadastrales_multiparcelles', [...current, { prefixe: '', section: '', numero: '', superficie_m2: '' }])
     }
 
     const removeCadastre = (index: number) => {
@@ -126,7 +129,7 @@ export default function Etape2() {
         updateField('cadastrales_multiparcelles', current)
     }
 
-    const updateCadastre = (index: number, field: 'prefixe' | 'section' | 'numero', value: string) => {
+    const updateCadastre = (index: number, field: 'prefixe' | 'section' | 'numero' | 'superficie_m2', value: string) => {
         const current = [...(formData.cadastrales_multiparcelles || [])]
         current[index][field] = value
         updateField('cadastrales_multiparcelles', current)
@@ -317,9 +320,13 @@ export default function Etape2() {
                                             <label className="text-xs t-ink2 mb-1 block">Section</label>
                                             <input className="dp-input text-sm py-2" placeholder="AB" value={parcelle.section} onChange={e => updateCadastre(index, 'section', e.target.value.toUpperCase())} />
                                         </div>
-                                        <div className="flex-2 min-w-[150px]">
+                                        <div className="flex-2 min-w-[130px]">
                                             <label className="text-xs t-ink2 mb-1 block">Numéro</label>
                                             <input className="dp-input text-sm py-2" placeholder="0123" value={parcelle.numero} onChange={e => updateCadastre(index, 'numero', e.target.value)} />
+                                        </div>
+                                        <div className="flex-1 min-w-[110px]">
+                                            <label className="text-xs t-ink2 mb-1 block">Superficie (m²)</label>
+                                            <input className="dp-input text-sm py-2" placeholder="450" inputMode="numeric" value={parcelle.superficie_m2 || ''} onChange={e => updateCadastre(index, 'superficie_m2', e.target.value)} />
                                         </div>
                                         <button type="button" onClick={() => removeCadastre(index)} className="p-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors">
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -349,6 +356,37 @@ export default function Etape2() {
                                     Le terrain est situé dans un lotissement
                                 </span>
                             </label>
+                        </div>
+                    </div>
+
+                    {/* Nature du bien — détermine le formulaire CERFA (13703 ou 16702).
+                        La notice n°51434#12 impose le 13703 dès que le projet porte sur une
+                        maison individuelle : le choix est donc réglementaire, pas cosmétique. */}
+                    <div className="dp-card">
+                        <h3 className="dp-section-title">Nature du bien</h3>
+                        <p className="text-sm t-ink2 mb-4">
+                            Sur quel type de bien portent les travaux ? Cette réponse détermine le formulaire officiel
+                            que nous remplirons — les deux existent et ne sont pas interchangeables.
+                        </p>
+                        <div className="grid md:grid-cols-2 gap-3">
+                            {([
+                                ['maison_individuelle', 'Maison individuelle', 'Votre maison et ses annexes : abri de jardin, piscine, clôture, façades, toiture, extension.'],
+                                ['autre', 'Autre bien', 'Appartement ou immeuble collectif, local commercial ou professionnel, bâtiment agricole, terrain nu.'],
+                            ] as const).map(([val, titre, desc]) => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => updateField('nature_bien', val)}
+                                    className={`travaux-card text-left${natureBien === val ? ' selected' : ''}`}
+                                >
+                                    <div className="font-semibold t-ink mb-1">{titre}</div>
+                                    <div className="text-sm t-ink2 leading-relaxed">{desc}</div>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="dp-alert is-info mt-4">
+                            <span className="dp-alert-title">Formulaire retenu</span>
+                            Cerfa n°{cerfaForm.numero} — {cerfaForm.titre.toLowerCase()}.
                         </div>
                     </div>
 

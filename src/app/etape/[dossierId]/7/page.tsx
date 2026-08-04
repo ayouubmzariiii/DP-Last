@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useDPContext } from '@/lib/context'
 import { validateDPForm, piecesChecklist, fatalIssues, forbiddenIssues, warnIssues, isProtectedSector, ValidationIssue } from '@/lib/validation'
 import { getTravauxDef } from '@/lib/travauxRegistry'
+import { chooseCerfaForm } from '@/lib/cerfaForms'
 import { RalInline } from '@/components/RalPicker'
 import { MaterialInline } from '@/components/MaterialIcon'
 
@@ -33,6 +34,8 @@ export default function Etape7() {
     const router = useRouter()
     const dossierId = useParams<{ dossierId: string }>().dossierId as string
     const { formData, updateField, isTestMode } = useDPContext()
+    // Formulaire officiel retenu (13703 maison individuelle / 16702 autre bien).
+    const cerfaForm = chooseCerfaForm(formData)
     const { demandeur, terrain, travaux, photos } = formData
 
     const [generatingCerfa, setGeneratingCerfa] = useState(false)
@@ -91,7 +94,7 @@ export default function Etape7() {
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `CERFA_16702_${demandeur.nom}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
+            a.download = `CERFA_${cerfaForm.id}_${demandeur.nom}_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`
             a.click()
             URL.revokeObjectURL(url)
             setCerfaDone(true)
@@ -449,7 +452,7 @@ export default function Etape7() {
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--acb)' }}>📋</div>
                                     <div>
-                                        <div className="font-bold t-ink">CERFA n°16702*03</div>
+                                        <div className="font-bold t-ink">CERFA n°{cerfaForm.numero}</div>
                                         <div className="text-xs t-ink2">Formulaire officiel rempli</div>
                                     </div>
                                     {cerfaDone && <span className="ml-auto t-ok text-xl">✅</span>}
