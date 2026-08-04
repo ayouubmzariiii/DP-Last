@@ -63,8 +63,15 @@ const SURFACE_SCOPE: Record<string, { change: string; keep: string }> = {
         keep: 'every window, door, shutter, the roof, chimney and gutters — including their exact existing colours and materials',
     },
     menuiseries: {
-        change: 'the windows, doors and/or shutters (their material and colour)',
-        keep: 'the wall render and its colour, the roof, and every other surface exactly as in the photo',
+        // Le remplacement de menuiseries porte sur les DORMANTS ET OUVRANTS, pas sur la position
+        // des volets. Autoriser « et/ou les volets » a suffi au modèle pour SUPPRIMER les volets
+        // roulants baissés et inventer les fenêtres qu'ils masquaient (contrôle du 04/08/2026).
+        change: 'the frames and casements of the windows and doors (their material and colour), and the colour of shutter leaves if the modification names them',
+        // Le conflit est inhérent : les travaux PORTENT sur les fenêtres, et un volet baissé les
+        // masque. Interdire simplement de lever le volet ne suffit pas — le modèle le lève quand
+        // même pour « montrer » le résultat. On lève donc l'ambiguïté : sur ces baies-là, le
+        // remplacement n'a rien de visible, et c'est une réponse acceptable.
+        keep: 'the wall render and its colour, the roof, and EVERY roller shutter exactly as in the photo — same presence, same box, lowered by exactly the same amount. Where a shutter is down, the replacement joinery is simply NOT VISIBLE on that opening, and that is the correct result: leave the shutter down and unchanged rather than raising it to show the new frame. Only openings already visible in the photo may show the new joinery',
     },
     toiture: {
         change: 'the roof covering',
@@ -75,8 +82,11 @@ const SURFACE_SCOPE: Record<string, { change: string; keep: string }> = {
         keep: 'the walls, windows, doors, the roof shape/slope and every existing surface exactly as in the photo',
     },
     cloture: {
-        change: 'the fence / boundary wall',
-        keep: 'the house — its walls, windows, doors, roof — and the ground, exactly as in the photo',
+        change: 'the fence / boundary wall itself',
+        // Le portail et les plantations ne font pas partie de l'ouvrage déclaré. Le modèle les
+        // avait purement et simplement effacés : la maison se retrouvait sans accès et le jardin
+        // rasé, deux modifications que personne n'a demandées (contrôle du 04/08/2026).
+        keep: 'the house — its walls, windows, doors, roof — the ground, the hedges and all planting, and the gate/portillon at the SAME position and the same width (the new fence must leave that opening free)',
     },
     ouverture: {
         change: 'only the single opening described (add / enlarge / remove it)',
@@ -103,8 +113,15 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
     const colour = intendedColour(data)
     const guide = colourGuidance(rawDescription) || colourGuidance(colour)
     const mentionsColour = !!colour && rawDescription.toLowerCase().includes(colour.toLowerCase())
+    // Le nom de la teinte est une CONSIGNE, pas un élément à peindre. Le modèle a déjà écrit
+    // « Bleu vif » en toutes lettres sur la façade d'un ravalement (contrôle du 04/08/2026) :
+    // un dossier déposé avec le nom de la couleur peint sur la maison est éliminatoire.
     const colourBlock = (mentionsColour || guide)
-        ? `\n\nEXACT COLOUR (critical): the treated surface must be ${colour ? `"${colour}"` : 'the colour named above'}${guide ? ` — i.e. ${guide}` : ''}. Reproduce this exact colour uniformly across the whole treated surface. Do NOT invent or approximate a different colour; in particular do NOT default to grey, blue or white unless that is the colour named above.`
+        // Le nom de la teinte n'est PAS répété entre guillemets ici. Un libellé français cité
+        // ressemble à une légende à peindre : le modèle a écrit « Bleu vif » en toutes lettres
+        // sur la façade, deux fois de suite. On renvoie donc à la description, et on ne cite que
+        // la traduction visuelle (anglais / hex) quand on en a une.
+        ? `\n\nEXACT COLOUR (critical): paint the treated surface in the colour named in the modification above${guide ? ` — i.e. ${guide}` : ''}. Reproduce that exact colour uniformly across the whole treated surface. Do NOT invent or approximate a different colour; in particular do NOT default to grey, blue or white unless that is the colour named.`
         : ''
 
     const scope = SURFACE_SCOPE[travaux.type]
@@ -114,23 +131,28 @@ export function buildAIAfterImagePrompt(data: DPFormData, customInstruction?: st
 
     return `Edit the attached photograph in place. Return the SAME photograph with ONLY the requested modification(s) applied. This is an in-place photo edit — NOT a request to imagine, redraw, re-photograph or generate a new building.
 
+NEVER WRITE ON THE IMAGE (read this first): every instruction below is addressed to YOU. None of it is content to depict. Do not letter, paint, caption or label any word, colour name, RAL code, material name or dimension onto the building, the wall, the sky or anywhere in the output. The only text in the result is text already physically present in the attached photograph.
+
 CAMERA & FRAMING — DO NOT CHANGE (most important rule):
 - Keep the EXACT same camera angle, viewpoint, perspective and rotation as the attached photo. Do NOT rotate the building, do NOT switch to a more frontal/3-quarter view, do NOT change where the camera is.
 - Keep the EXACT same zoom, distance and framing. The building must occupy the same area of the frame and be the same size. Do NOT zoom in or out, do NOT crop, do NOT re-centre or re-compose.
 - Output the SAME image dimensions and aspect ratio as the input. Keep the background, neighbouring buildings, garden, sky and lighting identical.
 
-REQUESTED MODIFICATION(S) — apply ALL of them (a renovation can change several things at once: material, colour, finish, openings…):
-"${rawDescription}"
+REQUESTED MODIFICATION(S) — apply ALL of them (a renovation can change several things at once: material, colour, finish, openings…). This is a French description of the WORKS TO CARRY OUT, never a caption to write anywhere:
+${rawDescription}
 
 ABSOLUTE RULES:
 - The output MUST be the exact same building — same shape, same number of floors, same number and position of every window and door, same roof, same proportions. Change ONLY the materials/colours/elements named in the modification(s) above; leave everything else identical.
 - Do NOT add or remove windows, doors, shutters, chimneys, balconies or any feature that the modification does not explicitly mention.
 - KEEP THE EXACT WINDOW SUBDIVISION of every opening: the same number of casements (vantaux), the same transoms and mullions, and the same glazing bars. If a window in the photo is a plain single- or double-casement with NO glazing bars, it must stay that way — do NOT add small panes, muntins, "petits bois" or a colonial/cottage grid. Changing a window's partition is a change of architectural aspect that was not requested.
-- KEEP EVERY ROLLER SHUTTER (volet roulant) exactly as in the photo — its presence, its box/lintel, and how far it is lowered. Do NOT delete shutters to "clean up" the façade, and do NOT open or close them.
-- Keep the fence, gate, garden walls, hedges and planting exactly as photographed; they are not part of the works.
+- KEEP EVERY ROLLER SHUTTER (volet roulant) exactly as in the photo — its presence, its box/lintel, and how far it is lowered. A shutter that is DOWN in the photo stays DOWN, covering exactly the same part of the opening: do NOT raise it, do NOT delete it to "clean up" the façade, and do NOT invent the window, glazing or curtains hidden behind it. This holds even when the works concern the joinery itself.
+- ${travaux.type === 'cloture'
+            ? 'The fence/boundary wall is the works and may change. But keep the gate (portail/portillon) at the same position and width — the new fence must leave that opening free — and keep every hedge, shrub and planting exactly as photographed.'
+            : 'Keep the fence, gate, garden walls, hedges and planting exactly as photographed; they are not part of the works.'}
+- Do NOT add hinged shutters (volets battants), louvres or any shutter type the photo does not already have. Roller shutters are not to be swapped for hinged ones.
 - Apply each modification only to the relevant surfaces (e.g. "peinture ton pierre" → recolour only the wall render; "menuiseries aluminium noir" → only the window/door frames).
 - Remove only transient clutter in front of the edited area (people, parked cars, bins) so the change is clearly visible.
-- Photorealistic result, matching the original photo's quality, tone and lighting. No added text, captions, borders, arrows or watermarks.${scopeBlock}${colourBlock}`
+- Photorealistic result, matching the original photo's quality, tone and lighting. No added borders, arrows or watermarks.${scopeBlock}${colourBlock}`
 }
 
 export function buildAICroquisPrompt(_data: DPFormData, _customInstruction?: string): string {

@@ -88,7 +88,11 @@ export async function POST(req: NextRequest) {
         let { imageBase64 } = body
 
         if (!prompt) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
-        if (prompt.length > 4000) return NextResponse.json({ error: 'Prompt too long' }, { status: 400 })
+        // Garde-fou anti-abus sur ce que l'utilisateur peut faire passer, pas sur l'échafaudage
+        // fixe : le prompt assemblé par buildAIAfterImagePrompt fait déjà ~3 000–4 400 caractères
+        // selon la nature des travaux, et chaque invariant qu'on y ajoute (volets, plantations,
+        // interdiction d'écrire sur la façade) le rallonge. Plafond porté à 6 000.
+        if (prompt.length > 6000) return NextResponse.json({ error: 'Prompt too long' }, { status: 400 })
 
         // Per-image generation cap (4 per façade). Enforced when the client identifies the
         // image (dossierId + facadeId) — which étape 6 always does. Check BEFORE the AI call
