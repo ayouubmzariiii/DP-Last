@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { geocodeAddress, getIGNMapUrl, getVectorMapData } from './ignMaps'
 import { getTravauxDef, travauxNatureLabel, travauxWorksLabel } from './travauxRegistry'
+import { reculsToBoundaries } from './planMasse'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -890,15 +891,43 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 dimLabel(page, font, bl.x, bl.y - 12, br.x, br.y - 12, `${(wM * gf).toFixed(1)} m`)
                 dimLabel(page, font, br.x + 12, br.y, tr.x + 12, tr.y, `${(hM * gf).toFixed(1)} m`)
 
-                // Setback cotes: distance from the building to each parcel boundary (a core
-                // plan-de-masse requirement). Drawn only where the gap is meaningful (>1 m).
+                // Recul aux limites séparatives — la cote que l'instructeur vérifie en
+                // premier, le règlement imposant une distance minimale aux limites.
+                //
+                // Ces cotes se calculaient auparavant sur les RECTANGLES ENGLOBANTS de la
+                // parcelle et du bâtiment (bMinX - tpMinX, etc.). Sur une parcelle
+                // rectangulaire orientée nord-sud le résultat est à peu près juste ; sur
+                // une parcelle oblique ou irrégulière — le cas courant — la mesure se
+                // faisait vers le rectangle englobant et non vers la limite réelle, et
+                // imprimait donc un nombre plausible mais FAUX sur une pièce du dossier.
+                // On mesure désormais la vraie distance perpendiculaire à chaque côté.
                 if (targetParcel) {
-                    const gapL = bMinX - tpMinX, gapR = tpMaxX - bMaxX
-                    const gapB = bMinY - tpMinY, gapT = tpMaxY - bMaxY
-                    if (gapL > 1) { const a = mc(tpMinX, bCy), b = mc(bMinX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapL * gf).toFixed(1)} m`) }
-                    if (gapR > 1) { const a = mc(bMaxX, bCy), b = mc(tpMaxX, bCy); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapR * gf).toFixed(1)} m`) }
-                    if (gapB > 1) { const a = mc(bCx, tpMinY), b = mc(bCx, bMinY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapB * gf).toFixed(1)} m`) }
-                    if (gapT > 1) { const a = mc(bCx, bMaxY), b = mc(bCx, tpMaxY); dimLabel(page, font, a.x, a.y, b.x, b.y, `${(gapT * gf).toFixed(1)} m`) }
+                    const parcelRing = getCoordArrays(targetParcel)[0] as number[][]
+                    let enLimite = 0
+                    for (const r of reculsToBoundaries(ring, parcelRing).slice(0, 4)) {
+                        const m = r.dist * gf
+                        const a = mc(r.bx, r.by), b = mc(r.cx, r.cy)
+                        // Le cadastre et la BD TOPO sont deux jeux distincts, dont le
+                        // recalage relatif se joue à ~1 m près. Annoncer « 0,4 m de recul »
+                        // à partir de ces sources serait une précision que la donnée ne
+                        // porte pas. En deçà du mètre on qualifie donc l'implantation
+                        // (en limite) au lieu de la chiffrer ; au-delà, la cote est fiable.
+                        if (m < 1) {
+                            // Bâti mitoyen : il n'y a pas de recul à coter, mais l'implantation
+                            // EN LIMITE est justement ce que le règlement encadre. Sans cette
+                            // mention, le plan ne dirait rien de l'implantation — cas courant
+                            // des centres anciens, où la construction est adossée aux limites.
+                            if (enLimite < 2) {
+                                enLimite++
+                                const lw = bold.widthOfTextAtSize('en limite', 6)
+                                box(page, b.x - lw / 2 - 3, b.y - 5, lw + 6, 10, C.white, rgb(0.69, 0.33, 0.18), 0.6)
+                                tx(page, 'en limite', b.x - lw / 2, b.y - 2, 6, bold, rgb(0.54, 0.25, 0.13))
+                            }
+                            continue
+                        }
+                        if (Math.hypot(b.x - a.x, b.y - a.y) < 6) continue
+                        dimLabel(page, font, a.x, a.y, b.x, b.y, `${m.toFixed(1)} m`)
+                    }
                 }
             }
 

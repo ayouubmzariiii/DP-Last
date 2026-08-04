@@ -53,6 +53,41 @@ const pointInRing = (x: number, y: number, r: Ring) => {
     return inside
 }
 
+/** Distance d'un point au segment [a,b], et point du segment le plus proche. */
+export function pointToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+    const dx = bx - ax, dy = by - ay
+    const len2 = dx * dx + dy * dy
+    // t = projection du point sur le segment, bornée à [0,1] pour rester sur le segment.
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2))
+    const cx = ax + t * dx, cy = ay + t * dy
+    return { dist: Math.hypot(px - cx, py - cy), cx, cy }
+}
+
+/**
+ * Recul de la construction aux limites séparatives : pour chaque côté de la
+ * parcelle, le point du bâtiment qui en est le plus proche et la distance
+ * correspondante.
+ *
+ * C'est LA vérification que fait un instructeur sur un plan de masse — le
+ * règlement impose un recul minimal aux limites — et R. 431-36 b) demande un
+ * plan « coté dans les 3 dimensions ». Coter les côtés de la parcelle, comme le
+ * faisait ce fichier, décrit le terrain mais pas l'implantation du projet.
+ */
+export function reculsToBoundaries(building: number[][], parcel: number[][]) {
+    const out: { dist: number; bx: number; by: number; cx: number; cy: number; edge: number }[] = []
+    for (let e = 0; e < parcel.length - 1; e++) {
+        const [ax, ay] = parcel[e], [bx2, by2] = parcel[e + 1]
+        if (Math.hypot(bx2 - ax, by2 - ay) < 1) continue          // côté négligeable
+        let best: typeof out[number] | null = null
+        for (const [px, py] of building) {
+            const { dist, cx, cy } = pointToSegment(px, py, ax, ay, bx2, by2)
+            if (!best || dist < best.dist) best = { dist, bx: px, by: py, cx, cy, edge: e }
+        }
+        if (best) out.push(best)
+    }
+    return out.sort((a, b) => a.dist - b.dist)
+}
+
 /** Build the full plan de masse as an SVG string. */
 export function buildPlanMasseSvg(input: PlanMasseInput): string {
     const VW = input.width ?? 640, VH = input.height ?? 360
@@ -189,6 +224,41 @@ export function buildPlanMasseSvg(input: PlanMasseInput): string {
             const ox1 = p1.x + perpX, oy1 = p1.y + perpY, ox2 = p2.x + perpX, oy2 = p2.y + perpY
             const mx = (ox1 + ox2) / 2, my = (oy1 + oy2) / 2
             parts.push(`<g><line x1="${p1.x}" y1="${p1.y}" x2="${ox1}" y2="${oy1}" stroke="#2D5A4C" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/><line x1="${p2.x}" y1="${p2.y}" x2="${ox2}" y2="${oy2}" stroke="#2D5A4C" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/><line x1="${ox1}" y1="${oy1}" x2="${ox2}" y2="${oy2}" stroke="#2D5A4C" stroke-width="1"/><rect x="${mx - 14}" y="${my - 5}" width="28" height="10" fill="#fff" rx="1" opacity="0.9"/><text x="${mx}" y="${my + 2}" text-anchor="middle" font-size="7" fill="#2D5A4C">${(distM * gf).toFixed(1)} m</text></g>`)
+        }
+    }
+
+    // ── Reculs aux limites séparatives ──────────────────────────────────────
+    // Le premier réflexe de l'instructeur : à quelle distance des limites la
+    // construction s'implante-t-elle ? On cote les quatre plus courts reculs,
+    // un par côté de parcelle, en trait fin perpendiculaire à la limite.
+    if (targetIdx >= 0 && subjIdx >= 0) {
+        const parcelRing = ringsOf(fC[targetIdx])[0] || []
+        const bldRing = ringsOf(fB[subjIdx])[0] || []
+        if (parcelRing.length > 2 && bldRing.length > 2) {
+            const reculs = reculsToBoundaries(bldRing, parcelRing).slice(0, 4)
+            for (const r of reculs) {
+                const a = toSvg(r.bx, r.by), b = toSvg(r.cx, r.cy)
+                const px = b.x - a.x, py = b.y - a.y
+                const lenPx = Math.hypot(px, py)
+                const m = r.dist * gf
+                // Cadastre et BD TOPO se recalent à ~1 m près : en deçà du mètre on
+                // qualifie l'implantation (en limite) plutôt que d'afficher une précision
+                // que la donnée ne porte pas. Même seuil que le PDF.
+                const enLimite = m < 1
+                const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
+                const label = enLimite ? 'en limite' : `${m.toFixed(1)} m`
+                const w = label.length * 3.6 + 8
+                parts.push(
+                    `<g>` +
+                    (lenPx > 2
+                        ? `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#B0552F" stroke-width="0.9"/>` +
+                          `<circle cx="${a.x}" cy="${a.y}" r="1.6" fill="#B0552F"/><circle cx="${b.x}" cy="${b.y}" r="1.6" fill="#B0552F"/>`
+                        : `<circle cx="${b.x}" cy="${b.y}" r="2.4" fill="none" stroke="#B0552F" stroke-width="1"/>`) +
+                    `<rect x="${mx - w / 2}" y="${my - 5}" width="${w}" height="10" fill="#fff" stroke="#B0552F" stroke-width="0.5" rx="1.5" opacity="0.95"/>` +
+                    `<text x="${mx}" y="${my + 2.5}" text-anchor="middle" font-size="6.6" font-weight="600" fill="#8A3F20">${esc(label)}</text>` +
+                    `</g>`,
+                )
+            }
         }
     }
 
