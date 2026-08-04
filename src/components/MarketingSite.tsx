@@ -91,6 +91,23 @@ const PLANS_USAGE: Plan[] = [
 
 const INCLUDED = ['Analyse PLU incluse', 'Projets sauvegardés', 'Support par email', 'Hébergé en France', 'Sans engagement']
 
+// Les deux pièces montrées en aperçu public. `key` est le paramètre `doc` de /api/apercu.
+// `pages` = les pages montrées en vignette. Choisies pour ce qu'elles prouvent :
+// le CERFA sur ses rubriques remplies, le dossier sur ses planches cotées.
+interface Apercu { key: 'cerfa' | 'dp'; title: string; meta: string; body: string; pages: number[] }
+const APERCUS: Apercu[] = [
+    {
+        key: 'cerfa', title: 'Le CERFA rempli', meta: 'PDF · A4 · formulaire officiel',
+        body: 'Le formulaire officiel du ministère, complété rubrique par rubrique — 13703 pour une maison individuelle, 16702 sinon. Champs verrouillés, bordereau des pièces coché.',
+        pages: [3, 4, 5],
+    },
+    {
+        key: 'dp', title: 'Le dossier complet', meta: 'PDF · A3 · pièces DP1 à DP11',
+        body: 'Plan de situation, plan de masse coté, coupe du terrain, élévation à l’échelle, notice descriptive, photos et insertion paysagère — assemblés dans un seul document.',
+        pages: [2, 3, 6, 8],
+    },
+]
+
 interface FaqItem { id: string; q: string; a: string }
 const FAQ: FaqItem[] = [
     { id: 'a1', q: 'Qu’est-ce qu’une déclaration préalable de travaux ?', a: 'C’est l’autorisation d’urbanisme exigée pour les travaux qui modifient l’aspect extérieur d’un bâtiment ou créent une petite surface, sans nécessiter de permis de construire. Elle se dépose en mairie.' },
@@ -116,6 +133,8 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
     const [elig, setElig] = useState('menuiseries')
     const [openFaqs, setOpenFaqs] = useState<Record<string, boolean>>({})
     const [sliderPos, setSliderPos] = useState(52)
+    // Aperçu PDF ouvert (null = aucun). Chargement au clic seulement : voir la section « Aperçu ».
+    const [apercu, setApercu] = useState<Apercu['key'] | null>(null)
     const [simPrice, setSimPrice] = useState('150')
     const [simHours, setSimHours] = useState('2')
     const [simCount, setSimCount] = useState('10')
@@ -178,7 +197,7 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
                         <p style={s('font-size:18px;line-height:1.62;color:var(--ink-2);margin:22px 0 0;max-width:52ch')}>CERFA, plans, photos et notice assemblés en un dossier conforme — avec l&apos;analyse PLU de la parcelle qui évite le refus en mairie. Un dossier complet en ≈ 10 minutes, à votre marque.</p>
                         <div style={s('display:flex;align-items:center;gap:14px;margin-top:32px;flex-wrap:wrap')}>
                             <a href={appHref} className="dp-btn-primary" style={s('padding:14px 26px;font-size:15px;text-decoration:none')}>Essayer 14 jours</a>
-                            <a href="#how" className="dp-btn-secondary" style={s('padding:14px 24px;font-size:15px;text-decoration:none')}>Voir comment ça marche</a>
+                            <a href="#apercu" className="dp-btn-secondary" style={s('padding:14px 24px;font-size:15px;text-decoration:none')}>Voir un dossier généré</a>
                         </div>
                         <div style={s('display:flex;align-items:center;gap:22px;margin-top:28px;flex-wrap:wrap;font-family:var(--mf);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)')}>
                             <span style={s('display:inline-flex;align-items:center;gap:6px')}><span style={s('width:5px;height:5px;border-radius:50%;background:var(--ac)')}></span>Sans engagement</span>
@@ -306,6 +325,86 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
                             </div>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            {/* ===================== APERÇU DU LIVRABLE ===================== */}
+            {/* Le seul argument qui vaille pour un livrable documentaire : le montrer.
+                Les deux PDF sont produits par les MÊMES générateurs que le parcours payant,
+                sur le jeu d'essai, et estampillés SPÉCIMEN. Ils ne sont chargés qu'au clic :
+                le dossier complet pèse ~4 Mo et prend quelques secondes à assembler — le
+                monter d'office ferait payer cette attente à tous les visiteurs. */}
+            <section id="apercu" style={s('background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);scroll-margin-top:70px')}>
+                <div style={s('max-width:1160px;margin:0 auto;padding:clamp(60px,8vw,104px) 28px')}>
+                    <div style={s('text-align:center;max-width:660px;margin:0 auto')}>
+                        <span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac)')}>Le livrable</span>
+                        <h2 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.01em;margin:12px 0 0;color:var(--ink)')}>Regardez le dossier <span style={s('font-style:italic;color:var(--ac)')}>avant de vous inscrire</span>.</h2>
+                        <p style={s('font-size:16px;line-height:1.62;color:var(--ink-2);margin:16px auto 0;max-width:56ch')}>Voici exactement ce que l&apos;application produit : le CERFA officiel pré-rempli et le dossier complet, plans cotés compris. Générés à l&apos;instant, sur un projet d&apos;exemple.</p>
+                    </div>
+
+                    <div data-apercu style={s('display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px')}>
+                        {APERCUS.map(a => {
+                            const open = apercu === a.key
+                            return (
+                                <div key={a.key} style={s(`background:var(--surface);border:1px solid ${open ? 'var(--acb)' : 'var(--line)'};border-radius:18px;overflow:hidden;transition:border-color .2s`)}>
+                                    <div style={s('padding:22px 22px 18px')}>
+                                        <div style={s('display:flex;align-items:center;gap:12px')}>
+                                            <span style={s('flex-shrink:0;width:40px;height:40px;border-radius:11px;background:var(--act);border:1px solid var(--acb);display:flex;align-items:center;justify-content:center')}>
+                                                <Ico ds={['M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5', 'M9 13h6M9 17h5']} size={18} color="var(--ac)" sw={1.6} />
+                                            </span>
+                                            <div>
+                                                <div style={s('font-weight:600;font-size:15.5px;color:var(--ink)')}>{a.title}</div>
+                                                <div style={s('font-family:var(--mf);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:2px')}>{a.meta}</div>
+                                            </div>
+                                        </div>
+                                        <p style={s('font-size:14px;line-height:1.6;color:var(--ink-2);margin:14px 0 0')}>{a.body}</p>
+                                        <div style={s('display:flex;gap:10px;margin-top:18px;flex-wrap:wrap')}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setApercu(open ? null : a.key)}
+                                                className={open ? 'dp-btn-secondary' : 'dp-btn-primary'}
+                                                style={s('padding:10px 18px;font-size:13.5px')}
+                                            >
+                                                {open ? 'Masquer l’aperçu' : 'Afficher l’aperçu'}
+                                            </button>
+                                            <a href={`/api/apercu?doc=${a.key}`} target="_blank" rel="noopener noreferrer" className="dp-btn-secondary" style={s('padding:10px 18px;font-size:13.5px;text-decoration:none')}>Ouvrir le PDF</a>
+                                        </div>
+                                    </div>
+                                    {open && (
+                                        <div style={s('border-top:1px solid var(--line);background:var(--field);padding:18px')}>
+                                            {/* Pages rendues en image côté serveur, pas le PDF dans une <iframe> :
+                                                le lecteur PDF intégré n'existe pas sur tous les navigateurs et
+                                                l'aperçu s'y réduisait à un cadre vide — le pire résultat possible
+                                                sur la section censée convaincre. Une image s'affiche partout. */}
+                                            <div style={s('display:flex;gap:14px;overflow-x:auto;padding-bottom:6px')}>
+                                                {a.pages.map(p => (
+                                                    <a key={p} href={`/api/apercu?doc=${a.key}`} target="_blank" rel="noopener noreferrer"
+                                                        style={s('flex:0 0 auto;text-decoration:none;display:block')}>
+                                                        <img
+                                                            src={`/api/apercu?doc=${a.key}&page=${p}`}
+                                                            alt={`${a.title} — page ${p}`}
+                                                            loading="lazy"
+                                                            style={{
+                                                                display: 'block', height: 300, width: 'auto', borderRadius: 8,
+                                                                border: '1px solid var(--line)', background: '#fff',
+                                                                boxShadow: '0 12px 28px -22px rgba(37,34,30,.7)',
+                                                            }}
+                                                        />
+                                                        <span style={s('display:block;text-align:center;font-family:var(--mf);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:8px')}>Page {p}</span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                            <p style={s('font-size:12.5px;color:var(--muted);margin:10px 0 0')}>Faites défiler horizontalement · cliquez une page pour ouvrir le PDF entier.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    <p style={s('text-align:center;font-size:13px;line-height:1.6;color:var(--muted);margin:22px auto 0;max-width:62ch')}>
+                        Ces deux fichiers portent la mention <strong style={s('color:var(--ink-2)')}>SPÉCIMEN</strong> : ils illustrent un projet fictif et ne peuvent pas être déposés. Votre dossier est généré à partir de vos propres données, sans filigrane.
+                    </p>
                 </div>
             </section>
 
@@ -603,6 +702,10 @@ html{scroll-behavior:smooth}
 @media (max-width:860px){
   #site [data-ba]{grid-template-columns:1fr!important;gap:36px!important}
   #site [data-elig]{grid-template-columns:minmax(0,1fr)!important}
+  /* Les deux cartes d'aperçu passent l'une sous l'autre, et le lecteur PDF se
+     raccourcit : un cadre de 520 px occuperait tout l'écran d'un téléphone. */
+  #site [data-apercu]{grid-template-columns:1fr!important}
+  #site [data-apercu] img{height:230px!important}
 }
 @media (max-width:820px){
   #site [data-progrid]{grid-template-columns:1fr!important}

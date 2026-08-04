@@ -26,6 +26,10 @@ function isPublic(pathname: string): boolean {
     // Collecte anonyme : entonnoir et retours utilisateurs.
     // Ces routes n'exposent aucune donnée en lecture — elles n'acceptent que POST.
     if (pathname === '/api/events' || pathname === '/api/feedback') return true
+    // Aperçu public du livrable (CERFA + dossier DP) : c'est un argument commercial,
+    // il doit s'ouvrir sans compte. La route ne lit AUCUNE donnée client — elle rend
+    // le jeu d'essai figé, estampillé SPÉCIMEN.
+    if (pathname === '/api/apercu') return true
     // Dev-only test harness (self-guards against production); keep it usable without a session in dev.
     if (process.env.NODE_ENV !== 'production' && pathname.startsWith('/api/dev/')) return true
     return false
