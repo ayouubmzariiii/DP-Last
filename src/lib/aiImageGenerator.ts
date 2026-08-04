@@ -125,6 +125,9 @@ REQUESTED MODIFICATION(S) — apply ALL of them (a renovation can change several
 ABSOLUTE RULES:
 - The output MUST be the exact same building — same shape, same number of floors, same number and position of every window and door, same roof, same proportions. Change ONLY the materials/colours/elements named in the modification(s) above; leave everything else identical.
 - Do NOT add or remove windows, doors, shutters, chimneys, balconies or any feature that the modification does not explicitly mention.
+- KEEP THE EXACT WINDOW SUBDIVISION of every opening: the same number of casements (vantaux), the same transoms and mullions, and the same glazing bars. If a window in the photo is a plain single- or double-casement with NO glazing bars, it must stay that way — do NOT add small panes, muntins, "petits bois" or a colonial/cottage grid. Changing a window's partition is a change of architectural aspect that was not requested.
+- KEEP EVERY ROLLER SHUTTER (volet roulant) exactly as in the photo — its presence, its box/lintel, and how far it is lowered. Do NOT delete shutters to "clean up" the façade, and do NOT open or close them.
+- Keep the fence, gate, garden walls, hedges and planting exactly as photographed; they are not part of the works.
 - Apply each modification only to the relevant surfaces (e.g. "peinture ton pierre" → recolour only the wall render; "menuiseries aluminium noir" → only the window/door frames).
 - Remove only transient clutter in front of the edited area (people, parked cars, bins) so the change is clearly visible.
 - Photorealistic result, matching the original photo's quality, tone and lighting. No added text, captions, borders, arrows or watermarks.${scopeBlock}${colourBlock}`
