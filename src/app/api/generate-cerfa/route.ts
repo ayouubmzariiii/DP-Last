@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateCerfa } from '@/lib/pdfGenerator'
 import { DPFormData } from '@/lib/models'
-import { validateDPForm, fatalIssues } from '@/lib/validation'
+import { validateDPForm, blockingIssues } from '@/lib/validation'
 import { getSession } from '@/lib/auth'
 
 export const maxDuration = 60;
@@ -11,11 +11,20 @@ export async function POST(req: NextRequest) {
         if (!(await getSession())) return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 })
         const data: DPFormData = await req.json()
 
-        // Safety net: never emit a legally-invalid CERFA, even if the UI is bypassed.
-        const fatals = fatalIssues(validateDPForm(data))
-        if (fatals.length > 0) {
+        // Filet de sécurité : ne jamais émettre un CERFA juridiquement invalide, même
+        // si l'interface est contournée. « blockingIssues » couvre les manques
+        // rédhibitoires ET les choix INTERDITS par le règlement d'urbanisme — un
+        // CERFA signé qui déclare un matériau proscrit engage le déclarant.
+        const blockers = blockingIssues(validateDPForm(data))
+        if (blockers.length > 0) {
+            const forbidden = blockers.filter(i => i.severity === 'forbidden')
             return NextResponse.json(
-                { error: 'Dossier incomplet', issues: fatals },
+                {
+                    error: forbidden.length > 0
+                        ? 'Le projet retient un matériau ou une teinte interdits par le règlement d’urbanisme.'
+                        : 'Dossier incomplet',
+                    issues: blockers,
+                },
                 { status: 422 },
             )
         }

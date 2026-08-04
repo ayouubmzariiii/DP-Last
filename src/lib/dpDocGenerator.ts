@@ -919,25 +919,40 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             tx(page, "Voiries / Autres", legX + 26, legY + 18, 7.5, font)
             tx(page, "IGN - BD TOPO / Cadastre", legX + 26, legY + 4, 6, fontOblique, C.mid)
 
-            // Works localisation callout (what + where) — the marker an instructeur scans for.
-            if (data.travaux.type && subjBuilding) {
-                const wl = san(`Travaux : ${natureLabel(data)}`)
-                const wlw = bold.widthOfTextAtSize(wl, 8)
-                const cbW = Math.min(wlw + 20, drawW - 20), cbX = startX + (drawW - cbW) / 2, cbY = startY + drawH - 24
-                box(page, cbX, cbY, cbW, 16, C.white, rgb(0.69, 0.33, 0.18), 1)
-                page.drawRectangle({ x: cbX, y: cbY, width: 4, height: 16, color: rgb(0.69, 0.33, 0.18) })
-                tx(page, wl, cbX + 9, cbY + 5, 8, bold, rgb(0.35, 0.16, 0.09))
-            }
-
             // Cadastral reference printed directly on the plan (required identification). When the
             // target parcel was matched, append its OFFICIAL surface (contenance, m²) from the
             // cadastre — an authoritative figure that confirms the plan identifies the right parcel.
+            // Drawn FIRST so the works callout below knows how much width to leave it: the two
+            // boxes share the same band at the top of the map and used to overlap, the centred
+            // works label running underneath the right-aligned parcel box and losing its last word.
             const officialArea = targetParcel?.properties?.contenance
             const cadRef = san(`Parcelle ${t.section_cadastrale || ''} ${t.numero_parcelle || ''}${officialArea ? ` - ${officialArea} m2` : ''}`.trim())
-            if (cadRef.length > 9) {
-                const crw = bold.widthOfTextAtSize(cadRef, 9)
+            const cadShown = cadRef.length > 9
+            const crw = cadShown ? bold.widthOfTextAtSize(cadRef, 9) : 0
+            if (cadShown) {
                 box(page, startX + drawW - crw - 18, startY + drawH - 26, crw + 14, 18, C.white, C.dark, 0.6)
                 tx(page, cadRef, startX + drawW - crw - 11, startY + drawH - 20, 9, bold, C.black)
+            }
+
+            // Works localisation callout (what + where) — the marker an instructeur scans for.
+            // Aligné à gauche dans la largeur restante : jamais sous le cartouche de parcelle.
+            if (data.travaux.type && subjBuilding) {
+                // La rose des vents est incrustée dans le fond de plan, en haut à
+                // gauche : on démarre l'encart après elle, et on s'arrête avant le
+                // cartouche de parcelle. Les trois éléments cohabitent sans se couvrir.
+                const roseInset = Math.max(34, drawW * 0.075)
+                const reserved = cadShown ? crw + 22 : 0
+                const avail = drawW - roseInset - 10 - reserved
+                const full = san(`Travaux : ${natureLabel(data)}`)
+                let wl = full
+                // Tronque proprement plutôt que de laisser le texte déborder de sa boîte.
+                while (wl.length > 12 && bold.widthOfTextAtSize(wl, 8) + 20 > avail) wl = wl.slice(0, -2)
+                if (wl !== full) wl = wl.replace(/[\s/]+$/, '') + '…'
+                const cbW = Math.min(bold.widthOfTextAtSize(wl, 8) + 20, avail)
+                const cbX = startX + roseInset, cbY = startY + drawH - 24
+                box(page, cbX, cbY, cbW, 16, C.white, rgb(0.69, 0.33, 0.18), 1)
+                page.drawRectangle({ x: cbX, y: cbY, width: 4, height: 16, color: rgb(0.69, 0.33, 0.18) })
+                tx(page, wl, cbX + 9, cbY + 5, 8, bold, rgb(0.35, 0.16, 0.09))
             }
 
             // Graphic scale bar + true scale ratio (échelle graphique — robust to print scaling).
@@ -1096,7 +1111,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         const cW = PW - M * 2
         drawFrame(page)
         let y = drawDesignHeader(page, fontOblique)
-        y = drawTitleProfessional(page, bold, 'Plans des façades : état existant et projeté (DP 5)', M, y)
+        y = drawTitleProfessional(page, bold, 'Plan des façades et des toitures : état existant et projeté (DP 4)', M, y)
         y -= 10
 
         if (facadesDp5.length === 0) {
