@@ -9,7 +9,7 @@ import {
 } from '@/components/seo/blocks'
 import { SEO_TRAVAUX, findTravaux, VERDICTS, RESERVE_SECTEUR_PROTEGE } from '@/lib/seo/travaux'
 import {
-    COMMUNES, findCommune, communeParam, communesVoisines, densite,
+    COMMUNES, findCommune, communeParam, communesLiees, perimetreLabel, densite,
     geoportailUrl, deCommune, aCommune, aCommuneCap, aCommuneParts,
     type Commune,
 } from '@/lib/seo/communes'
@@ -55,7 +55,7 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
     const c = findCommune(params.commune)
     if (!t || !c) notFound()
 
-    const voisines = communesVoisines(c)
+    const { list: voisines, scope: voisinesScope } = communesLiees(c)
     const d = densite(c)
     const nf = (n: number) => n.toLocaleString('fr-FR')
 
@@ -247,7 +247,7 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
                         {/* Formulation neutre : le genre des noms de département varie
                             (« dans le Rhône », « dans les Bouches-du-Rhône », « en Gironde »)
                             et aucune règle générale ne le déduit du nom. */}
-                        <p className="dp-meta" style={{ marginBottom: 12 }}>{t.nom} — département {c.deptNom}</p>
+                        <p className="dp-meta" style={{ marginBottom: 12 }}>{t.nom} — {perimetreLabel(c, voisinesScope)}</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                             {voisines.map(v => (
                                 <Link key={v.insee} href={`/dp/${t.slug}/${communeParam(v)}`} className="dp-chip" style={{ textDecoration: 'none' }}>

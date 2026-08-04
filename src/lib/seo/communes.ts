@@ -85,9 +85,23 @@ export function aCommuneCap(nom: string): string {
 
 /** Communes voisines par département (maillage interne : profondeur de crawl). */
 export function communesVoisines(c: Commune, limit = 8): Commune[] {
+    return communesLiees(c, limit).list
+}
+
+/** Communes à lier, AVEC le périmètre réellement retenu.
+ *  Le jeu de données ne retient que les communes les plus peuplées : un département n'y a
+ *  parfois qu'une seule entrée (Paris), et le repli se fait alors sur la région. Le titre du
+ *  bloc annonçait « département X » quoi qu'il arrive — la page de Paris listait ainsi
+ *  Saint-Denis (93) et Boulogne-Billancourt (92) sous l'étiquette « département Paris ». */
+export function communesLiees(c: Commune, limit = 8): { list: Commune[]; scope: 'departement' | 'region' } {
     const same = COMMUNES.filter(x => x.dept === c.dept && x.insee !== c.insee)
-    const pool = same.length >= 3 ? same : COMMUNES.filter(x => x.region === c.region && x.insee !== c.insee)
-    return pool.slice(0, limit)
+    if (same.length >= 3) return { list: same.slice(0, limit), scope: 'departement' }
+    return { list: COMMUNES.filter(x => x.region === c.region && x.insee !== c.insee).slice(0, limit), scope: 'region' }
+}
+
+/** Libellé du bloc de maillage, accordé au périmètre réellement utilisé. */
+export function perimetreLabel(c: Commune, scope: 'departement' | 'region'): string {
+    return scope === 'departement' ? `département ${c.deptNom}` : `région ${c.region}`
 }
 
 /** Densité (hab/km²) — sert à qualifier honnêtement le tissu urbain de la commune. */

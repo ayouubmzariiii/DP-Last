@@ -1002,14 +1002,18 @@ export default function Etape6() {
     }
 
     const renderSubStepNavigation = () => {
+        // Nomenclature officielle du bordereau : DP4 = plan des façades et des toitures,
+        // DP5 = représentation de l'aspect extérieur, DP11 = notice. Les libellés annonçaient
+        // « DP4 : Notice » et « DP5 : Façades » — soit deux codes intervertis par rapport au
+        // dossier effectivement produit, où la notice sort en DP 11 et les façades en DP 4.
         const LABELS: Record<number, { label: string; icon: string }> = {
             1: { label: 'DP1 : Situation', icon: '🗺️' },
             2: { label: 'DP2 : Masse', icon: '📐' },
             7: { label: 'DP3 : Coupe', icon: '📏' },
-            3: { label: 'DP4 : Notice', icon: '📝' },
+            3: { label: 'DP11 : Notice', icon: '📝' },
             4: { label: 'Photos / Sélection', icon: '🖼️' },
             5: { label: 'DP6 : Insertion', icon: '✨' },
-            6: { label: 'DP5 : Façades', icon: '🎨' },
+            6: { label: 'DP5 : Aspect extérieur', icon: '🎨' },
         }
         const steps = flow.map((id, i) => ({ id, num: i + 1, ...LABELS[id] }))
         const curIdx = flow.indexOf(subStep)
@@ -1174,7 +1178,9 @@ export default function Etape6() {
                         <div className="space-y-6 animate-slideUp">
                             <div className="dp-card">
                                 <div className="flex items-center gap-3 mb-6">
-                                    <span className="w-12 h-12 bg-[var(--act)] t-accent font-bold text-base rounded-2xl flex items-center justify-center border border-[color:var(--acb)]">DP4</span>
+                                    {/* La notice sort en DP 11 dans le dossier généré : la pastille doit
+                                        porter le même code, sinon le client cherche une pièce inexistante. */}
+                                    <span className="w-12 h-12 bg-[var(--act)] t-accent font-bold text-base rounded-2xl flex items-center justify-center border border-[color:var(--acb)]">DP11</span>
                                     <div>
                                         <h3 className="font-bold t-ink">Notice descriptive du projet</h3>
                                         <p className="text-xs t-muted">Décrit l'état initial et les modifications projetées</p>
@@ -1223,7 +1229,7 @@ export default function Etape6() {
                                     <h3 className="text-xl font-bold t-ink tracking-tight">Quelles façades souhaitez-vous transformer ?</h3>
                                 </div>
                                 <p className="text-sm t-ink2 leading-relaxed max-w-2xl">
-                                    Sélectionnez les photos pour lesquelles vous souhaitez générer une simulation IA (DP6). Toutes les simulations générées seront automatiquement converties en plans techniques (DP5).
+                                    Sélectionnez les photos pour lesquelles vous souhaitez générer une simulation IA (DP6). Toutes les simulations générées seront automatiquement converties en croquis d'aspect extérieur (DP5).
                                 </p>
                             </div>
 
@@ -1467,18 +1473,14 @@ export default function Etape6() {
                                                             <span>Simulation vérifiée : aucune modification non demandée détectée par rapport à la photo d’origine.</span>
                                                         </p>
                                                     ) : (
-                                                        <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: 'var(--warn-b, #E5D5AC)', background: 'var(--warn-bg, #FBF6E8)' }}>
-                                                            <p className="text-[10px] font-bold mb-1" style={{ color: '#7A5C1E' }}>
-                                                                À vérifier avant dépôt — la simulation s’écarte de la photo d’origine :
-                                                            </p>
-                                                            <ul className="text-[10px] space-y-0.5" style={{ color: '#7A5C1E' }}>
+                                                        <div className="dp-alert is-warn !text-[11px] !py-2.5">
+                                                            <span className="dp-alert-title !text-[10px]">À vérifier avant dépôt</span>
+                                                            <ul className="space-y-0.5">
                                                                 {facadeAudits[f.id]!.issues.map((it, i) => (
                                                                     <li key={i}>• {AUDIT_LABELS[it.code]}{it.detail ? ` — ${it.detail}` : ''}</li>
                                                                 ))}
                                                             </ul>
-                                                            <p className="text-[10px] mt-1.5 t-ink2">
-                                                                Régénérez la simulation, ou importez votre propre image « après ».
-                                                            </p>
+                                                            <p className="mt-1.5 opacity-80">Régénérez la simulation, ou importez votre propre image « après ».</p>
                                                         </div>
                                                     )
                                                 )}

@@ -5,7 +5,7 @@ import PublicShell from '@/components/seo/PublicShell'
 import { H2, Section, ProcedureBlock, Disclaimer, Cta, BreadcrumbJsonLd, FaqList } from '@/components/seo/blocks'
 import { SEO_TRAVAUX } from '@/lib/seo/travaux'
 import {
-    COMMUNES, findCommune, communeParam, communesVoisines, densite,
+    COMMUNES, findCommune, communeParam, communesLiees, perimetreLabel, densite,
     geoportailUrl, deCommune, aCommune, aCommuneCap, aCommuneParts,
 } from '@/lib/seo/communes'
 import { canonical, ANNEE, SITE_NAME } from '@/lib/seo/site'
@@ -49,7 +49,7 @@ export default function VilleHub({ params }: { params: { commune: string } }) {
 
     const d = densite(c)
     const nf = (n: number) => n.toLocaleString('fr-FR')
-    const voisines = communesVoisines(c, 12)
+    const { list: voisines, scope: voisinesScope } = communesLiees(c, 12)
 
     const faq = [
         {
@@ -180,7 +180,7 @@ export default function VilleHub({ params }: { params: { commune: string } }) {
             </Section>
 
             <Section tone="surface">
-                <p className="dp-meta" style={{ marginBottom: 12 }}>Autres communes — département {c.deptNom}</p>
+                <p className="dp-meta" style={{ marginBottom: 12 }}>Autres communes — {perimetreLabel(c, voisinesScope)}</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {voisines.map(v => (
                         <Link key={v.insee} href={`/dp/ville/${communeParam(v)}`} className="dp-chip" style={{ textDecoration: 'none' }}>
