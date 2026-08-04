@@ -569,6 +569,57 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
     }),
 ]
 
+// ─── Réponse courte ──────────────────────────────────────────────────────────
+// Le visiteur arrive avec UNE question : « ai-je besoin d'une autorisation ? ».
+// Elle est affichée en haut de page, avant toute explication. Le reste du guide
+// est là pour ceux qui creusent, pas pour faire barrage à la réponse.
+export const VERDICTS: Record<string, { reponse: string; seuilCle: string }> = {
+    'abri-de-jardin': {
+        reponse: 'Déclaration préalable dès 5 m² et jusqu’à 20 m² d’emprise au sol, débords de toit compris. Au-delà, permis de construire.',
+        seuilCle: '5 – 20 m²',
+    },
+    'piscine': {
+        reponse: 'Déclaration préalable pour un bassin de 10 à 100 m², non couvert ou sous un abri de moins de 1,80 m de haut.',
+        seuilCle: '10 – 100 m²',
+    },
+    'panneaux-solaires': {
+        reponse: 'Déclaration préalable obligatoire pour toute pose en toiture, quelle que soit la puissance installée.',
+        seuilCle: 'Toujours en toiture',
+    },
+    'cloture': {
+        reponse: 'Déclaration préalable dans la grande majorité des communes, qui ont délibéré en ce sens — et systématiquement en secteur protégé.',
+        seuilCle: 'Selon délibération',
+    },
+    'ravalement-de-facade': {
+        reponse: 'Déclaration préalable dès que la teinte ou le matériau change. À l’identique, aucune formalité hors secteur protégé.',
+        seuilCle: 'Si l’aspect change',
+    },
+    'isolation-exterieure': {
+        reponse: 'Déclaration préalable obligatoire : l’isolation extérieure modifie à la fois l’aspect et l’épaisseur de la façade.',
+        seuilCle: 'Toujours',
+    },
+    'changement-de-fenetres': {
+        reponse: 'Déclaration préalable dès que le matériau, la teinte, les dimensions ou le dessin changent. Le remplacement à l’identique en est dispensé.',
+        seuilCle: 'Si l’aspect change',
+    },
+    'creation-ouverture': {
+        reponse: 'Déclaration préalable pour toute création, tout agrandissement ou toute suppression de baie, y compris en façade arrière.',
+        seuilCle: 'Toujours',
+    },
+    'refection-de-toiture': {
+        reponse: 'Aucune formalité si la réfection est à l’identique. Déclaration préalable dès que le matériau, la teinte ou la pente change.',
+        seuilCle: 'Si l’aspect change',
+    },
+    'extension-maison': {
+        reponse: 'Déclaration préalable jusqu’à 40 m² en zone urbaine d’un PLU, 20 m² ailleurs. Permis de construire au-delà, et dès 150 m² au total après travaux.',
+        seuilCle: '20 ou 40 m²',
+    },
+    'terrassement': {
+        reponse: 'Déclaration préalable au-delà de 100 m² ET de 2 m de hauteur. Un mur de soutènement y est soumis indépendamment de ces seuils.',
+        seuilCle: '> 100 m² et > 2 m',
+    },
+}
+
 const BY_SLUG = new Map(SEO_TRAVAUX.map(t => [t.slug, t]))
 const BY_ID = new Map(SEO_TRAVAUX.map(t => [t.travauxId, t]))
 

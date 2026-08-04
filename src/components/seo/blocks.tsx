@@ -171,6 +171,72 @@ export function ProcedureBlock() {
     )
 }
 
+/** La réponse à la question posée, avant toute explication. Bloc le plus visible
+ *  de la page : c'est ce que le visiteur est venu chercher. */
+export function QuickAnswer({ reponse, seuilCle }: { reponse: string; seuilCle: string }) {
+    return (
+        <div style={{
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 22,
+            background: 'var(--act)', border: '1px solid var(--acb)', borderRadius: 18,
+            padding: '22px 26px',
+        }}>
+            <div style={{ flexShrink: 0, textAlign: 'center', paddingRight: 22, borderRight: '1px solid var(--acb)', minWidth: 128 }}>
+                <span style={{ display: 'block', fontFamily: 'var(--mf)', fontSize: 10.5, fontWeight: 600, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--ac)' }}>Seuil clé</span>
+                <span style={{ display: 'block', marginTop: 5, fontFamily: 'var(--mf)', fontSize: 19, fontWeight: 600, color: 'var(--acd)', lineHeight: 1.15 }}>{seuilCle}</span>
+            </div>
+            <p style={{ flex: 1, minWidth: 260, margin: 0, fontFamily: 'var(--hf)', fontSize: 18.5, lineHeight: 1.5, color: 'var(--acd)', fontWeight: 500 }}>
+                {reponse}
+            </p>
+        </div>
+    )
+}
+
+/** Les quatre repères identiques à toute déclaration préalable. Ils évitent de
+ *  faire lire trois paragraphes pour apprendre que la démarche est gratuite. */
+export function Reperes() {
+    const tiles: [string, string, string][] = [
+        ['1 mois', 'Délai d’instruction', '2 mois en secteur protégé'],
+        ['0 €', 'Coût du dépôt', 'taxe d’aménagement à part'],
+        ['16702', 'Formulaire Cerfa', 'ex-13703'],
+        ['3 ans', 'Validité', 'prorogeable 2 × 1 an'],
+    ]
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(146px,1fr))', gap: 10 }}>
+            {tiles.map(([val, key, sub], i) => (
+                <div key={key} className={`dp-metric${i === 0 ? ' is-accent' : ''}`}>
+                    <span className="val">{val}</span>
+                    <span className="key">{key}</span>
+                    <span style={{ display: 'block', marginTop: 4, fontFamily: 'var(--mf)', fontSize: 10, color: 'var(--faint)', lineHeight: 1.4 }}>{sub}</span>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+/** Sommaire ancré — rend une page longue parcourable en un coup d'œil. */
+export function Sommaire({ items }: { items: { id: string; label: string }[] }) {
+    return (
+        <nav aria-label="Sommaire" style={{
+            display: 'flex', flexWrap: 'wrap', gap: 8, padding: '14px 18px',
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14,
+        }}>
+            <span className="dp-meta" style={{ alignSelf: 'center', marginRight: 4 }}>Sur cette page</span>
+            {items.map(it => (
+                <a
+                    key={it.id}
+                    href={`#${it.id}`}
+                    style={{
+                        fontSize: 13.2, fontWeight: 500, color: 'var(--ink-2)', textDecoration: 'none',
+                        padding: '5px 11px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--line-2)',
+                    }}
+                >
+                    {it.label}
+                </a>
+            ))}
+        </nav>
+    )
+}
+
 export function Disclaimer() {
     return (
         <p style={{ marginTop: 28, fontSize: 13, lineHeight: 1.65, color: 'var(--muted)', maxWidth: '78ch' }}>
@@ -179,8 +245,8 @@ export function Disclaimer() {
     )
 }
 
-/** Appel à l'action — pointe vers le programme de test pendant la bêta. */
-export function Cta({ titre, texte, travauxSlug }: { titre: string; texte: string; travauxSlug?: string }) {
+/** Appel à l'action — mène à l'application, la seule destination utile ici. */
+export function Cta({ titre, texte }: { titre: string; texte: string }) {
     return (
         <div style={{ background: 'var(--acd)', borderRadius: 20, padding: '34px 32px', color: '#fff', display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ maxWidth: '54ch' }}>
@@ -189,10 +255,10 @@ export function Cta({ titre, texte, travauxSlug }: { titre: string; texte: strin
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 <Link
-                    href={travauxSlug ? `/beta?travaux=${travauxSlug}` : '/beta'}
+                    href="/register"
                     style={{ background: '#fff', color: 'var(--acd)', fontWeight: 700, fontSize: 15, padding: '14px 26px', borderRadius: 12, textDecoration: 'none', whiteSpace: 'nowrap' }}
                 >
-                    Rejoindre le programme de test
+                    Constituer mon dossier
                 </Link>
                 <Link
                     href="/#how"

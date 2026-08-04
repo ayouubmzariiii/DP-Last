@@ -15,7 +15,7 @@ import { SITE_URL } from '@/lib/seo/site'
 //      cookie de session valide, il n'y a tout simplement rien à lire.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Tout ce qui n'est ni l'accueil, ni /dp, ni /beta. Aligné sur isIndexable() du middleware. */
+/** Tout ce qui n'est ni l'accueil, ni /dp. Aligné sur isIndexable() du middleware. */
 const PRIVE = [
     '/api/',
     '/admin',
@@ -47,7 +47,7 @@ export default function robots(): MetadataRoute.Robots {
     return {
         rules: [
             { userAgent: '*', allow: '/', disallow: PRIVE },
-            { userAgent: ROBOTS_IA, allow: ['/', '/dp', '/beta'], disallow: PRIVE },
+            { userAgent: ROBOTS_IA, allow: ['/', '/dp'], disallow: PRIVE },
         ],
         sitemap: `${SITE_URL}/sitemap.xml`,
         host: SITE_URL,

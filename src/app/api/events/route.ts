@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         if (!parsed.success) return noContent()
 
         const d = parsed.data
-        // La session est optionnelle : les pages publiques (/dp, /beta) émettent
+        // La session est optionnelle : les pages publiques (/dp) émettent
         // des événements anonymes, l'assistant des événements rattachés au compte.
         const session = await getSession().catch(() => null)
 

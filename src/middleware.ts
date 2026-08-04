@@ -20,21 +20,20 @@ function isPublic(pathname: string): boolean {
     if (pathname === '/login' || pathname === '/register') return true
     if (pathname === '/mot-de-passe-oublie' || pathname === '/reinitialiser') return true
     if (pathname.startsWith('/api/auth/')) return true
-    // Pages publiques indexables : guides SEO par travaux/commune et recrutement
-    // de testeurs. Elles doivent être atteignables sans compte (et par les robots).
+    // Pages publiques indexables : guides SEO par travaux et par commune.
+    // Elles doivent être atteignables sans compte (et par les robots).
     if (pathname === '/dp' || pathname.startsWith('/dp/')) return true
-    if (pathname === '/beta') return true
-    // Collecte anonyme : entonnoir, retours utilisateurs, candidatures testeurs.
+    // Collecte anonyme : entonnoir et retours utilisateurs.
     // Ces routes n'exposent aucune donnée en lecture — elles n'acceptent que POST.
-    if (pathname === '/api/events' || pathname === '/api/feedback' || pathname === '/api/beta') return true
+    if (pathname === '/api/events' || pathname === '/api/feedback') return true
     // Dev-only test harness (self-guards against production); keep it usable without a session in dev.
     if (process.env.NODE_ENV !== 'production' && pathname.startsWith('/api/dev/')) return true
     return false
 }
 
 // ─── Indexation ──────────────────────────────────────────────────────────────
-// Liste BLANCHE des pages destinées aux moteurs : l'accueil, les guides /dp et la
-// page de recrutement. Tout le reste — espace client, assistant, back-office,
+// Liste BLANCHE des pages destinées aux moteurs : l'accueil et les guides /dp.
+// Tout le reste — espace client, assistant, back-office,
 // API, écrans d'authentification — reçoit un en-tête X-Robots-Tag interdisant
 // l'indexation.
 //
@@ -44,7 +43,7 @@ function isPublic(pathname: string): boolean {
 // s'applique aussi aux réponses JSON des API, qui ne peuvent pas porter de balise
 // meta. Les deux sont complémentaires, d'où la double protection.
 function isIndexable(pathname: string): boolean {
-    return pathname === '/' || pathname === '/dp' || pathname.startsWith('/dp/') || pathname === '/beta'
+    return pathname === '/' || pathname === '/dp' || pathname.startsWith('/dp/')
 }
 
 const NO_ROBOTS = 'noindex, nofollow, noarchive, nosnippet, noimageindex'
@@ -57,6 +56,18 @@ function stamp(res: NextResponse, pathname: string): NextResponse {
 
 export async function middleware(req: NextRequest) {
     const { pathname, search } = req.nextUrl
+
+    // /beta (ancienne page de recrutement de testeurs) a été retirée. Sans cette
+    // règle, le chemin tomberait dans la garde d'authentification et renverrait
+    // les visiteurs vers /login. Redirection permanente vers les guides : elle
+    // conserve les liens entrants éventuels et mène quelque part d'utile.
+    if (pathname === '/beta') {
+        const url = req.nextUrl.clone()
+        url.pathname = '/dp'
+        url.search = ''
+        return NextResponse.redirect(url, 308)
+    }
+
     if (isPublic(pathname)) return stamp(NextResponse.next(), pathname)
 
     const session = await verifySessionToken(req.cookies.get(COOKIE_NAME)?.value)

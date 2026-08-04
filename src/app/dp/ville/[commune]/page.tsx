@@ -169,7 +169,7 @@ export default function VilleHub({ params }: { params: { commune: string } }) {
             <Section>
                 <Cta
                     titre={`Votre dossier de déclaration préalable ${aCommune(c.nom)}`}
-                    texte="Nous cherchons des projets réels pour tester l’outil : dossier complet offert, relecture humaine avant dépôt, et nous corrigeons si la mairie demande des pièces."
+                    texte="Cerfa, plan de situation, plan de masse, plan de coupe, façades, notice et insertion — le dossier complet, prêt à déposer en mairie."
                 />
             </Section>
 

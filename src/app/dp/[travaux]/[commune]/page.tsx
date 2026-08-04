@@ -2,11 +2,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import PublicShell from '@/components/seo/PublicShell'
+import TravauxIllustration from '@/components/seo/TravauxIllustration'
 import {
     H2, Section, SeuilsTable, PiecesList, PluPoints, FaqList,
-    ProcedureBlock, Disclaimer, Cta, BreadcrumbJsonLd, ErreursList,
+    ProcedureBlock, Disclaimer, Cta, BreadcrumbJsonLd, ErreursList, QuickAnswer, Reperes,
 } from '@/components/seo/blocks'
-import { SEO_TRAVAUX, findTravaux } from '@/lib/seo/travaux'
+import { SEO_TRAVAUX, findTravaux, VERDICTS } from '@/lib/seo/travaux'
 import {
     COMMUNES, findCommune, communeParam, communesVoisines, densite,
     geoportailUrl, probableZoneU, deCommune, aCommune, aCommuneCap, aCommuneParts,
@@ -115,6 +116,13 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
                     <div className="dp-rule" />
                 </div>
 
+                {VERDICTS[t.slug] && (
+                    <div style={{ marginBottom: 20 }}>
+                        <QuickAnswer reponse={VERDICTS[t.slug].reponse} seuilCle={VERDICTS[t.slug].seuilCle} />
+                    </div>
+                )}
+                <div style={{ marginBottom: 20 }}><Reperes /></div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(310px,1fr))', gap: 20, alignItems: 'start' }}>
                     <div style={{ border: '1px solid var(--line)', borderRadius: 16, overflow: 'hidden', background: 'var(--line-2)', display: 'grid', gap: 1 }}>
                         <div style={{ background: 'var(--surface-2)', padding: '13px 18px' }}>
@@ -129,6 +137,9 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
                     </div>
 
                     <div className="dp-card dp-spec">
+                        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', borderRadius: 12, padding: '8px 6px', marginBottom: 16 }}>
+                            <TravauxIllustration id={t.travauxId} height={112} />
+                        </div>
                         <p style={{ margin: '0 0 10px', fontFamily: 'var(--hf)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
                             Vérifier les règles applicables à votre parcelle
                         </p>
@@ -211,9 +222,8 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
 
             <Section>
                 <Cta
-                    travauxSlug={t.slug}
                     titre={`Votre dossier « ${t.nom} » ${aCommune(c.nom)}`}
-                    texte="Nous cherchons des projets réels pour tester l’outil : c’est gratuit, sans engagement, et nous suivons votre dossier jusqu’à la réponse de la mairie."
+                    texte="Cerfa, plan de situation, plan de masse, plan de coupe, façades, notice et insertion — le dossier complet, prêt à déposer en mairie."
                 />
             </Section>
 

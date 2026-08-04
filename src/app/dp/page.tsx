@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import PublicShell from '@/components/seo/PublicShell'
+import TravauxIllustration from '@/components/seo/TravauxIllustration'
 import { H2, Section, ProcedureBlock, Disclaimer, Cta, BreadcrumbJsonLd } from '@/components/seo/blocks'
-import { SEO_TRAVAUX } from '@/lib/seo/travaux'
+import { SEO_TRAVAUX, VERDICTS } from '@/lib/seo/travaux'
 import { COMMUNES, communeParam } from '@/lib/seo/communes'
 import { canonical, ANNEE } from '@/lib/seo/site'
 
@@ -41,17 +42,26 @@ export default function DpHub() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 }}>
-                    {SEO_TRAVAUX.map(t => (
-                        <Link key={t.slug} href={`/dp/${t.slug}`} className="dp-card dp-spec" style={{ textDecoration: 'none', display: 'block', padding: '24px 22px 20px' }}>
-                            <p style={{ margin: '0 0 7px', fontFamily: 'var(--hf)', fontSize: 19, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25 }}>{t.nom}</p>
-                            <p style={{ margin: '0 0 14px', fontSize: 14.2, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-                                {t.intro[0].split('. ')[0]}.
-                            </p>
-                            <span style={{ fontFamily: 'var(--mf)', fontSize: 11.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ac)' }}>
-                                Lire le guide →
-                            </span>
-                        </Link>
-                    ))}
+                    {SEO_TRAVAUX.map(t => {
+                        const v = VERDICTS[t.slug]
+                        return (
+                            <Link key={t.slug} href={`/dp/${t.slug}`} className="dp-card" style={{ textDecoration: 'none', display: 'block', padding: '18px 20px 20px' }}>
+                                <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line-2)', borderRadius: 12, padding: '10px 8px', marginBottom: 14 }}>
+                                    <TravauxIllustration id={t.travauxId} height={104} />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                                    <span style={{ fontFamily: 'var(--hf)', fontSize: 19, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25 }}>{t.nom}</span>
+                                    {v && <span style={{ fontFamily: 'var(--mf)', fontSize: 11, fontWeight: 600, color: 'var(--acd)', background: 'var(--act)', border: '1px solid var(--acb)', borderRadius: 7, padding: '3px 8px', whiteSpace: 'nowrap' }}>{v.seuilCle}</span>}
+                                </div>
+                                <p style={{ margin: '0 0 14px', fontSize: 14.2, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+                                    {v ? v.reponse : `${t.intro[0].split('. ')[0]}.`}
+                                </p>
+                                <span style={{ fontFamily: 'var(--mf)', fontSize: 11.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ac)' }}>
+                                    Lire le guide →
+                                </span>
+                            </Link>
+                        )
+                    })}
                 </div>
             </Section>
 
@@ -92,7 +102,7 @@ export default function DpHub() {
             <Section>
                 <Cta
                     titre="Votre dossier de déclaration préalable, constitué à partir de votre PLU"
-                    texte="Nous cherchons des projets réels pour tester l’outil. C’est gratuit, sans engagement, et nous suivons votre dossier jusqu’à la réponse de la mairie."
+                    texte="Cerfa, plan de situation, plan de masse, plan de coupe, façades, notice et insertion — le dossier complet, prêt à déposer en mairie."
                 />
             </Section>
         </PublicShell>

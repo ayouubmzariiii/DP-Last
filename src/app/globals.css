@@ -314,6 +314,21 @@ h1, h2, h3, .font-serif { font-family: var(--hf); }
   .dp-tool-btn.is-danger:hover { color: #B43A2E; border-color: #EBC3BB; }
 }
 
+/* ─── Pages guides /dp ───────────────────────────────────────────────────────
+   Le hero passe sur une colonne en dessous de 860px, croquis en premier : sur
+   mobile l'illustration situe le sujet avant même la lecture du titre. */
+@media (max-width: 860px) {
+  .dp-hero-grid { grid-template-columns: 1fr !important; gap: 26px !important; }
+  .dp-hero-visual { order: -1; }
+}
+/* Cartes cliquables des guides : le survol doit se voir sans être bruyant. */
+a.dp-card { transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+a.dp-card:hover { border-color: var(--acb); transform: translateY(-1px); }
+a.dp-chip { transition: border-color .15s ease, background .15s ease, color .15s ease; }
+a.dp-chip:hover { border-color: var(--acb); background: var(--act); color: var(--acd); }
+/* Le marqueur natif de <details> alourdit les blocs FAQ / « en détail ». */
+.dp-card > summary::-webkit-details-marker, details > summary::-webkit-details-marker { display: none; }
+
 /* Toggle buttons (civilité, modes…) */
 .toggle-btn {
   padding: 0.625rem 1.25rem;

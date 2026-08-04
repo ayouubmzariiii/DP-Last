@@ -140,42 +140,13 @@ export const appSettings = pgTable('app_settings', {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Croissance : recrutement de testeurs, retours utilisateurs, entonnoir.
+// Croissance : retours utilisateurs et entonnoir.
 //
-// Ces trois tables sont ADDITIVES et totalement découplées du produit : aucune
+// Ces deux tables sont ADDITIVES et totalement découplées du produit : aucune
 // route de l'assistant, de la génération de documents ou de la facturation ne
 // les lit. Elles alimentent uniquement /admin/growth. Une écriture qui échoue
 // ne doit jamais interrompre un parcours utilisateur (voir les routes /api).
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Candidatures au programme de test (page /beta). Une ligne par email.
-export const betaSignups = pgTable('beta_signups', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    email: text('email').notNull().unique(),            // stocké en minuscules
-    nom: text('nom'),
-    phone: text('phone'),
-    // 'particulier' | 'pro' — segmente le suivi : les pros (pisciniers,
-    // installateurs PV, constructeurs d'abris) apportent du volume répété.
-    profil: text('profil').notNull().default('particulier'),
-    metier: text('metier'),                             // renseigné par les pros
-    travaux: text('travaux'),                           // slug SEO du type de projet
-    commune: text('commune'),
-    codePostal: text('code_postal'),
-    message: text('message'),
-    // Provenance : utm_source / utm_campaign / referrer, capturés côté client.
-    source: text('source'),
-    campaign: text('campaign'),
-    referrer: text('referrer'),
-    // 'nouveau' | 'contacte' | 'actif' | 'depose' | 'ecarte'
-    status: text('status').notNull().default('nouveau'),
-    notes: text('notes'),                               // notes internes (admin)
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({
-    statusIdx: index('beta_signups_status_idx').on(t.status),
-    createdIdx: index('beta_signups_created_idx').on(t.createdAt),
-}))
 
 // Retours utilisateurs — widget flottant présent sur toute l'application.
 export const feedback = pgTable('feedback', {
@@ -224,6 +195,5 @@ export type DossierRow = typeof dossiers.$inferSelect
 export type NewDossierRow = typeof dossiers.$inferInsert
 export type SubscriptionRow = typeof subscriptions.$inferSelect
 export type PaymentRow = typeof payments.$inferSelect
-export type BetaSignupRow = typeof betaSignups.$inferSelect
 export type FeedbackRow = typeof feedback.$inferSelect
 export type EventRow = typeof events.$inferSelect

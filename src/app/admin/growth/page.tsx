@@ -3,10 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // /admin/growth — l'onglet Croissance du back-office.
 //
-// Trois lectures, dans l'ordre d'importance pendant la phase de test :
+// Deux lectures, dans l'ordre d'importance :
 //  1. L'entonnoir : où les visiteurs décrochent, en visiteurs distincts.
 //  2. Les retours : ce qu'ils disent quand ils décrochent.
-//  3. Les candidatures testeurs : le pipeline de recrutement, avec son statut.
 //
 // Page ADDITIVE : elle est servie sous /admin (déjà gardé par le middleware et
 // re-vérifié en base par /api/admin/growth) et ne modifie pas /admin existant.
@@ -18,11 +17,6 @@ import Logo from '@/components/Logo'
 interface FunnelRow { path: string; label: string; visiteurs: number; vues: number }
 interface SourceRow { source: string; visiteurs: number }
 interface EventRow { name: string; total: number }
-interface SignupRow {
-    id: string; email: string; nom: string | null; phone: string | null; profil: string
-    metier: string | null; travaux: string | null; commune: string | null; codePostal: string | null
-    message: string | null; source: string | null; status: string; notes: string | null; createdAt: string
-}
 interface FeedbackRow {
     id: string; category: string; message: string; rating: number | null; email: string | null
     path: string | null; step: number | null; resolved: boolean; createdAt: string; userEmail: string | null
@@ -32,19 +26,10 @@ interface Payload {
     funnel: FunnelRow[]
     sources: SourceRow[]
     events: EventRow[]
-    signups: { stats: { total: number; nouveaux: number; pros: number; deposes: number; periode: number }; rows: SignupRow[] }
     feedback: { stats: { total: number; ouverts: number; bugs: number; periode: number }; rows: FeedbackRow[] }
 }
 
-type Tab = 'entonnoir' | 'testeurs' | 'retours'
-
-const STATUTS: { id: string; label: string }[] = [
-    { id: 'nouveau', label: 'Nouveau' },
-    { id: 'contacte', label: 'Contacté' },
-    { id: 'actif', label: 'Dossier en cours' },
-    { id: 'depose', label: 'Déposé en mairie' },
-    { id: 'ecarte', label: 'Écarté' },
-]
+type Tab = 'entonnoir' | 'retours'
 
 const CAT_LABEL: Record<string, string> = {
     bug: 'Bug', confus: 'Incompréhension', manque: 'Information manquante', idee: 'Suggestion', autre: 'Autre',
@@ -73,10 +58,11 @@ export default function GrowthPage() {
 
     useEffect(() => { void load() }, [load])
 
-    async function patch(body: Record<string, unknown>, key: string) {
-        setBusy(key)
+    /** Marque un retour comme traité (ou le rouvre). */
+    async function toggleResolved(id: string, resolved: boolean) {
+        setBusy(id)
         try {
-            await fetch('/api/admin/growth', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            await fetch('/api/admin/growth', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, resolved }) })
             await load()
         } finally {
             setBusy(null)
@@ -95,7 +81,7 @@ export default function GrowthPage() {
                     <Logo size={34} />
                     <div>
                         <p style={{ margin: 0, fontFamily: 'var(--hf)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Croissance</p>
-                        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Entonnoir, testeurs et retours</p>
+                        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Entonnoir et retours utilisateurs</p>
                     </div>
                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <select className="dp-select" value={jours} onChange={e => setJours(Number(e.target.value))} style={{ width: 'auto', padding: '8px 12px', fontSize: 13.5 }}>
@@ -108,7 +94,7 @@ export default function GrowthPage() {
                     </div>
                 </div>
                 <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px', display: 'flex', gap: 4 }}>
-                    {([['entonnoir', 'Entonnoir'], ['retours', 'Retours'], ['testeurs', 'Testeurs']] as [Tab, string][]).map(([id, label]) => (
+                    {([['entonnoir', 'Entonnoir'], ['retours', 'Retours']] as [Tab, string][]).map(([id, label]) => (
                         <button
                             key={id}
                             onClick={() => setTab(id)}
@@ -137,12 +123,12 @@ export default function GrowthPage() {
                         {/* ── Chiffres clés ─────────────────────────────────── */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(168px,1fr))', gap: 12, marginBottom: 26 }}>
                             {[
-                                ['Candidatures testeurs', data.signups.stats.total, `${data.signups.stats.periode} sur la période`],
-                                ['Dont professionnels', data.signups.stats.pros, 'volume répété'],
-                                ['Dossiers déposés', data.signups.stats.deposes, 'la seule vraie mesure'],
-                                ['Retours ouverts', data.feedback.stats.ouverts, `${data.feedback.stats.bugs} bug${data.feedback.stats.bugs > 1 ? 's' : ''} signalé${data.feedback.stats.bugs > 1 ? 's' : ''}`],
+                                ['Visiteurs (entrée)', base, `sur ${data.jours} jours`],
+                                ['Retours reçus', data.feedback.stats.total, `${data.feedback.stats.periode} sur la période`],
+                                ['Retours ouverts', data.feedback.stats.ouverts, 'à traiter'],
+                                ['Bugs signalés', data.feedback.stats.bugs, 'toutes périodes'],
                             ].map(([k, v, sub], i) => (
-                                <div key={i} className={`dp-metric${i === 2 ? ' is-accent' : ''}`}>
+                                <div key={i} className={`dp-metric${i === 0 ? ' is-accent' : ''}`}>
                                     <span className="val">{v as number}</span>
                                     <span className="key">{k as string}</span>
                                     <span style={{ ...mono, display: 'block', marginTop: 4, fontSize: 10.5, color: 'var(--faint)' }}>{sub as string}</span>
@@ -250,7 +236,7 @@ export default function GrowthPage() {
                                                         <a href={`mailto:${f.userEmail || f.email}`} style={{ ...mono, fontSize: 12, color: 'var(--ac)' }}>{f.userEmail || f.email}</a>
                                                     )}
                                                     <button
-                                                        onClick={() => patch({ kind: 'feedback', id: f.id, resolved: !f.resolved }, f.id)}
+                                                        onClick={() => toggleResolved(f.id, !f.resolved)}
                                                         disabled={busy === f.id}
                                                         className="dp-btn-secondary"
                                                         style={{ marginLeft: 'auto', padding: '6px 12px', fontSize: 12.5 }}
@@ -265,53 +251,6 @@ export default function GrowthPage() {
                             </div>
                         )}
 
-                        {/* ── Testeurs ──────────────────────────────────────── */}
-                        {tab === 'testeurs' && (
-                            <div className="dp-card">
-                                <h2 className="dp-section-title">Candidatures au programme de test ({data.signups.stats.total})</h2>
-                                {data.signups.rows.length === 0 ? (
-                                    <div className="dp-alert is-info">
-                                        Aucune candidature. La page de recrutement est en ligne sur <Link href="/beta" style={{ color: 'var(--ac)', fontWeight: 600 }}>/beta</Link> —
-                                        les guides <Link href="/dp" style={{ color: 'var(--ac)', fontWeight: 600 }}>/dp</Link> y renvoient.
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'grid', gap: 10 }}>
-                                        {data.signups.rows.map(s => (
-                                            <div key={s.id} style={{ border: '1px solid var(--line)', borderRadius: 12, padding: '14px 16px', background: s.status === 'ecarte' ? 'var(--surface-2)' : 'var(--surface)', opacity: s.status === 'ecarte' ? 0.7 : 1 }}>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                                                    <span style={{ fontFamily: 'var(--hf)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{s.nom || '—'}</span>
-                                                    {s.profil === 'pro' && <span className="dp-chip is-ok">Pro{s.metier ? ` · ${s.metier}` : ''}</span>}
-                                                    {s.travaux && <span className="dp-chip"><span className="code">{s.travaux}</span></span>}
-                                                    <span style={{ ...mono, marginLeft: 'auto', fontSize: 11.5, color: 'var(--faint)' }}>{fmt(s.createdAt)}</span>
-                                                </div>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: s.message ? 10 : 12, fontSize: 12.8, color: 'var(--ink-2)' }}>
-                                                    <a href={`mailto:${s.email}`} style={{ ...mono, color: 'var(--ac)' }}>{s.email}</a>
-                                                    {s.phone && <span style={mono}>{s.phone}</span>}
-                                                    {(s.commune || s.codePostal) && <span>{[s.commune, s.codePostal].filter(Boolean).join(' · ')}</span>}
-                                                    {s.source && <span style={{ color: 'var(--faint)' }}>via {s.source}</span>}
-                                                </div>
-                                                {s.message && (
-                                                    <p style={{ margin: '0 0 12px', fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)', background: 'var(--surface-2)', border: '1px solid var(--line-2)', borderRadius: 9, padding: '10px 12px', whiteSpace: 'pre-wrap' }}>{s.message}</p>
-                                                )}
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                    {STATUTS.map(st => (
-                                                        <button
-                                                            key={st.id}
-                                                            onClick={() => patch({ kind: 'signup', id: s.id, status: st.id }, s.id)}
-                                                            disabled={busy === s.id}
-                                                            className={`toggle-btn${s.status === st.id ? ' active' : ''}`}
-                                                            style={{ padding: '6px 12px', fontSize: 12.5 }}
-                                                        >
-                                                            {st.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </>
                 )}
             </main>

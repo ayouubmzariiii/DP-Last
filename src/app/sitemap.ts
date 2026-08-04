@@ -12,7 +12,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     const statiques: MetadataRoute.Sitemap = [
         { url: `${SITE_URL}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },
         { url: `${SITE_URL}/dp`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
-        { url: `${SITE_URL}/beta`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     ]
 
     const guides: MetadataRoute.Sitemap = SEO_TRAVAUX.map(t => ({

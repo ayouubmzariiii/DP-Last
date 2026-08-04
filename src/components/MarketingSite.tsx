@@ -10,6 +10,7 @@
 
 import { useRef, useState } from 'react'
 import { type SkuId } from '@/lib/billing/plans'
+import { SiteHeader, SiteFooter, CHROME_CSS } from '@/components/SiteChrome'
 
 type CSS = React.CSSProperties
 
@@ -157,42 +158,12 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
 
     return (
         <div id="site" style={s('min-height:100vh;background:var(--paper);color:var(--ink);font-family:\'IBM Plex Sans\',system-ui,sans-serif;overflow-x:hidden')}>
-            <style dangerouslySetInnerHTML={{ __html: SITE_CSS }} />
+            <style dangerouslySetInnerHTML={{ __html: CHROME_CSS + SITE_CSS }} />
 
-            {/* ===================== HEADER ===================== */}
-            <header style={s('position:sticky;top:0;z-index:60;background:rgba(241,236,227,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)')}>
-                <div data-head style={s('max-width:1160px;margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:22px')}>
-                    <a href="#top" style={s('display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none')}>
-                        <div style={s('display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:40px;height:40px;border-radius:11px;background:linear-gradient(155deg,var(--ac),var(--acd));box-shadow:0 6px 16px -8px rgba(45,90,76,.6);flex-shrink:0')}>
-                            <span style={s('font-family:var(--hf);font-weight:600;font-size:19px;line-height:1;letter-spacing:-.03em;color:#fff')}>dp</span>
-                            <span style={s('width:14px;height:1.5px;border-radius:2px;background:rgba(255,255,255,.5)')}></span>
-                        </div>
-                        <div data-logotext style={s('white-space:nowrap')}>
-                            <div style={s('font-family:var(--hf);font-size:16px;font-weight:600;line-height:1.05;color:var(--ink)')}>DP Travaux</div>
-                            <div data-logosub style={s('font-family:var(--mf);font-size:9.5px;letter-spacing:.09em;color:var(--muted);text-transform:uppercase')}>Déclaration préalable</div>
-                        </div>
-                    </a>
-                    <nav data-nav-center style={s('flex:1;display:flex;align-items:center;justify-content:center;gap:30px')}>
-                        <a data-nav href="#how" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Comment ça marche</a>
-                        {/* Lien réel (pas une ancre) vers la section indexable /dp — c'est le
-                            point d'entrée du maillage interne depuis la racine du site. */}
-                        <a data-nav href="/dp" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Guides</a>
-                        <a data-nav href="#pricing" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Tarifs</a>
-                        <a data-nav href="#faq" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>FAQ</a>
-                        <a data-nav href="#contact" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Contact</a>
-                    </nav>
-                    <div data-headcta style={s('display:flex;align-items:center;gap:16px;flex-shrink:0;margin-left:auto')}>
-                        {authed ? (
-                            <a href="/profil" className="dp-btn-primary" style={s('padding:10px 20px;font-size:14px;text-decoration:none')}>Mon espace</a>
-                        ) : (
-                            <>
-                                <a href="/login" data-nav data-signin style={s('font-size:14px;font-weight:600;color:var(--ink-2);white-space:nowrap;transition:color .15s;text-decoration:none')}>Se connecter</a>
-                                <a href="/register" className="dp-btn-primary" style={s('padding:10px 20px;font-size:14px;text-decoration:none')}>Commencer</a>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </header>
+            {/* ===================== HEADER (chrome partagé) ===================== */}
+            {/* Même composant que les guides /dp — le menu ne peut plus diverger.
+                prefix='' : les ancres restent locales à l'accueil. */}
+            <SiteHeader prefix="" authed={authed} />
 
             {/* ===================== HERO ===================== */}
             <section id="top" style={s('position:relative;overflow:hidden;scroll-margin-top:80px')}>
@@ -575,8 +546,8 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
 
                         <div style={s('display:flex;align-items:center;justify-content:center;gap:14px;margin-top:32px;flex-wrap:wrap')}>
                             <a href="/dp" className="dp-btn-secondary" style={s('text-decoration:none')}>Voir tous les guides</a>
-                            <a href="/beta" style={s('font-size:14.5px;font-weight:600;color:var(--ac);text-decoration:none')}>
-                                Faire monter votre dossier gratuitement →
+                            <a href={appHref} style={s('font-size:14.5px;font-weight:600;color:var(--ac);text-decoration:none')}>
+                                Constituer mon dossier →
                             </a>
                         </div>
                     </div>
@@ -596,32 +567,8 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
                 </div>
             </section>
 
-            {/* ===================== FOOTER ===================== */}
-            <footer style={s('background:var(--paper);border-top:1px solid var(--line)')}>
-                <div data-foot style={s('max-width:1160px;margin:0 auto;padding:44px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap')}>
-                    <div style={s('display:flex;align-items:center;gap:12px')}>
-                        <div style={s('display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:36px;height:36px;border-radius:10px;background:linear-gradient(155deg,var(--ac),var(--acd))')}>
-                            <span style={s('font-family:var(--hf);font-weight:600;font-size:17px;line-height:1;letter-spacing:-.03em;color:#fff')}>dp</span>
-                            <span style={s('width:12px;height:1.5px;border-radius:2px;background:rgba(255,255,255,.5)')}></span>
-                        </div>
-                        <div>
-                            <div style={s('font-family:var(--hf);font-size:15px;font-weight:600;color:var(--ink)')}>DP Travaux</div>
-                            <div style={s('font-family:var(--mf);font-size:10px;letter-spacing:.06em;color:var(--muted)')}>Service privé, non affilié à l&apos;administration</div>
-                        </div>
-                    </div>
-                    <div style={s('display:flex;align-items:center;gap:26px;flex-wrap:wrap')}>
-                        <a data-nav href="#how" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Comment ça marche</a>
-                        <a data-nav href="#pricing" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Tarifs</a>
-                        <a data-nav href="#faq" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>FAQ</a>
-                        {/* Liens vers les pages publiques indexables : sans lien depuis la
-                            racine, la section /dp serait orpheline pour les robots. */}
-                        <a href="/dp" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Guides par travaux</a>
-                        <a href="/beta" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Programme de test</a>
-                        <a data-nav href="/login" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Se connecter</a>
-                    </div>
-                </div>
-                <div style={s('border-top:1px solid var(--line-2)')}><div style={s('max-width:1160px;margin:0 auto;padding:16px 28px;font-family:var(--mf);font-size:10.5px;letter-spacing:.04em;color:var(--faint)')}>© 2026 DP Travaux — Déclaration préalable de travaux en ligne.</div></div>
-            </footer>
+            {/* ===================== FOOTER (chrome partagé) ===================== */}
+            <SiteFooter prefix="" />
         </div>
     )
 }
@@ -632,7 +579,8 @@ const SITE_CSS = `
 #site{scroll-behavior:smooth}
 html{scroll-behavior:smooth}
 @keyframes dpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
-#site [data-nav]:hover{color:var(--ac)!important}
+/* L'en-tête, le pied de page et leurs points de rupture vivent désormais dans
+   CHROME_CSS (composant SiteChrome), partagé avec les guides /dp. */
 /* Simulator: readable, characterful captions (Spectral italic) instead of tiny mono caps */
 #site [data-sim] .dp-label{font-family:var(--hf);font-style:italic;font-weight:500;font-size:14.5px;letter-spacing:0;text-transform:none;color:var(--ink-2)}
 #site [data-sim] .dp-metric .key{font-family:var(--hf);font-style:italic;font-weight:500;font-size:13.5px;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:6px}
@@ -652,7 +600,6 @@ html{scroll-behavior:smooth}
   #site [data-elig]{grid-template-columns:minmax(0,1fr)!important}
 }
 @media (max-width:820px){
-  #site [data-nav-center]{display:none!important}
   #site [data-progrid]{grid-template-columns:1fr!important}
   #site [data-howgrid]{grid-template-columns:repeat(2,1fr)!important}
   #site [data-testi]{grid-template-columns:1fr!important}
@@ -664,17 +611,7 @@ html{scroll-behavior:smooth}
   #site [data-simmetrics]{grid-template-columns:1fr!important}
   #site [data-simreco]{flex-direction:column;align-items:flex-start!important}
   #site [data-howgrid]{grid-template-columns:1fr!important}
-  #site [data-foot]{justify-content:flex-start!important}
   #site [data-eligtiles]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-}
-/* Header: keep the logo + primary CTA on one line on phones. */
-@media (max-width:560px){
-  #site [data-head]{padding-left:16px!important;padding-right:16px!important;gap:12px!important}
-  #site [data-logosub]{display:none!important}
-  #site [data-signin]{display:none!important}
-}
-@media (max-width:400px){
-  #site [data-logotext]{display:none!important}
 }
 @media (max-width:600px){
   #site [data-hero] .dp-btn-primary,#site [data-hero] .dp-btn-secondary{flex:1 1 100%!important;justify-content:center}
