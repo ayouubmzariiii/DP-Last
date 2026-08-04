@@ -518,7 +518,7 @@ export default function Etape7() {
                                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ background: 'var(--surface)', border: '1px solid var(--acb)' }}>📁</div>
                                     <div>
                                         <div className="font-bold t-ink">Dossier DP Complet</div>
-                                        <div className="text-xs t-ink2">DP1 à DP8 – Document technique</div>
+                                        <div className="text-xs t-ink2">DP1 à DP11 – Document technique</div>
                                     </div>
                                     {dpDone && <span className="ml-auto t-ok text-xl">✅</span>}
                                 </div>

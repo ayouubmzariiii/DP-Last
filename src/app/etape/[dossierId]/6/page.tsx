@@ -839,43 +839,52 @@ export default function Etape6() {
         setGeneratingFacades(prev => Array.from(new Set([...prev, ...facadesToProcess.map(f => f.id)])))
 
         try {
-            const newFacades = [...formData.photos.facades]
-            for (const f of facadesToProcess) {
-                const prompt = buildAIAfterImagePrompt(formData, customInstruction || worksDescription || undefined)
-                const imageBase64 = f.before!
-                let imageUrl: string | undefined
+            const prompt = buildAIAfterImagePrompt(formData, customInstruction || worksDescription || undefined)
 
-                if (imageBase64) {
-                    const res = await fetch('/api/generate-after-facade', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        // worksDescription active le contrôle de fidélité côté serveur : sans lui,
-                        // le contrôleur signalerait les travaux eux-mêmes comme des écarts.
-                        body: JSON.stringify({ prompt, imageBase64, dossierId, facadeId: f.id, worksDescription })
-                    })
-                    if (!res.ok) {
-                        const errData = await res.json()
-                        throw new Error(errData.error || 'Erreur lors de la génération de l\'image')
-                    }
-                    const data = await res.json()
-                    imageUrl = data.imageBase64 || data.imageUrl
-                    setFacadeAudits(prev => ({ ...prev, [f.id]: data.audit ?? null }))
+            // Les façades sont générées EN PARALLÈLE. En série, l'attente s'additionnait : depuis
+            // que chaque simulation est contrôlée puis reprise en cas d'écart, une façade peut
+            // demander jusqu'à trois tours — trois façades en file faisaient plusieurs minutes de
+            // sablier. Le serveur traite chaque appel indépendamment (quota et compteur sont par
+            // façade), donc rien ne s'oppose au parallélisme.
+            const results = await Promise.allSettled(facadesToProcess.map(async f => {
+                const res = await fetch('/api/generate-after-facade', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // worksDescription active le contrôle de fidélité côté serveur : sans lui,
+                    // le contrôleur signalerait les travaux eux-mêmes comme des écarts.
+                    body: JSON.stringify({ prompt, imageBase64: f.before, dossierId, facadeId: f.id, worksDescription })
+                })
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    throw new Error(`${f.label} : ${errData.error || 'génération échouée'}`)
                 }
+                const data = await res.json()
+                setFacadeAudits(prev => ({ ...prev, [f.id]: data.audit ?? null }))
+                const imageUrl: string | undefined = data.imageBase64 || data.imageUrl
+                if (!imageUrl) throw new Error(`${f.label} : aucune image renvoyée`)
 
-                if (imageUrl) {
-                    const compressedUrl = await compressDataURL(imageUrl)
-                    const url = await uploadImage(dossierId, 'after', compressedUrl, { facadeId: f.id, previousUrl: f.after })
-                    const idx = newFacades.findIndex(nf => nf.id === f.id)
-                    // Invalidate the derived DP5 croquis: it was traced from the OLD "after", so it
-                    // must be re-traced from this new projected image (done at the DP5 sub-step).
-                    if (idx !== -1) { newFacades[idx].after = url; newFacades[idx].croquis = null }
-                }
-
-                // Remove from local generating set as each one finishes
+                const compressedUrl = await compressDataURL(imageUrl)
+                const url = await uploadImage(dossierId, 'after', compressedUrl, { facadeId: f.id, previousUrl: f.after })
+                // La façade sort du jeu « en cours » dès QU'ELLE a fini, pas quand tout est fini.
                 setGeneratingFacades(prev => prev.filter(id => id !== f.id))
+                return { id: f.id, url }
+            }))
+
+            // Une façade en échec ne doit pas emporter celles qui ont réussi : on applique ce qui
+            // est arrivé, et on ne signale que ce qui a réellement échoué.
+            const newFacades = [...formData.photos.facades]
+            for (const r of results) {
+                if (r.status !== 'fulfilled') continue
+                const idx = newFacades.findIndex(nf => nf.id === r.value.id)
+                // Invalidate the derived DP5 croquis: it was traced from the OLD "after", so it
+                // must be re-traced from this new projected image (done at the DP5 sub-step).
+                if (idx !== -1) { newFacades[idx].after = r.value.url; newFacades[idx].croquis = null }
             }
             updatePhotos({ facades: newFacades })
-            if (!facadeId) setAiGenerated(true)
+
+            const failures = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
+            if (failures.length) alert('Erreur :\n' + failures.map(f => `• ${f.reason?.message || f.reason}`).join('\n'))
+            else if (!facadeId) setAiGenerated(true)
             setShowModifyInput({}) // Close any open modify inputs
         } catch (err: any) {
             alert('Erreur: ' + err.message)

@@ -49,6 +49,15 @@ export async function uploadImage(
 
     const res = await fetch('/api/blob/upload', { method: 'POST', body: form })
     if (!res.ok) {
+        // En DÉVELOPPEMENT sans store Blob (503), on garde l'image en data: URL au lieu
+        // d'échouer. Sans ce repli, l'étape Plans est intestable en local : la simulation se
+        // génère, puis le téléversement casse la chaîne et rien de ce qui suit ne s'affiche.
+        // En production le 503 continue de remonter : une image non hébergée gonflerait la
+        // ligne du dossier et dépasserait le plafond de 4,5 Mo des requêtes Vercel.
+        if (res.status === 503 && process.env.NODE_ENV === 'development' && typeof source === 'string' && source.startsWith('data:')) {
+            console.warn('[uploadImage] Blob non configuré — image conservée en data: URL (développement uniquement).')
+            return source
+        }
         const msg = await res.json().catch(() => ({}))
         throw new Error(msg.error || `Téléversement échoué (${res.status})`)
     }

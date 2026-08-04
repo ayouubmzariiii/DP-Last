@@ -198,7 +198,7 @@ export function validateDPForm(data: DPFormData): ValidationIssue[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Checklist of required pieces (DP1–DP8) — separate from field validation.
+// Checklist of required pieces (DP1–DP11) — separate from field validation.
 // ─────────────────────────────────────────────────────────────────────────────
 export interface PieceStatus {
     code: string

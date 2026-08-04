@@ -8,7 +8,7 @@
 // compte propriétaire, cycle de vie et suivi d'instruction, demandeur (+ co-déclarant),
 // terrain & cadastre, analyse PLU (zonage, patrimoine, risques, verdict, rapport IA),
 // travaux (tous champs du sous-formulaire du type choisi), surfaces & taxation,
-// rubriques CERFA, pièces DP1–DP8, et toutes les images/plans générés.
+// rubriques CERFA, pièces DP1–DP11, et toutes les images/plans générés.
 //
 // Strictement en LECTURE — aucun bouton d'écriture : les actions de gestion restent
 // dans l'onglet Utilisateurs (crédits, plans, rôle, suppression).
@@ -146,7 +146,7 @@ const DOCS = [
     // Le libellé du CERFA est calculé par dossier (cerfaForm ci-dessous) : le blurb
     // générique ne sert que de repli si la nature du bien est absente.
     { kind: 'cerfa', icon: '📋', title: 'Formulaire CERFA', blurb: 'Pré-rempli depuis le dossier.' },
-    { kind: 'dp', icon: '📁', title: 'Dossier DP complet', blurb: 'DP1 à DP8 — plans, notice, photos et insertions.' },
+    { kind: 'dp', icon: '📁', title: 'Dossier DP complet', blurb: 'DP1 à DP11 — plans, notice, photos et insertions.' },
     { kind: 'panneau', icon: '🪧', title: 'Panneau d’affichage', blurb: 'Panneau réglementaire à poser sur le terrain.' },
 ] as const
 type DocKind = typeof DOCS[number]['kind']
@@ -399,9 +399,9 @@ export default function AdminDossierPage() {
                 </Section>
             )}
 
-            {/* Pièces DP1–DP8 */}
+            {/* Pièces DP1–DP11 */}
             {pieces.length > 0 && (
-                <Section title="Pièces du dossier (DP1–DP8)" icon="📄">
+                <Section title="Pièces du dossier (DP1–DP11)" icon="📄">
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                         {pieces.map(p => (
                             <div key={p.code} title={p.note || ''} style={{

@@ -75,7 +75,7 @@ export function SeuilsTable({ seuils }: { seuils: Seuil[] }) {
     )
 }
 
-/** Les pièces DP1–DP8 requises, avec ce que l'instructeur y cherche. */
+/** Les pièces DP1–DP11 requises, avec ce que l'instructeur y cherche. */
 export function PiecesList({ codes, note }: { codes: PieceCode[]; note?: string }) {
     return (
         <>

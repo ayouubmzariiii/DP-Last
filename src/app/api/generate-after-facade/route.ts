@@ -13,6 +13,10 @@ export const dynamic = 'force-dynamic'
 // Reprises INTERNES quand le contrôle de fidélité rejette la simulation. Elles corrigent nos
 // propres ratés : elles ne sont jamais décomptées du quota de générations du demandeur.
 const MAX_AUDIT_RETRIES = 2
+// Budget de temps des reprises. maxDuration vaut 300 s ; un tour mesuré coûte ~25 s, mais une
+// génération lente ne doit pas pousser la fonction jusqu'à la coupure : au-delà de ce seuil on
+// s'arrête et on rend le meilleur essai avec son verdict.
+const AUDIT_BUDGET_MS = 150_000
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_build' })
 
@@ -233,6 +237,7 @@ export async function POST(req: NextRequest) {
             // n'est appelé qu'une fois, à la sortie).
             let best: { img: string; audit: FacadeAudit | null } | null = null
             let promptText = prompt
+            const startedAt = Date.now()
             for (let round = 0; round <= MAX_AUDIT_RETRIES; round++) {
                 const img = await generateOnce(promptText)
                 if (!img) break
@@ -242,6 +247,13 @@ export async function POST(req: NextRequest) {
                 }
                 if (!verdict || verdict.faithful) { best = { img, audit: verdict }; break }
                 console.warn(`[facade/audit] round ${round + 1}: ${verdict.issues.map(i => i.code).join(', ')}`)
+                // Garde-temps : mieux vaut rendre le meilleur essai obtenu, avec son verdict, que
+                // de lancer un tour de plus et se faire couper par la limite de durée de la
+                // fonction — auquel cas le client n'aurait ni image ni explication.
+                if (Date.now() - startedAt > AUDIT_BUDGET_MS) {
+                    console.warn(`[facade/audit] budget de ${AUDIT_BUDGET_MS / 1000}s atteint — on rend le meilleur essai`)
+                    break
+                }
                 promptText = buildCorrectionPrompt(prompt, verdict.issues)
             }
 

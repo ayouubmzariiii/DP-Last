@@ -40,7 +40,10 @@ export interface SeoTravaux {
     related: string[]
 }
 
-export type PieceCode = 'DP1' | 'DP2' | 'DP3' | 'DP4' | 'DP5' | 'DP6' | 'DP7' | 'DP8'
+// DP11 (notice) manquait à cette liste alors que le bordereau la prévoit et qu'elle est
+// exigée en secteur protégé — un lecteur en site patrimonial remarquable ne voyait donc
+// nulle part la pièce sans laquelle son dossier serait déclaré incomplet.
+export type PieceCode = 'DP1' | 'DP2' | 'DP3' | 'DP4' | 'DP5' | 'DP6' | 'DP7' | 'DP8' | 'DP11'
 
 export const PIECES: Record<PieceCode, { titre: string; desc: string }> = {
     DP1: { titre: 'Plan de situation du terrain', desc: 'Situe la parcelle dans la commune. Extrait cadastral à petite échelle, orientation et repères visibles.' },
@@ -51,6 +54,7 @@ export const PIECES: Record<PieceCode, { titre: string; desc: string }> = {
     DP6: { titre: 'Document graphique d’insertion', desc: 'Montage du projet sur une photographie du terrain : l’instructeur juge l’impact visuel réel.' },
     DP7: { titre: 'Photographie de l’environnement proche', desc: 'Le terrain vu depuis la rue ou les parcelles voisines, avec le point de vue reporté sur le plan de masse.' },
     DP8: { titre: 'Photographie du paysage lointain', desc: 'Le terrain replacé dans son paysage, pour apprécier l’insertion à l’échelle du quartier ou du site.' },
+    DP11: { titre: 'Notice descriptive des matériaux et des couleurs', desc: 'Décrit l’état existant et le projet : matériaux, teintes (références RAL), profils et mise en œuvre. Attendue dès que l’aspect extérieur change, et exigée en secteur protégé.' },
 }
 
 // ─── Secteurs protégés ────────────────────────────────────────────────
@@ -143,7 +147,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'pc', condition: 'Emprise au sol ou surface de plancher supérieure à 20 m².' },
             { formalite: 'dp', condition: 'Toute surface, y compris moins de 5 m², dès lors que le terrain est situé aux abords d’un monument historique, dans un site patrimonial remarquable ou un site classé.' },
         ],
-        pieces: ['DP1', 'DP2', 'DP3', 'DP4', 'DP5', 'DP6', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP2', 'DP3', 'DP4', 'DP5', 'DP6', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Un abri crée un volume bâti : le plan en coupe (DP3) et le document d’insertion (DP6) sont attendus, contrairement à de simples travaux de façade.',
         pluPoints: [
             'Distance minimale aux limites séparatives — souvent 3 m, parfois l’implantation en limite est admise sous condition de hauteur.',
@@ -188,7 +192,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'pc', condition: 'Bassin de plus de 100 m², ou couverture (fixe ou mobile) d’une hauteur égale ou supérieure à 1,80 m quelle que soit la surface du bassin — la déclaration préalable suppose une couverture strictement inférieure à 1,80 m.' },
             { formalite: 'dp', condition: 'Tout bassin, même de moins de 10 m², en site patrimonial remarquable, site classé ou aux abords d’un monument historique.' },
         ],
-        pieces: ['DP1', 'DP2', 'DP3', 'DP4', 'DP6', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP2', 'DP3', 'DP4', 'DP6', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le plan en coupe (DP3) est la pièce décisive : il doit faire apparaître le terrain naturel, le niveau des margelles et la profondeur du bassin.',
         pluPoints: [
             'Recul minimal du bassin par rapport aux limites séparatives — fréquemment 2 ou 3 m, mesurés depuis le bord du bassin ou depuis la margelle selon le règlement.',
@@ -233,7 +237,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'dp', condition: 'Installation au sol — ou ombrière intégrant un procédé de production d’énergies renouvelables — d’une puissance crête égale ou supérieure à 3 kWc et inférieure à 3 MWc, quelle que soit la hauteur ; ou de moins de 3 kWc mais dépassant 1,80 m de hauteur.' },
             { formalite: 'pc', condition: 'Installation au sol d’une puissance égale ou supérieure à 3 MWc — seuil porté de 250 kWc à 1 MWc fin 2022, puis à 3 MWc au 1er décembre 2024.' },
         ],
-        pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le plan des façades et toitures (DP4) doit montrer l’implantation exacte des modules sur le pan de toit, avec leur nombre et leurs dimensions. Un montage photographique du rendu est très fortement recommandé, et exigé en secteur protégé.',
         pluPoints: [
             'Obligation fréquente d’implanter les modules dans le plan de la toiture, sans débord ni surélévation visible.',
@@ -278,7 +282,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'aucune', condition: 'Clôture agricole ou forestière, et clôture dans une commune n’ayant pas délibéré et hors secteur protégé.' },
             { formalite: 'pc', condition: 'Aucun cas : une clôture ne relève jamais du permis de construire, mais un mur de soutènement de grande hauteur peut appeler d’autres formalités.' },
         ],
-        pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le plan de masse doit tracer le linéaire exact de clôture et les portails, et le DP4 fournir une élévation cotée avec les hauteurs de mur-bahut et de grille.',
         pluPoints: [
             'Hauteur totale maximale, très souvent différenciée entre la limite sur voie publique et les limites séparatives.',
@@ -323,7 +327,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'dp', condition: 'Tout ravalement, même à l’identique, en site patrimonial remarquable, site classé ou aux abords d’un monument historique.' },
             { formalite: 'dp', condition: 'Tout ravalement dans une commune — ou un périmètre de commune — dont le conseil municipal, ou l’EPCI compétent en matière de PLU, l’a décidé par délibération motivée (R. 421-17-1 e).' },
         ],
-        pieces: ['DP1', 'DP4', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP4', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le plan des façades (DP4) doit être fourni en deux états, actuel et projeté. Joindre les photos couleur de chaque façade traitée et la référence exacte de la teinte retenue.',
         pluPoints: [
             'Nuancier communal : de nombreuses communes annexent au PLU une palette de teintes admises, et toute référence hors palette est refusée.',
@@ -368,7 +372,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'pc', condition: 'Lorsque l’opération s’accompagne d’une création de surface de plancher supérieure aux seuils de la déclaration préalable.' },
             { formalite: 'aucune', condition: 'Isolation intérieure ne modifiant pas l’aspect extérieur — aucune formalité d’urbanisme.' },
         ],
-        pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP2', 'DP4', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le plan de masse doit faire apparaître l’épaisseur ajoutée et la nouvelle distance aux limites. Le DP4 doit montrer le traitement des tableaux, appuis de fenêtre, débords de toit et descentes d’eau.',
         pluPoints: [
             'Distances d’implantation aux limites séparatives et à l’alignement, que l’épaisseur d’isolant vient réduire.',
@@ -413,7 +417,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'dp', condition: 'Tout remplacement, même à l’identique, en site patrimonial remarquable, site classé ou aux abords d’un monument historique.' },
             { formalite: 'dp', condition: 'Création, agrandissement ou suppression d’une baie — voir la création d’ouverture.' },
         ],
-        pieces: ['DP1', 'DP4', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP4', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le plan des façades (DP4) doit présenter l’état actuel et l’état projeté côte à côte, avec le dessin des ouvrants et des petits bois. Joindre une photo de chaque façade concernée.',
         pluPoints: [
             'Matériaux admis ou proscrits : le PVC est interdit sur le bâti ancien de nombreux secteurs patrimoniaux.',
@@ -458,7 +462,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'aucune', condition: 'Travaux intérieurs sans aucune incidence sur l’aspect extérieur.' },
             { formalite: 'pc', condition: 'Lorsque l’ouverture accompagne une création de surface de plancher au-delà des seuils de la déclaration préalable.' },
         ],
-        pieces: ['DP1', 'DP4', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP4', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le DP4 doit montrer la façade avant et après, avec la baie cotée en largeur, hauteur et allège, et son alignement par rapport aux ouvertures existantes.',
         pluPoints: [
             'Rythme et proportions des baies : de nombreux règlements imposent des ouvertures plus hautes que larges sur le bâti traditionnel.',
@@ -503,7 +507,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'dp', condition: 'Toute réfection, même à l’identique, en site patrimonial remarquable, site classé ou aux abords d’un monument historique.' },
             { formalite: 'pc', condition: 'Surélévation créant de la surface de plancher au-delà des seuils de la déclaration préalable, ou portant le total au-delà de 150 m².' },
         ],
-        pieces: ['DP1', 'DP4', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP4', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Ajoutez le plan en coupe (DP3) dès que la pente, la hauteur au faîtage ou le volume changent. Le DP4 doit inclure un plan de toiture avec les pentes, les rives et les éléments en saillie.',
         pluPoints: [
             'Matériau de couverture imposé : tuile canal, tuile plate à fort galbe, ardoise, zinc selon le caractère local.',
@@ -548,7 +552,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'pc', condition: 'Extension dépassant le seuil applicable de 20 ou 40 m².' },
             { formalite: 'pc', condition: 'Extension portant la surface de plancher totale de la construction au-delà de 150 m² — recours à un architecte obligatoire.' },
         ],
-        pieces: ['DP1', 'DP2', 'DP3', 'DP4', 'DP5', 'DP6', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP2', 'DP3', 'DP4', 'DP5', 'DP6', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'C’est le dossier le plus complet des déclarations préalables : l’extension crée du volume, donc coupe, insertion et représentation de l’aspect extérieur sont attendues.',
         pluPoints: [
             'Emprise au sol maximale et coefficient d’emprise de la zone, calculés sur l’ensemble des constructions de la parcelle.',
@@ -593,7 +597,7 @@ export const SEO_TRAVAUX: SeoTravaux[] = [
             { formalite: 'dp', condition: 'Mur — de soutènement ou non — dont la hauteur au-dessus du sol atteint 2 m (R. 421-9 e). En deçà de 2 m, un mur qui ne constitue pas une clôture est dispensé de formalité hors secteur protégé.' },
             { formalite: 'dp', condition: 'Tout affouillement ou exhaussement en site patrimonial remarquable, site classé ou aux abords d’un monument historique, sans condition de seuil.' },
         ],
-        pieces: ['DP1', 'DP2', 'DP3', 'DP7', 'DP8'],
+        pieces: ['DP1', 'DP2', 'DP3', 'DP7', 'DP8', 'DP11'],
         piecesNote: 'Le plan en coupe (DP3) est la pièce maîtresse : profil du terrain naturel avant travaux et profil projeté superposés, avec les hauteurs de déblai et de remblai cotées.',
         pluPoints: [
             'Hauteur maximale des murs de soutènement, et obligation fréquente de les fractionner en redents ou en terrasses.',

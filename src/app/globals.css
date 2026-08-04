@@ -242,7 +242,7 @@ h1, h2, h3, .font-serif { font-family: var(--hf); }
   .dp-alert.is-ok    { background: var(--act); border-color: var(--acb); color: var(--acd); }
   .dp-alert.is-info  { background: var(--surface-2); border-color: var(--line); color: var(--ink-2); }
 
-  /* Status chip — DP1–DP8 pieces & doc tiles. Contrast-correct on cream. */
+  /* Status chip — DP1–DP11 pieces & doc tiles. Contrast-correct on cream. */
   .dp-chip {
     @apply inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs;
     border: 1px solid var(--line);

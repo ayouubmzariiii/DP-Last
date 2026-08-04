@@ -46,12 +46,12 @@ const STEPS: Step[] = [
     { n: '1', title: 'Le terrain', tag: '≈ 2 min', body: 'Adresse officielle et références cadastrales, en un champ.', ds: ['M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z', 'M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'] },
     { n: '2', title: 'Les travaux', tag: '≈ 5 min', body: 'Nature du projet, matériaux, teintes RAL et surfaces.', ds: ['M14 4l6 6', 'M4 20l1.2-4.2L16.5 4.5a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1L8.2 18.8 4 20z'] },
     { n: '3', title: 'L’analyse PLU', tag: '≈ 2 min · auto', body: 'Conformité au règlement de la zone, vérifiée avant la mairie.', ds: ['M12 3l7 3v5c0 4.6-3.1 7.7-7 9-3.9-1.3-7-4.4-7-9V6l7-3z', 'M9 12l2 2 4-4'] },
-    { n: '4', title: 'Le dossier', tag: 'Le livrable', body: 'CERFA rempli et pièces DP1–DP8 assemblées, prêtes à déposer.', ds: ['M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5', 'M9 13h6M9 17h5'] },
+    { n: '4', title: 'Le dossier', tag: 'Le livrable', body: 'CERFA rempli et pièces DP1–DP11 assemblées, prêtes à déposer.', ds: ['M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5', 'M9 13h6M9 17h5'] },
 ]
 
 const PRO_FEATURES = [
     { ds: ['M12 3l7 3v5c0 4.6-3.1 7.7-7 9-3.9-1.3-7-4.4-7-9V6l7-3z', 'M9 12l2 2 4-4'], title: 'Analyse PLU automatique', body: 'Le projet croisé au règlement de la parcelle : blocages, teintes imposées et secteurs ABF repérés avant le dépôt.' },
-    { ds: ['M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5', 'M9 13h6M9 17h5'], title: 'CERFA & pièces assemblés', body: 'Le bon formulaire officiel pré-rempli — 13703 pour une maison individuelle, 16702 sinon — et les pièces DP1 à DP8 réunies dans un dossier unique.' },
+    { ds: ['M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M14 3v5h5', 'M9 13h6M9 17h5'], title: 'CERFA & pièces assemblés', body: 'Le bon formulaire officiel pré-rempli — 13703 pour une maison individuelle, 16702 sinon — et les pièces DP1 à DP11 réunies dans un dossier unique.' },
     { ds: ['M12 3l1.9 4.9L19 9.8l-5.1 1.9L12 16.6l-1.9-4.9L5 9.8l5.1-1.9z', 'M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z'], title: 'Vues « après » & marque perso', body: 'L’insertion paysagère (DP6) générée par IA, la notice DP4 rédigée, et des exports à l’en-tête de votre cabinet.' },
 ]
 
@@ -85,7 +85,7 @@ const PLANS_ABO: Plan[] = [
 ]
 const PLANS_USAGE: Plan[] = [
     { key: 'd', name: 'Découverte', price: '0', unit: '€', per: 'pour toujours', tag: '', highlight: false, cta: 'Commencer', desc: 'Pour créer et vérifier votre dossier, sans payer.', features: ['Parcours guidé complet', 'Analyse PLU de la parcelle', 'Aperçu du CERFA et des pièces', 'Mode test avec filigrane', 'Sauvegarde de vos projets'] },
-    { key: 'o', name: 'Dossier complet', price: '69', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer, en ≈ 10 minutes.', features: ['Tout de Découverte, plus :', 'CERFA officiel pré-rempli (13703 ou 16702)', 'Pièces DP1 à DP8 assemblées', 'Vues « après » par IA', 'Export PDF & ZIP sans filigrane'] },
+    { key: 'o', name: 'Dossier complet', price: '69', unit: '€', per: 'par dossier', tag: 'Le plus choisi', highlight: true, cta: 'Générer mon dossier', desc: 'Le dossier prêt à déposer, en ≈ 10 minutes.', features: ['Tout de Découverte, plus :', 'CERFA officiel pré-rempli (13703 ou 16702)', 'Pièces DP1 à DP11 assemblées', 'Vues « après » par IA', 'Export PDF & ZIP sans filigrane'] },
     { key: 'p', name: 'Pack Rénovation', price: '179', unit: '€', per: '3 dossiers', tag: '', highlight: false, cta: 'Choisir le pack', desc: 'Plusieurs chantiers ? 59,70 € le dossier.', features: ['Tout de Dossier complet', '3 dossiers, quand vous voulez', 'Modifications illimitées 6 mois', 'Assistance email prioritaire'] },
 ]
 
@@ -96,7 +96,7 @@ const FAQ: FaqItem[] = [
     { id: 'a1', q: 'Qu’est-ce qu’une déclaration préalable de travaux ?', a: 'C’est l’autorisation d’urbanisme exigée pour les travaux qui modifient l’aspect extérieur d’un bâtiment ou créent une petite surface, sans nécessiter de permis de construire. Elle se dépose en mairie.' },
     { id: 'a3', q: 'Puis-je préparer les dossiers de mes clients ?', a: 'Oui : les offres Pro sont pensées pour les architectes, maîtres d’œuvre et artisans. Multi-clients, exports à votre marque et modifications illimitées.' },
     { id: 'b1', q: 'Combien de temps dure l’instruction ?', a: 'En général un mois à compter du dépôt. Ce délai passe à deux mois lorsque l’avis de l’Architecte des Bâtiments de France est requis.' },
-    { id: 'c1', q: 'Le dossier est-il vraiment accepté en mairie ?', a: 'Le dossier reprend le formulaire officiel et les pièces réglementaires DP1 à DP8. Il est conçu pour être déposé tel quel. La décision finale appartient toujours au service instructeur.' },
+    { id: 'c1', q: 'Le dossier est-il vraiment accepté en mairie ?', a: 'Le dossier reprend le formulaire officiel et les pièces réglementaires DP1 à DP11. Il est conçu pour être déposé tel quel. La décision finale appartient toujours au service instructeur.' },
     { id: 'd1', q: 'Quand dois-je payer ?', a: 'La création, l’analyse PLU et l’aperçu sont gratuits. Le paiement n’intervient qu’au moment de générer le dossier définitif, sans filigrane.' },
 ]
 
@@ -200,7 +200,8 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
                                     </div>
                                 </div>
                                 <div style={s('padding:8px 20px 20px')}>
-                                    {[['Analyse PLU · Zone UA', 'Conforme'], ['Pièces DP1 à DP8', '8 / 8'], ['CERFA 13703*12', 'Rempli']].map(([label, val], i) => (
+                                    {/* 9 pièces : DP1–DP8 + DP11 (notice) — le compte de piecesChecklist(). */}
+                                    {[['Analyse PLU · Zone UA', 'Conforme'], ['Pièces DP1 à DP11', '9 / 9'], ['CERFA 13703*12', 'Rempli']].map(([label, val], i) => (
                                         <div key={label}>
                                             {i > 0 && <div style={s('height:1px;background:var(--line-2)')}></div>}
                                             <div style={s('display:flex;align-items:center;gap:12px;padding:12px 0')}>
@@ -224,7 +225,11 @@ export default function MarketingSite({ authed = false, guides = [] }: { authed?
             {/* ===================== STAT STRIP ===================== */}
             <section style={s('border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)')}>
                 <div data-statgrid style={s('max-width:1160px;margin:0 auto;padding:26px 28px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px')}>
-                    {[['≈ 10 min', 'Un dossier complet'], ['DP1 → DP8', 'Pièces générées'], ['34 900+', 'Communes couvertes'], ['≈ 52 €', 'Le dossier, plan Cabinet']].map(([v, k], i) => (
+                    {/* « 34 900+ » annonçait PLUS que le nombre de communes existantes : la France en
+                        compte 34 875 au 1ᵉʳ janvier 2026 (INSEE). Le chiffre exact tient la promesse
+                        sans la dépasser — l'analyse PLU passe par le Géoportail de l'Urbanisme, qui
+                        est national, avec repli sur le RNU pour les communes sans document. */}
+                    {[['≈ 10 min', 'Un dossier complet'], ['DP1 → DP11', 'Pièces générées'], ['34 875', 'Communes couvertes'], ['≈ 52 €', 'Le dossier, plan Cabinet']].map(([v, k], i) => (
                         <div key={k} style={s(`text-align:center${i > 0 ? ';border-left:1px solid var(--line)' : ''}`)}>
                             <div style={s('font-family:var(--mf);font-size:26px;font-weight:600;color:var(--ink);letter-spacing:-.01em')}>{v}</div>
                             <div style={s('font-family:var(--mf);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:5px')}>{k}</div>
