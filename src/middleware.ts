@@ -20,6 +20,13 @@ function isPublic(pathname: string): boolean {
     if (pathname === '/login' || pathname === '/register') return true
     if (pathname === '/mot-de-passe-oublie' || pathname === '/reinitialiser') return true
     if (pathname.startsWith('/api/auth/')) return true
+    // Pages publiques indexables : guides SEO par travaux/commune et recrutement
+    // de testeurs. Elles doivent être atteignables sans compte (et par les robots).
+    if (pathname === '/dp' || pathname.startsWith('/dp/')) return true
+    if (pathname === '/beta') return true
+    // Collecte anonyme : entonnoir, retours utilisateurs, candidatures testeurs.
+    // Ces routes n'exposent aucune donnée en lecture — elles n'acceptent que POST.
+    if (pathname === '/api/events' || pathname === '/api/feedback' || pathname === '/api/beta') return true
     // Dev-only test harness (self-guards against production); keep it usable without a session in dev.
     if (process.env.NODE_ENV !== 'production' && pathname.startsWith('/api/dev/')) return true
     return false

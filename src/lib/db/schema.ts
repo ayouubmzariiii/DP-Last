@@ -139,8 +139,91 @@ export const appSettings = pgTable('app_settings', {
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Croissance : recrutement de testeurs, retours utilisateurs, entonnoir.
+//
+// Ces trois tables sont ADDITIVES et totalement découplées du produit : aucune
+// route de l'assistant, de la génération de documents ou de la facturation ne
+// les lit. Elles alimentent uniquement /admin/growth. Une écriture qui échoue
+// ne doit jamais interrompre un parcours utilisateur (voir les routes /api).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Candidatures au programme de test (page /beta). Une ligne par email.
+export const betaSignups = pgTable('beta_signups', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull().unique(),            // stocké en minuscules
+    nom: text('nom'),
+    phone: text('phone'),
+    // 'particulier' | 'pro' — segmente le suivi : les pros (pisciniers,
+    // installateurs PV, constructeurs d'abris) apportent du volume répété.
+    profil: text('profil').notNull().default('particulier'),
+    metier: text('metier'),                             // renseigné par les pros
+    travaux: text('travaux'),                           // slug SEO du type de projet
+    commune: text('commune'),
+    codePostal: text('code_postal'),
+    message: text('message'),
+    // Provenance : utm_source / utm_campaign / referrer, capturés côté client.
+    source: text('source'),
+    campaign: text('campaign'),
+    referrer: text('referrer'),
+    // 'nouveau' | 'contacte' | 'actif' | 'depose' | 'ecarte'
+    status: text('status').notNull().default('nouveau'),
+    notes: text('notes'),                               // notes internes (admin)
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+    statusIdx: index('beta_signups_status_idx').on(t.status),
+    createdIdx: index('beta_signups_created_idx').on(t.createdAt),
+}))
+
+// Retours utilisateurs — widget flottant présent sur toute l'application.
+export const feedback = pgTable('feedback', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    dossierId: uuid('dossier_id').references(() => dossiers.id, { onDelete: 'set null' }),
+    // 'bug' | 'confus' | 'manque' | 'idee' | 'autre'
+    category: text('category').notNull().default('autre'),
+    rating: integer('rating'),                          // 1–5, optionnel
+    message: text('message').notNull(),
+    email: text('email'),                               // pour répondre aux anonymes
+    path: text('path'),                                 // page d'où part le retour
+    step: integer('step'),                              // étape de l'assistant (1–7)
+    userAgent: text('user_agent'),
+    resolved: boolean('resolved').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+    createdIdx: index('feedback_created_idx').on(t.createdAt),
+    resolvedIdx: index('feedback_resolved_idx').on(t.resolved),
+}))
+
+// Événements d'entonnoir. Le suivi est automatique (vues de page normalisées :
+// /etape/:id/3 → /etape/:id/3), donc aucune étape de l'assistant n'a eu besoin
+// d'être instrumentée à la main.
+export const events = pgTable('events', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),                       // 'page_view' | 'beta_submit' | …
+    // Identifiant anonyme de navigateur (localStorage), pour mesurer une
+    // progression sans compte. Aucun cookie tiers, aucune donnée personnelle.
+    anonId: text('anon_id'),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    path: text('path'),
+    referrer: text('referrer'),
+    source: text('source'),
+    campaign: text('campaign'),
+    props: jsonb('props'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+    nameCreatedIdx: index('events_name_created_idx').on(t.name, t.createdAt),
+    pathIdx: index('events_path_idx').on(t.path),
+    anonIdx: index('events_anon_idx').on(t.anonId),
+}))
+
 export type UserRow = typeof users.$inferSelect
 export type DossierRow = typeof dossiers.$inferSelect
 export type NewDossierRow = typeof dossiers.$inferInsert
 export type SubscriptionRow = typeof subscriptions.$inferSelect
 export type PaymentRow = typeof payments.$inferSelect
+export type BetaSignupRow = typeof betaSignups.$inferSelect
+export type FeedbackRow = typeof feedback.$inferSelect
+export type EventRow = typeof events.$inferSelect

@@ -11,6 +11,7 @@
     "lint": "next lint",
     "test:plu": "tsx scripts/test-pluEvaluate.ts",
     "test:img": "tsx -r dotenv/config scripts/test-imageAttempts.ts dotenv_config_path=.env.local",
+    "data:communes": "node scripts/build-communes.mjs",
     "test:pdfs": "node scripts/gen-test-pdfs.mjs",
     "test:pdfs:ai": "node scripts/gen-test-pdfs.mjs --ai",
     "db:generate": "drizzle-kit generate",

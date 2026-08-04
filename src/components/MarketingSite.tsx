@@ -567,6 +567,10 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                         <a data-nav href="#how" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Comment ça marche</a>
                         <a data-nav href="#pricing" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Tarifs</a>
                         <a data-nav href="#faq" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>FAQ</a>
+                        {/* Liens vers les pages publiques indexables : sans lien depuis la
+                            racine, la section /dp serait orpheline pour les robots. */}
+                        <a href="/dp" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Guides par travaux</a>
+                        <a href="/beta" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Programme de test</a>
                         <a data-nav href="/login" style={s('font-size:13.5px;color:var(--ink-2);text-decoration:none')}>Se connecter</a>
                     </div>
                 </div>

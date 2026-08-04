@@ -148,6 +148,9 @@ export default function AdminPage() {
                 <button onClick={() => setTab('users')} style={tabStyle(tab === 'users')}>Utilisateurs</button>
                 <button onClick={() => setTab('dossiers')} style={tabStyle(tab === 'dossiers')}>Dossiers</button>
                 <button onClick={() => setTab('regles')} style={tabStyle(tab === 'regles')}>Règles de l’app</button>
+                {/* Croissance vit sur sa propre route (/admin/growth) : entonnoir, retours
+                    et pipeline de testeurs, sans alourdir cette page. */}
+                <Link href="/admin/growth" style={{ ...tabStyle(false), textDecoration: 'none' }}>Croissance ↗</Link>
             </div>
 
             {error && <div className="dp-alert is-error" style={{ marginBottom: 16 }}>⚠️ {error}</div>}
