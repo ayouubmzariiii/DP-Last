@@ -1016,7 +1016,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
 
 
 
-    // ══════════════════════ PAGE 4 – DP4 Notice descriptive ══════════════
+    // ══════════════ DP11 Notice descriptive et des matériaux ══════════════
     {
         const page = addPage()
         const M = M_INNER
@@ -1059,7 +1059,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
 
             if (isHeading) {
                 if (y < FOOT_H + 70) {
-                    drawDesignFooter(pdPage, font, bold, data, 'DP 4', 'Notice descriptive du projet', 'Sans')
+                    drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans')
                     pdPage = addPage()
                     drawFrame(pdPage)
                     y = drawDesignHeader(pdPage, fontOblique)
@@ -1072,7 +1072,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 const wrapped = wrapText(trimmed, 110)
                 for (const l of wrapped) {
                     if (y < FOOT_H + 30) {
-                        drawDesignFooter(pdPage, font, bold, data, 'DP 4', 'Notice descriptive du projet', 'Sans')
+                        drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans')
                         pdPage = addPage()
                         drawFrame(pdPage)
                         y = drawDesignHeader(pdPage, fontOblique)
@@ -1083,7 +1083,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 y -= 10
             }
         }
-        drawDesignFooter(pdPage, font, bold, data, 'DP 4', 'Notice descriptive du projet', 'Sans')
+        drawDesignFooter(pdPage, font, bold, data, 'DP 11', 'Notice descriptive et des matériaux', 'Sans')
     }
 
     // ══════════════════════ PAGE 5 – DP5 Croquis Architectural ══════════
@@ -1145,7 +1145,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
         box(page, M, noteY, cW, 44, C.offWhite, C.black, 1.2)
         textBlock(page, note, M + 14, noteY + 32, 10, font, 130, 14, C.nearBlack)
 
-        drawDesignFooter(page, font, bold, data, 'DP 5', 'Plans des façades : croquis architectural', 'Sans')
+        drawDesignFooter(page, font, bold, data, 'DP 4', 'Plan des façades et des toitures', 'Sans')
     }
 
     // ══════════════════════ PAGE 6 – DP6 Insertion Paysagere ══════════════
@@ -1161,7 +1161,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
             y = drawTitleProfessional(page, bold, 'Insertion paysagère : comparaison visuelle', M, y)
             y -= 10
             placeholder(page, font, M, y, cW, 200, 'Aucune photo pour l\'insertion paysagere')
-            drawDesignFooter(page, font, bold, data, 'DP 6', 'Insertion paysagère : simulation après travaux', 'Sans')
+            drawDesignFooter(page, font, bold, data, 'DP 5/6', 'Aspect extérieur et insertion paysagère', 'Sans')
         } else {
             for (const f of facadesToDraw) {
                 const page = addPage()
@@ -1217,7 +1217,7 @@ export async function generateDPDocument(data: DPFormData, opts: { dossierId?: s
                 tx(page, 'NOTE TECHNIQUE DP 6', M + 14, y + n6H - 24, 12, bold, C.black)
                 textBlock(page, note6, M + 14, y + n6H - 44, 11, font, 110, 16, C.nearBlack)
 
-                drawDesignFooter(page, font, bold, data, 'DP 6', `Insertion paysagère (${f.label})`, 'Sans')
+                drawDesignFooter(page, font, bold, data, 'DP 5/6', `Aspect extérieur et insertion (${f.label})`, 'Sans')
             }
         }
     }

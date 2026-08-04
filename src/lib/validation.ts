@@ -249,18 +249,37 @@ export function piecesChecklist(data: DPFormData): PieceStatus[] {
     const hasCroquis = (photos.facades?.some(f => f.croquis) ?? false) || !!photos.facade_croquis_ai
     const hasAfter = (photos.facades?.some(f => f.after) ?? false) || !!photos.facade_apres_ai
     const protege = isProtectedSector(data)
-    // DP2 (plan de masse) is only legally required when built volume changes —
-    // not the case for menuiseries/ITE/PV — so it is recommended, not fatal.
-    // In a protected sector the ABF examines the projected aspect closely, so DP6 (insertion) and
-    // DP8 (vue lointaine) become required, and the DP4 must detail materials/teintes (rôle DP11).
+
+    // ── Nomenclature OFFICIELLE du bordereau (Cerfa 13703*12, notice n°51434#12) ──
+    // Vérifiée mot pour mot sur le formulaire, qui cite ses propres articles :
+    //   DP1  Plan de situation ......................... R. 431-36 a) — SEULE obligatoire, tous les cas
+    //   DP2  Plan de masse coté 3D .................... R. 431-36 b) — si création/modification de volume
+    //   DP3  Plan en coupe (profil du terrain) ....... R. 431-10 b) — si le profil/l'implantation change
+    //   DP4  Plan des façades et des toitures ........ R. 431-10 a) — si le projet les modifie ; inutile pour un ravalement
+    //   DP5  Représentation de l'aspect extérieur .... R. 431-36 c) — seulement si DP4 insuffisant
+    //   DP6  Document graphique d'insertion .......... R. 431-10 c) — si visible depuis l'espace public ou secteur protégé
+    //   DP7  Photo de l'environnement proche ......... R. 431-10 d)
+    //   DP8  Photo du paysage lointain ............... R. 431-10 d)
+    //   DP11 Notice matériaux et couleurs ............ — surtout en secteur protégé
+    // Cette liste DOIT rester alignée avec le bordereau coché par le générateur
+    // CERFA (voir pdfGenerator « BORDEREAU DES PIÈCES JOINTES ») : mêmes pièces,
+    // mêmes conditions. Toute divergence produit soit une checklist qui valide
+    // un dossier incomplet, soit un formulaire qui déclare une pièce absente.
+    const def = getTravauxDef(data.travaux?.type)
+    const volumeChange = !!def?.requiresDP3 || !!def?.createsSurface || data.nature_travaux === 'nouvelle_construction'
+    const modifieFacades = def?.cerfaNature === 'existante' && data.travaux?.type !== 'ravalement'
+    const noticePresent = !!plans.dp4_notice && plans.dp4_notice.trim().length > 0
+
     return [
-        { code: 'DP1', label: 'Plan de situation', present: !!plans.dp1_carte_situation, severity: 'fatal', note: 'Seule pièce obligatoire dans tous les cas.' },
-        { code: 'DP2', label: 'Plan de masse', present: !!plans.dp2_plan_masse, severity: 'warn', note: 'Requis seulement si le volume bâti change.' },
-        { code: 'DP4', label: 'Notice descriptive', present: !!plans.dp4_notice, severity: 'fatal', note: protege ? 'Secteur protégé : détaillez les matériaux et teintes (réf. RAL, profils) — tient lieu de notice de matériaux (DP11).' : undefined },
-        { code: 'DP5', label: 'Plan des façades (existant)', present: hasFacade, severity: 'fatal' },
-        { code: 'DP6', label: 'Insertion / aspect projeté', present: hasAfter || hasCroquis, severity: protege ? 'fatal' : 'warn', note: protege ? 'Examiné par l’ABF en secteur protégé.' : undefined },
-        { code: 'DP7', label: 'Photo environnement proche', present: !!photos.dp7_vue_proche, severity: 'fatal' },
-        { code: 'DP8', label: 'Photo environnement lointain', present: !!photos.dp8_vue_lointaine, severity: protege ? 'fatal' : 'warn', note: 'Exigé en secteur protégé.' },
+        { code: 'DP1', label: 'Plan de situation du terrain', present: !!plans.dp1_carte_situation, severity: 'fatal', note: 'Seule pièce obligatoire dans tous les cas (art. R. 431-36 a).' },
+        { code: 'DP2', label: 'Plan de masse coté', present: !!plans.dp2_plan_masse, severity: volumeChange ? 'fatal' : 'warn', note: volumeChange ? 'Requis : le projet crée ou modifie un volume bâti.' : 'Requis seulement si le volume bâti change.' },
+        ...(def?.requiresDP3 ? [{ code: 'DP3', label: 'Plan en coupe du terrain', present: !!plans.dp3_coupe, severity: 'fatal' as Severity, note: 'Requis : le projet modifie le profil du terrain ou son volume (art. R. 431-10 b).' }] : []),
+        { code: 'DP4', label: 'Plan des façades et des toitures', present: hasFacade, severity: modifieFacades ? 'fatal' : 'warn', note: data.travaux?.type === 'ravalement' ? 'Inutile pour un simple ravalement — l’aspect est montré par la représentation (DP5) et les photos.' : undefined },
+        { code: 'DP5', label: 'Représentation de l’aspect extérieur', present: hasCroquis || hasAfter, severity: protege ? 'fatal' : 'warn', note: 'À fournir si le plan des façades ne suffit pas à montrer le projet.' },
+        { code: 'DP6', label: 'Document graphique d’insertion', present: hasAfter, severity: protege ? 'fatal' : 'warn', note: protege ? 'Examiné par l’ABF en secteur protégé.' : 'Requis si le projet est visible depuis l’espace public.' },
+        { code: 'DP7', label: 'Photo de l’environnement proche', present: !!photos.dp7_vue_proche, severity: 'fatal', note: 'Situe le terrain dans son environnement proche (art. R. 431-10 d).' },
+        { code: 'DP8', label: 'Photo du paysage lointain', present: !!photos.dp8_vue_lointaine, severity: protege ? 'fatal' : 'warn', note: 'Exigée notamment en secteur protégé, sauf impossibilité justifiée.' },
+        { code: 'DP11', label: 'Notice des matériaux et couleurs', present: noticePresent, severity: protege ? 'fatal' : 'warn', note: protege ? 'Secteur protégé : détaillez matériaux et teintes (réf. RAL, profils).' : undefined },
     ]
 }
 

@@ -654,7 +654,7 @@ export default function AdminDossierPage() {
 
             {/* Notice descriptive */}
             {pl.dp4_notice && (
-                <Section title="DP4 · Notice descriptive" icon="📝">
+                <Section title="DP11 · Notice descriptive et des matériaux" icon="📝">
                     <pre style={{
                         whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.75, color: 'var(--ink-2)', margin: 0,
                         background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: 16, fontFamily: 'inherit',

@@ -280,19 +280,24 @@ export async function generateCerfa(data: DPFormData): Promise<{ bytes: Uint8Arr
         const hasFacades = ph.facades.some(f => f.before) || (ph.facades.length > 0 && !!ph.facade_avant)
         const hasAfter = ph.facades.some(f => f.after)
         const hasCroquis = ph.facades.some(f => f.croquis)
-        const dp3Required = !!travauxDef?.requiresDP3
-            || nature === 'nouvelle'
-            || !!(se && (se.extension || se.surelevation || se.creation_niveaux))
-            || !!(sn && (sn.veranda || sn.garage || sn.abri_jardin || sn.autre))
+        // Le bordereau se coche sur la PRÉSENCE réelle de la pièce, jamais sur son
+        // caractère requis : la notice du formulaire est impérative — « Cochez les
+        // cases correspondant aux pièces jointes à votre déclaration ». Déclarer
+        // jointe une pièce absente sur un formulaire signé est un faux, et le
+        // premier motif de demande de pièces complémentaires. Le plan de coupe
+        // n'est embarqué au dossier que lorsqu'il existe (voir dpDocGenerator) :
+        // on coche donc DP3 à cette seule condition.
+        const dp3Present = !!p.dp3_coupe && (p.dp3_coupe.startsWith('data:image') || p.dp3_coupe.startsWith('http'))
+        const noticePresent = !!p.dp4_notice && p.dp4_notice.trim().length > 0
         checkBox('P5PA2', !!p.dp1_carte_situation)            // DPC1 — plan de situation (obligatoire)
         checkBox('P5PB1', !!p.dp2_plan_masse)                 // DPC2 — plan de masse
-        checkBox('P3GE1', dp3Required)                        // DPC3 — plan en coupe
+        checkBox('P3GE1', dp3Present)                         // DPC3 — plan en coupe
         checkBox('P3GD1', hasFacades)                         // DPC4 — plan des façades et toitures
         checkBox('P5PC1', hasCroquis || hasAfter)             // DPC5 — représentation de l'aspect extérieur
         checkBox('P3GF1', hasAfter)                           // DPC6 — insertion paysagère
         checkBox('P3GG1', !!ph.dp7_vue_proche)                // DPC7 — photo vue proche
         checkBox('P3GH1', !!ph.dp8_vue_lointaine)             // DPC8 — photo vue lointaine
-        checkBox('P4CD1', isProtectedSector(data))            // DPC11 — notice matériaux (secteur protégé)
+        checkBox('P4CD1', noticePresent)                      // DPC11 — notice matériaux/descriptive
 
         // Make fields read-only to prevent casual edits after generation. EXCEPTION: leave the
         // heritage declarations (§5 périmètres de protection) editable so the user can correct an
