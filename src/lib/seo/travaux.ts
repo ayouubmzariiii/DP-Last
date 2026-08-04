@@ -106,7 +106,7 @@ export const SOURCES: { ref: string; objet: string }[] = [
 /** Rappels transverses réutilisés par toutes les pages (délais, dépôt, suites). */
 export const PROCEDURE = {
     delai: 'Le délai d’instruction de droit commun d’une déclaration préalable est de un mois à compter du dépôt.',
-    delaiMajore: 'Il passe à deux mois lorsque le projet se situe aux abords d’un monument historique, dans un site patrimonial remarquable ou un site classé : l’Architecte des Bâtiments de France doit alors être consulté.',
+    delaiMajore: 'Il passe à deux mois aux abords d’un monument historique ou dans un site patrimonial remarquable : le délai est alors majoré d’un mois (art. R. 423-24) et l’Architecte des Bâtiments de France doit donner son accord. Un site classé relève, lui, d’une autorisation spéciale distincte, au titre du Code de l’environnement, qui allonge également le délai.',
     tacite: 'À l’expiration du délai, l’absence de réponse vaut décision de non-opposition. Vous pouvez demander en mairie un certificat attestant cette décision tacite.',
     incomplet: 'Si le dossier est incomplet, la mairie vous notifie une demande de pièces complémentaires dans le premier mois. Le délai est alors suspendu et vous disposez de trois mois pour compléter, sous peine de rejet tacite.',
     cerfa: 'Pour des travaux portant sur une maison individuelle et/ou ses annexes — le cas le plus courant — le formulaire est le Cerfa n°13703 (version 13703*12, en vigueur). Le Cerfa n°16702 vise les constructions et travaux qui ne portent PAS sur une maison individuelle : les deux coexistent, l’un ne remplace pas l’autre.',
