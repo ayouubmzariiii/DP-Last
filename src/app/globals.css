@@ -321,6 +321,10 @@ h1, h2, h3, .font-serif { font-family: var(--hf); }
   .dp-hero-grid { grid-template-columns: 1fr !important; gap: 26px !important; }
   .dp-hero-visual { order: -1; }
 }
+/* Fil d'Ariane : posé dans le flux, sans bandeau — seul le survol le signale. */
+.dp-crumbs a { transition: color .15s ease; }
+.dp-crumbs a:hover { color: var(--ac); }
+
 /* Cartes cliquables des guides : le survol doit se voir sans être bruyant. */
 a.dp-card { transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
 a.dp-card:hover { border-color: var(--acb); transform: translateY(-1px); }

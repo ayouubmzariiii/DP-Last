@@ -20,20 +20,30 @@ export default function PublicShell({
             <style dangerouslySetInnerHTML={{ __html: CHROME_CSS }} />
             <SiteHeader prefix="/" />
 
-            {breadcrumb && breadcrumb.length > 0 && (
-                <div style={{ borderBottom: '1px solid var(--line-2)', background: 'var(--surface-2)' }}>
-                    <nav aria-label="Fil d'Ariane" style={{ maxWidth: 1160, margin: '0 auto', padding: '10px 28px', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', fontFamily: 'var(--mf)', fontSize: 11.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+            <main style={{ flex: 1 }}>
+                {/* Fil d'Ariane SANS bandeau : une bande pleine largeur d'une autre
+                    teinte coupait la page en deux juste sous l'en-tête. Il est ici
+                    posé dans le flux du contenu, aligné au même conteneur (1160 /
+                    28px) que l'en-tête et les sections — d'où l'alignement exact
+                    avec le titre. */}
+                {breadcrumb && breadcrumb.length > 0 && (
+                    <nav
+                        aria-label="Fil d'Ariane"
+                        className="dp-crumbs"
+                        style={{ maxWidth: 1160, margin: '0 auto', padding: '20px 28px 14px', display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center', fontFamily: 'var(--mf)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase' }}
+                    >
                         {breadcrumb.map((b, i) => (
-                            <span key={i} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                                {i > 0 && <span aria-hidden style={{ color: 'var(--faint)' }}>/</span>}
-                                {b.href ? <Link href={b.href} style={{ color: 'var(--muted)', textDecoration: 'none' }}>{b.label}</Link> : <span style={{ color: 'var(--ink-2)' }}>{b.label}</span>}
+                            <span key={i} style={{ display: 'inline-flex', gap: 7, alignItems: 'center' }}>
+                                {i > 0 && <span aria-hidden style={{ color: 'var(--faint)' }}>›</span>}
+                                {b.href
+                                    ? <Link href={b.href} style={{ color: 'var(--muted)', textDecoration: 'none' }}>{b.label}</Link>
+                                    : <span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>{b.label}</span>}
                             </span>
                         ))}
                     </nav>
-                </div>
-            )}
-
-            <main style={{ flex: 1 }}>{children}</main>
+                )}
+                {children}
+            </main>
 
             <SiteFooter prefix="/" />
         </div>

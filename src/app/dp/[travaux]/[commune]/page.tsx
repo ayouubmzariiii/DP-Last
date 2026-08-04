@@ -102,7 +102,7 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
                 { name: c.nom, url: canonical(`/dp/${t.slug}/${communeParam(c)}`) },
             ]} />
 
-            <Section>
+            <Section first>
                 <div className="dp-page-head">
                     <span className="dp-eyebrow">{c.deptNom} · {c.region}</span>
                     <h1 className="dp-page-title">

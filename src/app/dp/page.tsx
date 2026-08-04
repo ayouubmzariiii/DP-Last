@@ -27,7 +27,7 @@ export default function DpHub() {
                 { name: 'Guides', url: canonical('/dp') },
             ]} />
 
-            <Section>
+            <Section first>
                 <div className="dp-page-head">
                     <span className="dp-eyebrow">Guides — déclaration préalable</span>
                     <h1 className="dp-page-title">

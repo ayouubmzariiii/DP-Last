@@ -29,14 +29,27 @@ export function Prose({ paragraphs }: { paragraphs: string[] }) {
     )
 }
 
-export function Section({ children, tone = 'paper' }: { children: React.ReactNode; tone?: 'paper' | 'surface' }) {
+// Conteneur unique du site : 1160 px, 28 px de gouttière — identique à l'en-tête,
+// au pied de page et au fil d'Ariane. C'est ce qui aligne le titre, le fil
+// d'Ariane et le logo sur la même verticale.
+export function Section({
+    children,
+    tone = 'paper',
+    first = false,
+}: {
+    children: React.ReactNode
+    tone?: 'paper' | 'surface'
+    /** Première section de la page : réduit l'espace au-dessus, le fil d'Ariane
+     *  ayant déjà posé sa propre marge. */
+    first?: boolean
+}) {
     return (
         <section style={{
             background: tone === 'surface' ? 'var(--surface)' : 'transparent',
             borderTop: tone === 'surface' ? '1px solid var(--line)' : undefined,
             borderBottom: tone === 'surface' ? '1px solid var(--line)' : undefined,
         }}>
-            <div style={{ maxWidth: 1120, margin: '0 auto', padding: '48px 20px' }}>{children}</div>
+            <div style={{ maxWidth: 1160, margin: '0 auto', padding: first ? '20px 28px 48px' : '48px 28px' }}>{children}</div>
         </section>
     )
 }

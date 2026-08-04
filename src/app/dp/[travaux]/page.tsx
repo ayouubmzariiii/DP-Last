@@ -65,7 +65,7 @@ export default function TravauxGuide({ params }: { params: { travaux: string } }
 
             {/* ── Hero : titre + réponse immédiate, avec le croquis du sujet ─────── */}
             <section style={{ background: 'var(--surface)', borderBottom: '1px solid var(--line)' }}>
-                <div style={{ maxWidth: 1160, margin: '0 auto', padding: '44px 28px 38px' }}>
+                <div style={{ maxWidth: 1160, margin: '0 auto', padding: '26px 28px 38px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.35fr) minmax(0,1fr)', gap: 40, alignItems: 'center' }} className="dp-hero-grid">
                         <div>
                             <span className="dp-eyebrow">Déclaration préalable · {t.nom}</span>
