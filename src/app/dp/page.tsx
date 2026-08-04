@@ -14,9 +14,10 @@ export const metadata: Metadata = {
 }
 
 export default function DpHub() {
-    // Un échantillon de grandes villes pour amorcer le maillage interne vers les
-    // pages par commune (le sitemap couvre l'intégralité du jeu de données).
-    const villes = COMMUNES.slice(0, 24)
+    // Les villes listées ici pointent vers leur HUB de commune (/dp/ville/…), qui
+    // distribue ensuite vers les onze déclinaisons par travaux. Un lien par ville
+    // au lieu d'un lien arbitraire vers un seul type de travaux.
+    const villes = COMMUNES.slice(0, 60)
 
     return (
         <PublicShell breadcrumb={[{ label: 'Accueil', href: '/' }, { label: 'Guides' }]}>
@@ -67,20 +68,25 @@ export default function DpHub() {
                 <H2>Les règles locales, commune par commune</H2>
                 <p style={{ fontSize: 16, lineHeight: 1.72, color: 'var(--ink-2)', margin: '0 0 22px', maxWidth: '72ch' }}>
                     Le Code de l&apos;urbanisme fixe les seuils ; le PLU de votre commune fixe les hauteurs, les reculs, les teintes et
-                    les matériaux. Chaque guide se décline par commune, avec le lien direct vers le document d&apos;urbanisme opposable.
+                    les matériaux. Chaque commune a sa page, avec le lien direct vers le document d&apos;urbanisme opposable et les onze
+                    types de travaux déclinés localement.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {villes.map(c => (
                         <Link
                             key={c.insee}
-                            href={`/dp/${SEO_TRAVAUX[0].slug}/${communeParam(c)}`}
+                            href={`/dp/ville/${communeParam(c)}`}
                             className="dp-chip"
                             style={{ textDecoration: 'none' }}
                         >
-                            {c.nom}
+                            {c.nom} <span style={{ color: 'var(--faint)' }}>{c.dept}</span>
                         </Link>
                     ))}
                 </div>
+                <p style={{ marginTop: 18, fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+                    {COMMUNES.length} communes couvertes, soit les principales villes de {new Set(COMMUNES.map(c => c.dept)).size} départements.
+                    Votre commune n&apos;est pas listée ? Les seuils et les pièces sont identiques partout — seul le règlement local change.
+                </p>
             </Section>
 
             <Section>

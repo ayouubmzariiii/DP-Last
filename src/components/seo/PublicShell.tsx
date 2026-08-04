@@ -23,6 +23,7 @@ export default function PublicShell({
                     </Link>
                     <nav style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 22 }}>
                         <Link href="/dp" style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-2)', textDecoration: 'none' }}>Guides</Link>
+                        <Link href="/#how" style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-2)', textDecoration: 'none' }}>Comment ça marche</Link>
                         <Link href="/#pricing" style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-2)', textDecoration: 'none' }}>Tarifs</Link>
                         <Link href="/beta" className="dp-btn-primary" style={{ padding: '9px 18px', fontSize: 14, textDecoration: 'none' }}>Tester gratuitement</Link>
                     </nav>
@@ -64,6 +65,7 @@ export default function PublicShell({
                             {SEO_TRAVAUX.slice(6).map(t => (
                                 <Link key={t.slug} href={`/dp/${t.slug}`} style={{ display: 'block', fontSize: 13.5, color: 'var(--ink-2)', textDecoration: 'none', padding: '3px 0' }}>{t.nom}</Link>
                             ))}
+                            <Link href="/dp" style={{ display: 'block', marginTop: 6, fontSize: 13.5, fontWeight: 600, color: 'var(--ac)', textDecoration: 'none', padding: '3px 0' }}>Tous les guides →</Link>
                         </div>
                         <div>
                             <p className="dp-meta" style={{ marginBottom: 10 }}>L&apos;application</p>

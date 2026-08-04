@@ -101,7 +101,12 @@ const FAQ: FaqItem[] = [
 
 const fr = (n: number) => Math.round(n).toLocaleString('fr-FR')
 
-export default function MarketingSite({ authed = false }: { authed?: boolean }) {
+/** Index minimal des guides SEO, fourni par la page serveur. Passé en prop plutôt
+ *  qu'importé ici : le module de contenu /lib/seo/travaux est volumineux et n'a
+ *  aucune raison de partir dans le bundle client de l'accueil. */
+export interface GuideLink { slug: string; nom: string }
+
+export default function MarketingSite({ authed = false, guides = [] }: { authed?: boolean; guides?: GuideLink[] }) {
     const appHref = authed ? '/profil' : '/register'
     // Buy directly — the button leads straight to checkout for that item. You need an
     // account first, so guests are sent to /register?next=<checkout> (destination preserved).
@@ -169,6 +174,9 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                     </a>
                     <nav data-nav-center style={s('flex:1;display:flex;align-items:center;justify-content:center;gap:30px')}>
                         <a data-nav href="#how" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Comment ça marche</a>
+                        {/* Lien réel (pas une ancre) vers la section indexable /dp — c'est le
+                            point d'entrée du maillage interne depuis la racine du site. */}
+                        <a data-nav href="/dp" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Guides</a>
                         <a data-nav href="#pricing" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Tarifs</a>
                         <a data-nav href="#faq" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>FAQ</a>
                         <a data-nav href="#contact" style={s('font-size:14px;font-weight:500;color:var(--ink-2);transition:color .15s;text-decoration:none')}>Contact</a>
@@ -537,6 +545,44 @@ export default function MarketingSite({ authed = false }: { authed?: boolean }) 
                 </div>
             </section>
 
+            {/* ===================== GUIDES (maillage interne → /dp) ===================== */}
+            {guides.length > 0 && (
+                <section id="guides" style={s('scroll-margin-top:70px')}>
+                    <div style={s('max-width:1160px;margin:0 auto;padding:clamp(56px,7vw,92px) 28px')}>
+                        <div style={s('text-align:center;max-width:64ch;margin:0 auto')}>
+                            <span style={s('font-family:var(--mf);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac)')}>Guides gratuits</span>
+                            <h2 style={s('font-family:var(--hf);font-weight:500;font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-.01em;margin:12px 0 14px;color:var(--ink)')}>
+                                Quelle formalité pour vos travaux ?
+                            </h2>
+                            <p style={s('font-size:16px;line-height:1.7;color:var(--ink-2);margin:0 0 32px')}>
+                                Pour chaque type de projet : le seuil qui déclenche la déclaration préalable ou le permis de construire,
+                                les pièces que la mairie attend, et les erreurs qui font revenir un dossier.
+                            </p>
+                        </div>
+
+                        <div data-guides style={s('display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:10px')}>
+                            {guides.map((g) => (
+                                <a
+                                    key={g.slug}
+                                    href={`/dp/${g.slug}`}
+                                    style={s('display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);text-decoration:none;transition:border-color .15s,transform .15s')}
+                                >
+                                    <span style={s('font-family:var(--hf);font-size:15.5px;font-weight:600;color:var(--ink);line-height:1.3')}>{g.nom}</span>
+                                    <span aria-hidden style={s('font-family:var(--mf);font-size:13px;color:var(--ac);flex-shrink:0')}>→</span>
+                                </a>
+                            ))}
+                        </div>
+
+                        <div style={s('display:flex;align-items:center;justify-content:center;gap:14px;margin-top:32px;flex-wrap:wrap')}>
+                            <a href="/dp" className="dp-btn-secondary" style={s('text-decoration:none')}>Voir tous les guides</a>
+                            <a href="/beta" style={s('font-size:14.5px;font-weight:600;color:var(--ac);text-decoration:none')}>
+                                Faire monter votre dossier gratuitement →
+                            </a>
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {/* ===================== FINAL CTA ===================== */}
             <section id="contact" style={s('background:var(--acd);color:#fff;scroll-margin-top:70px')}>
                 <div style={s('max-width:1160px;margin:0 auto;padding:clamp(64px,9vw,120px) 28px;text-align:center')}>
@@ -593,6 +639,8 @@ html{scroll-behavior:smooth}
 #site [data-sim] .dp-metric .val{font-size:24px}
 #site [data-simreco]{transition:transform .16s ease,box-shadow .16s ease}
 #site [data-simreco]:hover{transform:translateY(-2px);box-shadow:0 20px 40px -22px rgba(45,90,76,.7)}
+/* Cartes de la section Guides (maillage interne vers /dp) */
+#site [data-guides] a:hover{border-color:var(--acb)!important;transform:translateY(-1px)}
 @media (prefers-reduced-motion:reduce){#site [style*="dpFloat"]{animation:none!important}}
 @media (max-width:900px){
   #site [data-hero]{grid-template-columns:1fr!important;gap:40px!important}

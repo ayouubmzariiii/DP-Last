@@ -228,6 +228,11 @@ export default function CommuneGuide({ params }: { params: { travaux: string; co
                                 </Link>
                             ))}
                         </div>
+                        <p style={{ marginTop: 14, fontSize: 14 }}>
+                            <Link href={`/dp/ville/${communeParam(c)}`} style={{ color: 'var(--ac)', fontWeight: 600, textDecoration: 'none' }}>
+                                Toutes les démarches {aCommune(c.nom)} →
+                            </Link>
+                        </p>
                     </div>
                     <div>
                         {/* Formulation neutre : le genre des noms de département varie

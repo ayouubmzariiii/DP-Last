@@ -127,6 +127,11 @@ export default function TravauxGuide({ params }: { params: { travaux: string } }
                         </Link>
                     ))}
                 </div>
+                <p style={{ marginTop: 16, fontSize: 14.5 }}>
+                    <Link href="/dp" style={{ color: 'var(--ac)', fontWeight: 600, textDecoration: 'none' }}>
+                        Voir toutes les communes couvertes →
+                    </Link>
+                </p>
 
                 {related.length > 0 && (
                     <div style={{ marginTop: 40 }}>

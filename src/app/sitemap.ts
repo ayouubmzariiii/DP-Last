@@ -22,6 +22,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: 0.8,
     }))
 
+    // Hubs par commune — point de convergence du maillage interne, donc priorité
+    // supérieure aux pages travaux×commune qu'ils distribuent.
+    const villes: MetadataRoute.Sitemap = COMMUNES.map((c, i) => ({
+        url: `${SITE_URL}/dp/ville/${communeParam(c)}`,
+        lastModified: now,
+        changeFrequency: 'monthly' as const,
+        priority: i < 60 ? 0.8 : 0.7,
+    }))
+
     // Priorité dégressive : les grandes villes portent le volume de recherche.
     const communes: MetadataRoute.Sitemap = SEO_TRAVAUX.flatMap(t =>
         COMMUNES.map((c, i) => ({
@@ -32,5 +41,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
         })),
     )
 
-    return [...statiques, ...guides, ...communes]
+    return [...statiques, ...guides, ...villes, ...communes]
 }
